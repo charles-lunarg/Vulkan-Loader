@@ -11,6 +11,8 @@ dbuild
 external/*
 !external/CMakeLists.txt
 !external/README.md
+!external/DownloadProject.cmake
+!external/DownloadProject.CMakeLists.cmake.in
 *.so
 *.so.*
 *.pyc

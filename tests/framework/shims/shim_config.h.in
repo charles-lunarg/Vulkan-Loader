@@ -1,0 +1,2 @@
+#pragma once
+#define SHIM_LIBRARY_NAME "$<TARGET_FILE:shim-library>"

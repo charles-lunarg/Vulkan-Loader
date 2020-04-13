@@ -34,6 +34,7 @@ elseif(ANDROID)
 elseif(APPLE)
     add_definitions(-DVK_USE_PLATFORM_MACOS_MVK)
 elseif(UNIX AND NOT APPLE) # i.e.: Linux
+    target_compile_options(vk_loader_validation_tests PUBLIC -fPIC)
     if(BUILD_WSI_XCB_SUPPORT)
         add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
     endif()
@@ -135,3 +136,4 @@ if(WIN32)
 endif()
 
 add_subdirectory(layers)
+add_subdirectory(framework)
