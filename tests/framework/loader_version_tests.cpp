@@ -25,7 +25,6 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
-#include "util/include_gtest.h"
 #include "test_environment.h"
 
 #include "driver_defs.h"
@@ -145,7 +144,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
     driver.physical_devices.emplace_back("physical_device_0");
     {
         driver.min_icd_interface_version = 2;
-        driver.icd_provide_wsi_support = ICDCanProvideWSI::no;
+        driver.enable_icd_wsi = true;
         InstWrapper inst{env->vulkan_functions};
         InstanceCreateInfo inst_create_info;
         ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
@@ -153,7 +152,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
     }
     {
         driver.min_icd_interface_version = 3;
-        driver.icd_provide_wsi_support = ICDCanProvideWSI::no;
+        driver.enable_icd_wsi = true;
         InstWrapper inst{env->vulkan_functions};
         InstanceCreateInfo inst_create_info;
         ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
@@ -161,7 +160,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
     }
     {
         driver.min_icd_interface_version = 3;
-        driver.icd_provide_wsi_support = ICDCanProvideWSI::yes;
+        driver.enable_icd_wsi = true;
         InstWrapper inst{env->vulkan_functions};
         InstanceCreateInfo inst_create_info;
         ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);

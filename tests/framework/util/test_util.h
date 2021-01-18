@@ -33,11 +33,14 @@
 struct VulkanFunctions {
     LibraryWrapper loader;
 
+    // Pre-Instance
     PFN_vkGetInstanceProcAddr fp_vkGetInstanceProcAddr = nullptr;
     PFN_vkEnumerateInstanceExtensionProperties fp_vkEnumerateInstanceExtensionProperties = nullptr;
     PFN_vkEnumerateInstanceLayerProperties fp_vkEnumerateInstanceLayerProperties = nullptr;
     PFN_vkEnumerateInstanceVersion fp_vkEnumerateInstanceVersion = nullptr;
     PFN_vkCreateInstance fp_vkCreateInstance = nullptr;
+
+    // Instance
     PFN_vkDestroyInstance fp_vkDestroyInstance = nullptr;
     PFN_vkEnumeratePhysicalDevices fp_vkEnumeratePhysicalDevices = nullptr;
     PFN_vkGetPhysicalDeviceFeatures fp_vkGetPhysicalDeviceFeatures = nullptr;
@@ -56,9 +59,31 @@ struct VulkanFunctions {
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fp_vkGetPhysicalDeviceSurfacePresentModesKHR = nullptr;
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fp_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = nullptr;
     PFN_vkEnumerateDeviceExtensionProperties fp_vkEnumerateDeviceExtensionProperties = nullptr;
-    PFN_vkDestroySurfaceKHR fp_vkDestroySurfaceKHR = nullptr;
     PFN_vkGetDeviceProcAddr fp_vkGetDeviceProcAddr = nullptr;
     PFN_vkCreateDevice fp_vkCreateDevice = nullptr;
+
+// WSI
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+    PFN_vkCreateAndroidSurfaceKHR fp_vkCreateAndroidSurfaceKHR;
+#endif
+#ifdef VK_USE_PLATFORM_METAL_EXT
+    PFN_vkCreateMetalSurfaceEXT fp_vkCreateMetalSurfaceEXT
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+        PFN_vkCreateWaylandSurfaceKHR fp_vkCreateWaylandSurfaceKHR;
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+    PFN_vkCreateXcbSurfaceKHR fp_vkCreateXcbSurfaceKHR;
+#endif
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+    PFN_vkCreateXlibSurfaceKHR fp_vkCreateXlibSurfaceKHR;
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    PFN_vkCreateWin32SurfaceKHR fp_vkCreateWin32SurfaceKHR;
+#endif
+    PFN_vkDestroySurfaceKHR fp_vkDestroySurfaceKHR = nullptr;
+
+    // device functions
     PFN_vkDestroyDevice fp_vkDestroyDevice = nullptr;
     PFN_vkGetDeviceQueue fp_vkGetDeviceQueue = nullptr;
 
@@ -115,10 +140,16 @@ struct InstWrapper {
     ~InstWrapper() {
         if (inst != VK_NULL_HANDLE) functions->fp_vkDestroyInstance(inst, nullptr);
     }
+
+    // Immoveable object
     InstWrapper(InstWrapper const&) = delete;
     InstWrapper& operator=(InstWrapper const&) = delete;
     InstWrapper(InstWrapper&&) = delete;
     InstWrapper& operator=(InstWrapper&&) = delete;
+
+    // Convenience
+    operator VkInstance() { return inst; }
+    VulkanFunctions* operator->() { return functions; }
 
     VulkanFunctions* functions = nullptr;
     VkInstance inst = VK_NULL_HANDLE;
@@ -133,10 +164,16 @@ struct DeviceWrapper {
     DeviceWrapper(VulkanFunctions& functions, VkDevice dev) : functions(&functions), dev(dev){};
     ~DeviceWrapper() { functions->fp_vkDestroyDevice(dev, nullptr); }
 
+    // Immoveable object
     DeviceWrapper(DeviceWrapper const&) = delete;
     DeviceWrapper& operator=(DeviceWrapper const&) = delete;
     DeviceWrapper(DeviceWrapper&&) = delete;
     DeviceWrapper& operator=(DeviceWrapper&&) = delete;
+
+    // Convenience
+    operator VkDevice() { return dev; }
+    VulkanFunctions* operator->() { return functions; }
+
     VulkanFunctions* functions = nullptr;
     VkDevice dev = VK_NULL_HANDLE;
 };

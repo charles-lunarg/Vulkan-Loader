@@ -68,8 +68,10 @@ long ShimEnumAdapters2(LoaderEnumAdapters2 *adapters) {
     // if (status == STATUS_SUCCESS && adapters->adapter_count > 0) {
     //     adapters->adapter_count = 0;
     // }
+    // if (adapters == nullptr) {
+    //     adapters->adapter_count = 0;
+    // }
 
-    // do nothing and just return success.
     return STATUS_SUCCESS;
 }
 NTSTATUS APIENTRY ShimQueryAdapterInfo(const LoaderQueryAdapterInfo *query_info) { return fpQueryAdapterInfo(query_info); }
@@ -125,10 +127,14 @@ HRESULT STDMETHODCALLTYPE ShimEnumAdapters1(IDXGIFactory1 *This,
                                             /* [in] */ UINT Adapter,
                                             /* [annotation][out] */
                                             _COM_Outptr_ IDXGIAdapter1 **ppAdapter) {
-    // std::cerr << "Shim EnumAdapters1\n";
-    if (Adapter < platform_shim.driver_count()) {
+    if (Adapter < platform_shim.drivers.size()) {
+        //*ppAdapter = new IDXGIAdapter1();
+        //(*ppAdapter)->lpVtbl
+        //std::cout << "calling into EnumAdapters1\n";
+
         return RealEnumAdapters1(This, Adapter, ppAdapter);
     } else {
+        //std::cout << "error on EnumAdapters1\n";
         return DXGI_ERROR_NOT_FOUND;
     }
 }
@@ -137,9 +143,11 @@ HRESULT STDMETHODCALLTYPE ShimEnumAdapterByGpuPreference(IDXGIFactory6 *This, _I
                                                          _In_ DXGI_GPU_PREFERENCE GpuPreference, _In_ REFIID riid,
                                                          _COM_Outptr_ void **ppvAdapter) {
     // std::cerr << "Shim EnumAdapterByGpuPreference\n";
-    if (Adapter < platform_shim.driver_count()) {
+    if (Adapter < platform_shim.dxgi_drivers.size()) {
+        //std::cout << "calling into ByGpuPreference\n";
         return RealEnumAdapterByGpuPreference(This, Adapter, GpuPreference, riid, ppvAdapter);
     } else {
+        //std::cout << "error on ByGpuPreference\n";
         return DXGI_ERROR_NOT_FOUND;
     }
 }
@@ -151,6 +159,7 @@ HRESULT STDMETHODCALLTYPE ShimGetDesc1(IDXGIAdapter1 *This,
     return RealGetDesc1(This, pDesc);
 }
 
+// Initialization
 void WINAPI DetourEnumAdapterFunctions() {
     if (RealEnumAdapters1 != nullptr && RealEnumAdapterByGpuPreference != nullptr) {
         return;

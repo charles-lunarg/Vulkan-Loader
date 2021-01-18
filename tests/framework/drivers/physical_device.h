@@ -32,13 +32,26 @@
 struct PhysicalDevice {
     PhysicalDevice() {}
     PhysicalDevice(std::string name) : deviceName(name) {}
+
+    PhysicalDevice& add_queue_family_properties(VkQueueFamilyProperties properties, bool support_present = true) {
+        queue_family_properties.push_back(MockQueueFamilyProperties{properties, support_present});
+        return *this;
+    }
+    PhysicalDevice& add_queue_family_properties(MockQueueFamilyProperties properties) {
+        queue_family_properties.push_back(properties);
+        return *this;
+    }
     DispatchableHandle<VkPhysicalDevice> vk_physical_device;
     std::string deviceName;
     VkPhysicalDeviceProperties properties{};
     VkPhysicalDeviceFeatures features{};
     VkPhysicalDeviceMemoryProperties memory_properties{};
-    std::vector<VkQueueFamilyProperties> queue_family_properties;
+    std::vector<MockQueueFamilyProperties> queue_family_properties;
     std::vector<VkFormatProperties> format_properties;
 
     std::vector<Extension> extensions;
+
+    VkSurfaceCapabilitiesKHR surface_capabilities;
+    std::vector<VkSurfaceFormatKHR> surface_formats;
+    std::vector<VkPresentModeKHR> surface_present_modes;
 };

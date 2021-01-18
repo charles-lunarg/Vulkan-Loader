@@ -1,10 +1,9 @@
 #pragma once
 
-#include "common.h"
-#include "test_util.h"
+#include "util/common.h"
+#include "util/test_util.h"
 
-// #include "library_wrapper.h"
-// #include "folder_wrapper.h"
+#include "util/include_gtest.h"
 
 #include "shims/shim.h"
 
@@ -14,11 +13,14 @@
 #include "framework_config.h"
 
 namespace detail {
-struct TestShim {
-    TestShim();
-    ~TestShim();
-    TestShim(TestShim const&) = delete;
-    TestShim& operator=(TestShim const&) = delete;
+struct PlatformShimWrapper {
+    PlatformShimWrapper();
+    ~PlatformShimWrapper();
+    PlatformShimWrapper(PlatformShimWrapper const&) = delete;
+    PlatformShimWrapper& operator=(PlatformShimWrapper const&) = delete;
+
+    //Convenience
+    PlatformShim* operator->() { return platform_shim; }
 
     LibraryWrapper shim_library;
     PlatformShim* platform_shim;
@@ -46,7 +48,7 @@ struct SingleDriverMockEnvironment{
 
     MockDriver& get_mock_driver();
 
-    detail::TestShim test_shim;
+    detail::PlatformShimWrapper platform_shim;
     VulkanFunctions vulkan_functions;
     detail::MockDriverHandle driver_handle;
     detail::ManifestStores manifest_stores;

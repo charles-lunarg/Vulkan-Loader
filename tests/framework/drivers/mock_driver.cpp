@@ -74,14 +74,22 @@ VkResult FillCountPtr(std::vector<T> const& data_vec, uint32_t* pCount, U* pData
     }
     if (pData == nullptr) {
         *pCount = data_vec.size();
-    } else {
-        if (*pCount <= data_vec.size()) {
-            return VK_INCOMPLETE;
-        }
-        for (size_t i = 0; i < data_vec.size(); i++) {
-            pData[i] = data_vec[i].get();
-        }
+        return VK_SUCCESS;
     }
+    uint32_t amount_written = 0;
+    uint32_t amount_to_write = data_vec.size();
+    if (*pCount < data_vec.size()) {
+        amount_to_write = *pCount;
+    }
+    for (size_t i = 0; i < amount_to_write; i++) {
+        pData[i] = data_vec[i].get();
+        amount_written++;
+    }
+    if (*pCount < data_vec.size()) {
+        *pCount = amount_written;
+        return VK_INCOMPLETE;
+    }
+    *pCount = amount_written;
     return VK_SUCCESS;
 }
 
@@ -92,14 +100,22 @@ VkResult FillCountPtr(std::vector<T> const& data_vec, uint32_t* pCount, T* pData
     }
     if (pData == nullptr) {
         *pCount = data_vec.size();
-    } else {
-        if (*pCount <= data_vec.size()) {
-            return VK_INCOMPLETE;
-        }
-        for (size_t i = 0; i < data_vec.size(); i++) {
-            pData[i] = data_vec[i];
-        }
+        return VK_SUCCESS;
     }
+    uint32_t amount_written = 0;
+    uint32_t amount_to_write = data_vec.size();
+    if (*pCount < data_vec.size()) {
+        amount_to_write = *pCount;
+    }
+    for (size_t i = 0; i < amount_to_write; i++) {
+        pData[i] = data_vec[i];
+        amount_written++;
+    }
+    if (*pCount < data_vec.size()) {
+        *pCount = amount_written;
+        return VK_INCOMPLETE;
+    }
+    *pCount = amount_written;
     return VK_SUCCESS;
 }
 }  // namespace detail
@@ -257,32 +273,49 @@ VKAPI_ATTR VkResult VKAPI_CALL mock_vkCreateXlibSurfaceKHR(VkInstance instance, 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo,
                                                             const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface) {
+    std::cout << "Hit create win32 surf\n";
+    if (nullptr != pSurface) {
+        *pSurface = reinterpret_cast<VkSurfaceKHR>(++driver.created_surface_count);
+    }
     return VK_SUCCESS;
 }
 #endif
 
 VKAPI_ATTR void VKAPI_CALL mock_vkDestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface,
-                                                    const VkAllocationCallbacks* pAllocator) {}
+                                                    const VkAllocationCallbacks* pAllocator) {
+    // Nothing to do
+}
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo,
                                                          const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain) {
+    if (nullptr != pSwapchain) {
+        *pSwapchain = reinterpret_cast<VkSwapchainKHR>(++driver.created_swapchain_count);
+    }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice physicalDevice, uint32_t queueFamilyIndex,
                                                                          VkSurfaceKHR surface, VkBool32* pSupported) {
+    if (nullptr != pSupported) {
+        *pSupported = driver.GetPhysDevice(physicalDevice).queue_family_properties.at(queueFamilyIndex).support_present;
+    }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                               VkSurfaceCapabilitiesKHR* pSurfaceCapabilities) {
+    if (nullptr != pSurfaceCapabilities) {
+        *pSurfaceCapabilities = driver.GetPhysDevice(physicalDevice).surface_capabilities;
+    }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                          uint32_t* pSurfaceFormatCount,
                                                                          VkSurfaceFormatKHR* pSurfaceFormats) {
+    detail::FillCountPtr(driver.GetPhysDevice(physicalDevice).surface_formats, pSurfaceFormatCount, pSurfaceFormats);
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL mock_vkGetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                               uint32_t* pPresentModeCount,
                                                                               VkPresentModeKHR* pPresentModes) {
+    detail::FillCountPtr(driver.GetPhysDevice(physicalDevice).surface_present_modes, pPresentModeCount, pPresentModes);
     return VK_SUCCESS;
 }
 
@@ -311,7 +344,7 @@ PFN_vkVoidFunction get_instance_func_ver_1_2(VkInstance instance, const char* pN
 }
 
 PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName) {
-    if (driver.min_icd_interface_version >= 3 && driver.icd_provide_wsi_support == ICDCanProvideWSI::yes) {
+    if (driver.min_icd_interface_version >= 3 && driver.enable_icd_wsi  == true) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
         if (strcmp(pName, "vkCreateAndroidSurfaceKHR") == 0) {
             driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
@@ -320,31 +353,26 @@ PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName)
 #endif
 #ifdef VK_USE_PLATFORM_METAL_EXT
         if (strcmp(pName, "vkCreateMetalSurfaceEXT") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(mock_vkCreateMetalSurfaceEXT);
         }
 #endif
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
         if (strcmp(pName, "vkCreateWaylandSurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(mock_vkCreateWaylandSurfaceKHR);
         }
 #endif
 #ifdef VK_USE_PLATFORM_XCB_KHR
         if (strcmp(pName, "vkCreateXcbSurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(mock_vkCreateXcbSurfaceKHR);
         }
 #endif
 #ifdef VK_USE_PLATFORM_XLIB_KHR
         if (strcmp(pName, "vkCreateXlibSurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(mock_vkCreateXlibSurfaceKHR);
         }
 #endif
 #ifdef VK_USE_PLATFORM_WIN32_KHR
         if (strcmp(pName, "vkCreateWin32SurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(mock_vkCreateWin32SurfaceKHR);
         }
 #endif
@@ -354,7 +382,6 @@ PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName)
         }
     }
 
-    if (strcmp(pName, "vkCreateSwapchainKHR") == 0) return TO_VOID_PFN(mock_vkCreateSwapchainKHR);
     if (strcmp(pName, "vkGetPhysicalDeviceSurfaceSupportKHR") == 0) return TO_VOID_PFN(mock_vkGetPhysicalDeviceSurfaceSupportKHR);
     if (strcmp(pName, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR") == 0)
         return TO_VOID_PFN(mock_vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
@@ -379,7 +406,6 @@ PFN_vkVoidFunction get_instance_func(VkInstance instance, const char* pName) {
     if (strcmp(pName, "vkGetPhysicalDeviceQueueFamilyProperties") == 0)
         return TO_VOID_PFN(mock_vkGetPhysicalDeviceQueueFamilyProperties);
     if (strcmp(pName, "vkCreateDevice") == 0) return TO_VOID_PFN(mock_vkCreateDevice);
-    if (strcmp(pName, "vkDestroyDevice") == 0) return TO_VOID_PFN(mock_vkDestroyDevice);
 
     if (strcmp(pName, "vkGetPhysicalDeviceFeatures") == 0 || strcmp(pName, "vkGetPhysicalDeviceProperties") == 0 ||
         strcmp(pName, "vkGetPhysicalDeviceMemoryProperties") == 0 ||
@@ -400,7 +426,12 @@ PFN_vkVoidFunction get_instance_func(VkInstance instance, const char* pName) {
     return nullptr;
 }
 
-PFN_vkVoidFunction get_device_func(VkDevice device, const char* pName) { return nullptr; }
+PFN_vkVoidFunction get_device_func(VkDevice device, const char* pName) {
+    if (strcmp(pName, "vkDestroyDevice") == 0) return TO_VOID_PFN(mock_vkDestroyDevice);
+    if (strcmp(pName, "vkCreateSwapchainKHR") == 0) return TO_VOID_PFN(mock_vkCreateSwapchainKHR);
+
+    return nullptr;
+}
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL mock_vkGetInstanceProcAddr(VkInstance instance, const char* pName) {
     return get_instance_func(instance, pName);

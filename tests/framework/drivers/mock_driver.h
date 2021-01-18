@@ -43,7 +43,6 @@ enum class InterfaceVersionCheck { not_called, loader_version_too_old, loader_ve
 
 enum class CalledEnumerateAdapterPhysicalDevices { not_called, called, called_but_not_supported};
 
-enum class ICDCanProvideWSI { no, yes};
 enum class UsingICDProvidedWSI { not_using, is_using};
 
 struct MockDriver {
@@ -59,7 +58,7 @@ struct MockDriver {
 
     CalledEnumerateAdapterPhysicalDevices called_enumerate_adapter_physical_devices = CalledEnumerateAdapterPhysicalDevices::not_called;
 
-    ICDCanProvideWSI icd_provide_wsi_support = ICDCanProvideWSI::no;
+    bool enable_icd_wsi = false;
     UsingICDProvidedWSI is_using_icd_wsi = UsingICDProvidedWSI::not_using;
 
     uint32_t icd_api_version = VK_MAKE_VERSION(1, 0, 0);
@@ -69,6 +68,10 @@ struct MockDriver {
 
     DispatchableHandle<VkInstance> instance_handle;
     std::vector<DispatchableHandle<VkDevice>> device_handles;
+
+    uint64_t created_surface_count = 0;
+    uint64_t created_swapchain_count = 0;
+
 
     MockDriver() {}
     ~MockDriver() {}

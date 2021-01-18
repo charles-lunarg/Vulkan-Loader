@@ -27,6 +27,10 @@
 
 #pragma once
 
+// Following items are needed for C++ to work with PRIxLEAST64
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -40,6 +44,7 @@
 #include <cassert>
 #include <cstring>
 #include <stdio.h>
+#include <stdint.h>
 
 #if defined(WIN32)
 #include <direct.h>
@@ -75,13 +80,6 @@ std::string get_env_var(std::string const& name);
 bool set_env_var(std::string const& name, std::string const& value);
 bool remove_env_var(std::string const& name);
 std::string get_env_var(std::string const& name);
-#endif
-
-#if defined(WIN32)
-#pragma warning(push)
-#pragma warning(disable:4251)
-
-#pragma warning(pop)
 #endif
 
 enum class DebugMode { none, log, no_delete };
@@ -158,8 +156,14 @@ struct Extension {
     }
 };
 
+struct MockQueueFamilyProperties {
+    VkQueueFamilyProperties properties{};
+    bool support_present = false;
+    VkQueueFamilyProperties get() const noexcept { return properties; }
+};
+
 namespace fs {
-    std::string make_native(std::string const&);
+std::string make_native(std::string const&);
 
 struct path {
    private:

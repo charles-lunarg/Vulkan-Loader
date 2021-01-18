@@ -33,33 +33,46 @@
 #include <strsafe.h>
 #endif
 
+enum class ManifestCategory { Implicit, Explicit, Driver };
 
-enum class ManifestCategory {
-    Implicit,
-    Explicit,
-    Driver
+#if defined(WIN32)
+struct DXGIDriver {
+    DXGIDriver(fs::path const& manifest_path, int priority = 0)
+        : manifest_path(manifest_path.str()), priority(priority) {}
+    std::string manifest_path;
+    int priority = 0;  // 0 is highest
+};
+struct SHIM_D3DKMT_ADAPTERINFO {
+    UINT hAdapter;
+    LUID AdapterLuid;
+    ULONG NumOfSources;
+    BOOL bPresentMoveRegionsPreferred;
 };
 
+#endif
 // Necessary to have inline definitions as shim is a dll and thus functions defined in the .cpp
 // wont be found by the rest of the application
-struct PlatformShim {   
-// Test Framework interface
+struct PlatformShim {
+    // Test Framework interface
     void setup_override();
     void clear_override();
 
     void reset();
-    
+
     void redirect_all_paths(fs::path const& path);
 
     void set_path(ManifestCategory category, fs::path const& path);
-  
+
     void add_manifest(ManifestCategory category, fs::path const& path);
 
 // platform specific shim interface
 #if defined(WIN32)
-    uint32_t driver_count();
+    void add_dxgi_manifest(DXGIDriver const& driver);
+    void add_D3DKMT_ADAPTERINFO(SHIM_D3DKMT_ADAPTERINFO adapter_info);
 
     std::vector<std::string> drivers;
+    std::vector<DXGIDriver> dxgi_drivers;
+    std::vector<SHIM_D3DKMT_ADAPTERINFO> D3DKMT_adapters;
 
 #elif defined(__linux__) || defined(__APPLE__)
     bool is_fake_path(fs::path const& path);
@@ -67,7 +80,7 @@ struct PlatformShim {
 
     std::unordered_map<std::string, fs::path> redirection_map;
 #endif
-private:
+   private:
     void redirect_category(fs::path const& new_path, ManifestCategory category);
 #if defined(WIN32)
 #elif defined(__linux__) || defined(__APPLE__)
@@ -78,7 +91,7 @@ private:
 
 std::vector<std::string> parse_env_var_list(std::string const& var);
 
-using PFN_get_platform_shim = PlatformShim&(*)();
+using PFN_get_platform_shim = PlatformShim& (*)();
 #define GET_PLATFORM_SHIM_STR "get_platform_shim"
 
 // Functions which are called by the Test Framework need a definition, but since the shim is a DLL, this
@@ -86,7 +99,7 @@ using PFN_get_platform_shim = PlatformShim&(*)();
 // functions, so only the `get_platform_shim()` is needed to be loaded. As a consequence, all the member functions
 // need to be defined inline, so that both framework code and shim dlls can use them.
 
-inline void PlatformShim::redirect_all_paths(fs::path const& path){
+inline void PlatformShim::redirect_all_paths(fs::path const& path) {
     redirect_category(path, ManifestCategory::Implicit);
     redirect_category(path, ManifestCategory::Explicit);
     redirect_category(path, ManifestCategory::Driver);
@@ -162,12 +175,11 @@ inline std::string get_override_path(HKEY root_key) {
     return override_path;
 }
 
-
 inline HKEY create_key(HKEY key_root, const char* key_path) {
     DWORD dDisposition{};
     HKEY key{};
-    LSTATUS out = RegCreateKeyExA(key_root, key_path, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &key,
-                                  &dDisposition);
+    LSTATUS out =
+        RegCreateKeyExA(key_root, key_path, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &key, &dDisposition);
     if (out != ERROR_SUCCESS) std::cerr << win_api_error_str(out) << " failed to create key " << key << " at " << key_path << "\n";
     return key;
 }
@@ -260,7 +272,6 @@ inline void PlatformShim::clear_override() {
 
     LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, OVERRIDE_KEY_BASE_PATH);
     if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + OVERRIDE_KEY_BASE_PATH);
-
 }
 inline void PlatformShim::reset() {
     KeyWrapper implicit_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers"};
@@ -278,16 +289,22 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
     std::string reg_path = std::string("SOFTWARE\\Khronos\\Vulkan\\") + to_str(category);
     KeyWrapper key{HKEY_LOCAL_MACHINE, reg_path.c_str()};
     add_key_value(key, path);
-    if (category == ManifestCategory::Driver){
+    if (category == ManifestCategory::Driver) {
         drivers.push_back(path.str());
     }
 }
 
+inline void PlatformShim::add_dxgi_manifest(DXGIDriver const& driver) {
+    dxgi_drivers.push_back(driver);
+}
+
+inline void PlatformShim::add_D3DKMT_ADAPTERINFO(SHIM_D3DKMT_ADAPTERINFO adapter_info) { D3DKMT_adapters.push_back(adapter_info); }
+
 inline HKEY GetRegistryKey() { return HKEY{}; }
 
 inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCategory search_category) {
-    //create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0001");
-    //create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0002");
+    // create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0001");
+    // create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0002");
     switch (search_category) {
         case (ManifestCategory::Implicit):
             create_key(HKEY_CURRENT_USER, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers");
@@ -304,10 +321,6 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\Drivers");
             break;
     }
-}
-
-inline uint32_t PlatformShim::driver_count(){
-    return drivers.size();
 }
 
 #elif defined(__linux__) || defined(__APPLE__)
@@ -369,12 +382,9 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
 }
 
 inline void PlatformShim::set_path(ManifestCategory category, fs::path const& path) {
-    if (category == ManifestCategory::Implicit)
-        add(fs::path("/usr/local/etc/vulkan/implicit_layer.d"), path);
-    if (category == ManifestCategory::Explicit)
-        add(fs::path("/usr/local/etc/vulkan/explicit_layer.d"), path);
-    if (category == ManifestCategory::Driver)
-        add(fs::path("/usr/local/etc/vulkan/icd.d"), path);
+    if (category == ManifestCategory::Implicit) add(fs::path("/usr/local/etc/vulkan/implicit_layer.d"), path);
+    if (category == ManifestCategory::Explicit) add(fs::path("/usr/local/etc/vulkan/explicit_layer.d"), path);
+    if (category == ManifestCategory::Driver) add(fs::path("/usr/local/etc/vulkan/icd.d"), path);
 }
 
 #endif

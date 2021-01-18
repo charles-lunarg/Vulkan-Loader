@@ -25,21 +25,6 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
-// Following items are needed for C++ to work with PRIxLEAST64
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
-
-#include <stdint.h>  // For UINT32_MAX
-
-#include <algorithm>
-#include <array>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
-#include <memory>
-
-#include "util/include_gtest.h"
 #include "util/test_util.h"
 #include "test_environment.h"
 #include "driver_defs.h"
@@ -74,13 +59,20 @@ TEST_F(RegressionTests, CreateInstance_DestroyDeviceNullHandle) {
 
 TEST_F(RegressionTests, CreateInstance_ExtensionNotPresent) {
     auto& driver = env->get_mock_driver();
-
-    VkInstance inst = VK_NULL_HANDLE;
-    auto inst_info = driver.GetVkInstanceCreateInfo();
-    inst_info.add_extension("non_existant_ext");
-
-    VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
-    ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+    {
+        VkInstance inst = VK_NULL_HANDLE;
+        auto inst_info = driver.GetVkInstanceCreateInfo();
+        inst_info.add_extension("VK_EXT_validation_features");  // mock driver won't report this as supported
+        VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
+        ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+    }
+    {
+        VkInstance inst = VK_NULL_HANDLE;
+        auto inst_info = driver.GetVkInstanceCreateInfo();
+        inst_info.add_extension("Non_existant_extension");  // unknown instance extension
+        VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
+        ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+    }
 }
 
 TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
@@ -141,8 +133,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = driver.physical_devices.size();
     std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
-    VkResult result =
-        env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, physical_device_handles.data());
+    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count, physical_device_handles.data());
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count, returned_physical_count);
 }
@@ -160,7 +151,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCall) {
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = 0;
-    VkResult result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr);
+    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr);
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count, returned_physical_count);
 
@@ -186,20 +177,19 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
     uint32_t physical_count_one_call = driver.physical_devices.size();
     uint32_t returned_physical_count_one_call = driver.physical_devices.size();
     std::unique_ptr<VkPhysicalDevice[]> physical_device_handles_one_call(new VkPhysicalDevice[physical_count_one_call]);
-    VkResult result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count_one_call,
-                                                                          physical_device_handles_one_call.get());
+    VkResult result =
+        inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count_one_call, physical_device_handles_one_call.get());
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count_one_call, returned_physical_count_one_call);
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = 0;
-    result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr);
+    result = inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count, nullptr);
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count, returned_physical_count);
 
     std::unique_ptr<VkPhysicalDevice[]> physical_device_handles(new VkPhysicalDevice[physical_count]);
-    result =
-        env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, physical_device_handles.get());
+    result = inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count, physical_device_handles.get());
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count, returned_physical_count);
 
@@ -218,7 +208,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count = 0;
-    VkResult result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &physical_count, nullptr);
+    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, nullptr);
     ASSERT_EQ(result, VK_SUCCESS);
     ASSERT_EQ(physical_count, driver.physical_devices.size());
 
@@ -227,7 +217,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
     // Remove one from the physical device count so we can get the VK_INCOMPLETE message
     physical_count -= 1;
 
-    result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &physical_count, physical.get());
+    result = inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, physical.get());
     ASSERT_EQ(result, VK_INCOMPLETE);
 }
 
@@ -255,12 +245,12 @@ TEST_F(RegressionTests, CreateDevice_ExtensionNotPresent) {
     ASSERT_EQ(CreatePhysDev(inst, phys_dev), VK_SUCCESS);
 
     uint32_t familyCount = 0;
-    env->vulkan_functions.fp_vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &familyCount, nullptr);
-    ASSERT_GT(familyCount, 0u);
+    inst->fp_vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &familyCount, nullptr);
+    ASSERT_EQ(familyCount, 1);
 
     std::vector<VkQueueFamilyProperties> families(familyCount);
-    env->vulkan_functions.fp_vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &familyCount, families.data());
-    ASSERT_GT(familyCount, 0u);
+    inst->fp_vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &familyCount, families.data());
+    ASSERT_EQ(familyCount, 1);
 
     for (auto& family : families) {
         if (~family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
@@ -274,9 +264,9 @@ TEST_F(RegressionTests, CreateDevice_ExtensionNotPresent) {
         dev_create_info.add_device_queue(queue_info);
 
         VkDevice device;
-        VkResult result = env->vulkan_functions.fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device);
+        VkResult result = inst->fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device);
         ASSERT_EQ(result, VK_SUCCESS);
 
-        env->vulkan_functions.fp_vkDestroyDevice(device, nullptr);
+        inst->fp_vkDestroyDevice(device, nullptr);
     }
 }

@@ -25,7 +25,6 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
-#include "util/include_gtest.h"
 #include "test_environment.h"
 
 void print_cmd_line_arg_help() { std::cout << ""; }

@@ -34,7 +34,7 @@
 #include "shims/shim.h"
 
 namespace detail {
-TestShim::TestShim() {
+PlatformShimWrapper::PlatformShimWrapper() {
 #if defined(__linux__) || defined(__APPLE__)
     set_env_var("LD_PRELOAD", SHIM_LIBRARY_NAME);
 #endif
@@ -45,7 +45,7 @@ TestShim::TestShim() {
     platform_shim->setup_override();
     platform_shim->reset();
 }
-TestShim::~TestShim() {
+PlatformShimWrapper::~PlatformShimWrapper() {
     platform_shim->reset();
     platform_shim->clear_override();
 }
@@ -70,14 +70,14 @@ ManifestStores::ManifestStores(DebugMode debug_mode)
 
 }  // namespace detail
 SingleDriverMockEnvironment::SingleDriverMockEnvironment(const char* driver_name_macro, DebugMode debug_mode )
-    : test_shim(),
+    : platform_shim(),
       vulkan_functions(),
       manifest_stores(debug_mode) {
-    test_shim.platform_shim->redirect_all_paths(manifest_stores.null.location());
+    platform_shim->redirect_all_paths(manifest_stores.null.location());
 
-    test_shim.platform_shim->set_path(ManifestCategory::Driver, manifest_stores.drivers.location());
-    test_shim.platform_shim->set_path(ManifestCategory::Explicit, manifest_stores.explicit_layers.location());
-    test_shim.platform_shim->set_path(ManifestCategory::Implicit, manifest_stores.implicit_layers.location());
+    platform_shim->set_path(ManifestCategory::Driver, manifest_stores.drivers.location());
+    platform_shim->set_path(ManifestCategory::Explicit, manifest_stores.explicit_layers.location());
+    platform_shim->set_path(ManifestCategory::Implicit, manifest_stores.implicit_layers.location());
 
     driver_handle = detail::MockDriverHandle(driver_name_macro);
 
@@ -85,6 +85,6 @@ SingleDriverMockEnvironment::SingleDriverMockEnvironment(const char* driver_name
     icd_manifest.lib_path = driver_name_macro;
     icd_manifest.api_version = VK_MAKE_VERSION(1, 0, 0);
     auto driver_loc = manifest_stores.drivers.write("mock_driver_icd.json", icd_manifest);
-    test_shim.platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
+    platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
 }
 MockDriver& SingleDriverMockEnvironment::get_mock_driver() { return driver_handle.get_mock_driver(); }
