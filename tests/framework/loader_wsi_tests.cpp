@@ -31,11 +31,11 @@
 class RegressionTests : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverMockEnvironment>(new SingleDriverMockEnvironment(MOCK_DRIVER_PATH_VERSION_2));
+        env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(DriverShimDetails(TEST_ICD_PATH_VERSION_2)));
     }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverMockEnvironment> env;
+    std::unique_ptr<SingleDriverShim> env;
 };
 
 #if defined(WIN32)
@@ -44,7 +44,7 @@ class RegressionTests : public ::testing::Test {
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { return DefWindowProcA(hWnd, uMsg, wParam, lParam); }
 
 TEST_F(RegressionTests, CreateSurfaceWin32) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetDriverAPIVersion(VK_MAKE_VERSION(1, 0, 0));
     driver.SetMinICDInterfaceVersion(5);
     driver.AddInstanceExtension(Extension(VK_KHR_SURFACE_EXTENSION_NAME));

@@ -30,7 +30,7 @@
 #include "util/common.h"
 #include "util/test_util.h"
 
-#include "layers/layer_common.h"
+#include "layer/layer_common.h"
 
 #include "physical_device.h"
 
@@ -45,7 +45,7 @@ enum class CalledEnumerateAdapterPhysicalDevices { not_called, called, called_bu
 
 enum class UsingICDProvidedWSI { not_using, is_using};
 
-struct MockDriver {
+struct TestICD {
     fs::path manifest_file_path;
 
     CalledICDGIPA called_vk_icd_gipa = CalledICDGIPA::not_called;
@@ -73,38 +73,33 @@ struct MockDriver {
     uint64_t created_swapchain_count = 0;
 
 
-    MockDriver() {}
-    ~MockDriver() {}
+    TestICD() {}
+    ~TestICD() {}
 
-    MockDriver& SetMinICDInterfaceVersion(uint32_t icd_interface_version) {
+    TestICD& SetMinICDInterfaceVersion(uint32_t icd_interface_version) {
         this->min_icd_interface_version = icd_interface_version;
         return *this;
     }
-    MockDriver& SetDriverAPIVersion(uint32_t api_version) {
+    TestICD& SetDriverAPIVersion(uint32_t api_version) {
         this->icd_api_version = api_version;
         return *this;
     }
-    MockDriver& AddInstanceLayer(Layer layer) { return AddInstanceLayers({layer}); }
+    TestICD& AddInstanceLayer(Layer layer) { return AddInstanceLayers({layer}); }
 
-    MockDriver& AddInstanceLayers(std::vector<Layer> layers) {
+    TestICD& AddInstanceLayers(std::vector<Layer> layers) {
         this->instance_layers.reserve(layers.size() + this->instance_layers.size());
         for (auto& layer : layers) {
             this->instance_layers.push_back(layer);
         }
         return *this;
     }
-    MockDriver& AddInstanceExtension(Extension extension) { return AddInstanceExtensions({extension}); }
+    TestICD& AddInstanceExtension(Extension extension) { return AddInstanceExtensions({extension}); }
 
-    MockDriver& AddInstanceExtensions(std::vector<Extension> extensions) {
+    TestICD& AddInstanceExtensions(std::vector<Extension> extensions) {
         this->instance_extensions.reserve(extensions.size() + this->instance_extensions.size());
         for (auto& extension : extensions) {
             this->instance_extensions.push_back(extension);
         }
-        return *this;
-    }
-
-    MockDriver& AddPhysicalDeviceQueueFamilyProperties(std::string deviceName,
-                                                                   std::vector<VkQueueFamilyProperties> queue_family_properties) {
         return *this;
     }
 
@@ -156,5 +151,8 @@ struct MockDriver {
 
 };
 
-using GetMockDriverFunc = MockDriver& (*)();
-#define NEW_MOCK_DRIVER_STR "new_mock_driver"
+using GetTestICDFunc = TestICD& (*)();
+#define GET_TEST_ICD_FUNC_STR "get_test_icd_func"
+
+using GetNewTestICDFunc = TestICD& (*)();
+#define GET_NEW_TEST_ICD_FUNC_STR "get_new_test_icd_func"

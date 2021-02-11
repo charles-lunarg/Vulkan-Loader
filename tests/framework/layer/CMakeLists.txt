@@ -18,5 +18,5 @@
 # get layer location folder
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/layer_defs.h.in" "${CMAKE_CURRENT_BINARY_DIR}/layer_defs.h")
 
-add_library(mock_layer_definitions INTERFACE)
-target_include_directories(mock_layer_definitions INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+add_library(test_layer_definitions INTERFACE)
+target_include_directories(test_layer_definitions INTERFACE ${CMAKE_CURRENT_BINARY_DIR})

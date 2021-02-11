@@ -5,10 +5,10 @@
 
 #include "util/include_gtest.h"
 
-#include "shims/shim.h"
+#include "shim/shim.h"
 
-#include "drivers/physical_device.h"
-#include "drivers/mock_driver.h"
+#include "icd/physical_device.h"
+#include "icd/test_icd.h"
 
 #include "framework_config.h"
 
@@ -19,37 +19,59 @@ struct PlatformShimWrapper {
     PlatformShimWrapper(PlatformShimWrapper const&) = delete;
     PlatformShimWrapper& operator=(PlatformShimWrapper const&) = delete;
 
-    //Convenience
+    // Convenience
     PlatformShim* operator->() { return platform_shim; }
 
     LibraryWrapper shim_library;
     PlatformShim* platform_shim;
 };
 
-struct MockDriverHandle {
-    MockDriverHandle();
-    MockDriverHandle(fs::path const& driver_name);
-    MockDriver& get_mock_driver();
+struct TestICDHandle {
+    TestICDHandle();
+    TestICDHandle(fs::path const& driver_name);
+    TestICD& get_new_test_icd();
+    TestICD& get_test_icd();
 
+    // Must use statically
+    std::string driver_name;
     LibraryWrapper driver_library;
-    GetMockDriverFunc proc_addr_mock_driver;
-};
+    GetTestICDFunc proc_addr_get_test_icd;
+    GetNewTestICDFunc proc_addr_get_new_test_icd;
 
-struct ManifestStores {
-    ManifestStores(DebugMode debug_mode);
-    fs::FolderManager null;
-    fs::FolderManager drivers;
-    fs::FolderManager explicit_layers;
-    fs::FolderManager implicit_layers;
 };
-}
-struct SingleDriverMockEnvironment{
-    SingleDriverMockEnvironment(const char* driver_name_macro, DebugMode debug_mode = DebugMode::none);
-
-    MockDriver& get_mock_driver();
+}  // namespace detail
+struct FrameworkEnvironment {
+    FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
 
     detail::PlatformShimWrapper platform_shim;
+    fs::FolderManager null_folder;
+    fs::FolderManager drivers_folder;
+    fs::FolderManager explicit_layers_folder;
+    fs::FolderManager implicit_layers_folder;
     VulkanFunctions vulkan_functions;
-    detail::MockDriverHandle driver_handle;
-    detail::ManifestStores manifest_stores;
+};
+struct DriverShimDetails {
+    DriverShimDetails(const char* macro_name, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
+        : macro_name(macro_name), api_version(api_version) {}
+    const char* macro_name = nullptr;
+    uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
+};
+
+struct SingleDriverShim : FrameworkEnvironment {
+    SingleDriverShim(DriverShimDetails driver_details, DebugMode debug_mode = DebugMode::none);
+
+    TestICD& get_test_icd();
+
+    // FrameworkEnvironment env;
+
+    detail::TestICDHandle driver_handle;
+};
+
+struct MultipleDriverShim : FrameworkEnvironment {
+    MultipleDriverShim(std::vector<DriverShimDetails> driver_macro_names, DebugMode debug_mode = DebugMode::none);
+
+    TestICD& get_test_icd(int driver);
+    TestICD& get_test_icd(std::string const& driver_name);
+
+    std::vector<detail::TestICDHandle> drivers;
 };

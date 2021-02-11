@@ -13,16 +13,16 @@ if(UNIX AND NOT APPLE)
 endif()
 
 add_subdirectory(util)
-add_subdirectory(shims)
+add_subdirectory(shim)
 
-add_subdirectory(drivers)
-add_subdirectory(layers)
+add_subdirectory(icd)
+add_subdirectory(layer)
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/framework_config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/framework_config.h")
 
 add_library(test-environment STATIC test_environment.cpp test_environment.h)
 target_link_libraries(test-environment 
-    PUBLIC mock_driver_definitions mock_layer_definitions gtest gtest_main
+    PUBLIC test_icd_definitions test_layer_definitions gtest gtest_main
     testing_framework_common testing_framework_util shim-library)
 target_include_directories(test-environment PUBLIC ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_BINARY_DIR}/tests/framework ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(test-environment PUBLIC "GTEST_LINKED_AS_SHARED_LIBRARY=1")

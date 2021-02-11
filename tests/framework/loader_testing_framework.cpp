@@ -32,15 +32,15 @@
 class RegressionTests : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverMockEnvironment>(new SingleDriverMockEnvironment(MOCK_DRIVER_PATH_VERSION_2));
+        env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(DriverShimDetails(TEST_ICD_PATH_VERSION_2, VK_MAKE_VERSION(1,0,0))));
     }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverMockEnvironment> env;
+    std::unique_ptr<SingleDriverShim> env;
 };
 
 TEST_F(RegressionTests, CreateInstance_BasicRun) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetDriverAPIVersion(VK_MAKE_VERSION(1, 0, 0));
     driver.SetMinICDInterfaceVersion(5);
 
@@ -58,11 +58,11 @@ TEST_F(RegressionTests, CreateInstance_DestroyDeviceNullHandle) {
 }
 
 TEST_F(RegressionTests, CreateInstance_ExtensionNotPresent) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     {
         VkInstance inst = VK_NULL_HANDLE;
         auto inst_info = driver.GetVkInstanceCreateInfo();
-        inst_info.add_extension("VK_EXT_validation_features");  // mock driver won't report this as supported
+        inst_info.add_extension("VK_EXT_validation_features");  // test icd won't report this as supported
         VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
         ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
     }
@@ -76,7 +76,7 @@ TEST_F(RegressionTests, CreateInstance_ExtensionNotPresent) {
 }
 
 TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
 
     VkInstance inst = VK_NULL_HANDLE;
     auto inst_info = driver.GetVkInstanceCreateInfo();
@@ -87,7 +87,7 @@ TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
 }
 
 TEST_F(RegressionTests, CreateInstance_LayersPresent) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     auto layer_name = "totally_real_layer";
     Layer layer{
         std::string(layer_name), VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), std::string("completely real layer"), {}};
@@ -102,7 +102,7 @@ TEST_F(RegressionTests, CreateInstance_LayersPresent) {
 }
 
 TEST_F(RegressionTests, EnumerateInstanceLayerProperties) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     auto layer_name = "totally_real_layer";
     Layer layer{
         std::string(layer_name), VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), std::string("completely real layer"), {}};
@@ -118,7 +118,7 @@ TEST_F(RegressionTests, EnumerateInstanceLayerProperties) {
     ASSERT_EQ(res, VK_SUCCESS);
 }
 TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetMinICDInterfaceVersion(5);
 
     driver.physical_devices.emplace_back("physical_device_0");
@@ -139,7 +139,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
 }
 
 TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCall) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetMinICDInterfaceVersion(5);
 
     driver.physical_devices.emplace_back("physical_device_0");
@@ -163,7 +163,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCall) {
 }
 
 TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetMinICDInterfaceVersion(5);
 
     driver.physical_devices.emplace_back("physical_device_0");
@@ -197,7 +197,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
 }
 
 TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.SetMinICDInterfaceVersion(5);
 
     driver.physical_devices.emplace_back("physical_device_0");
@@ -225,17 +225,17 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
 
 // TODO device layer tests
 TEST_F(RegressionTests, EnumerateDeviceLayers_LayersMatch) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.AddInstanceLayer(Layer("test_layer_name"));
 
     driver.physical_devices.emplace_back("physical_device_0");
 }
 
 TEST_F(RegressionTests, CreateDevice_ExtensionNotPresent) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
 
     driver.physical_devices.emplace_back("physical_device_0");
-    driver.physical_devices.back().queue_family_properties.push_back({VK_QUEUE_GRAPHICS_BIT, 1, 0, {1, 1, 1}});
+    driver.physical_devices.back().queue_family_properties.push_back(MockQueueFamilyProperties({VK_QUEUE_GRAPHICS_BIT, 1, 0, {1, 1, 1}}, true));
 
     InstWrapper inst{env->vulkan_functions};
     InstanceCreateInfo inst_create_info;

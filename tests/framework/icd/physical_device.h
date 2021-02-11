@@ -32,9 +32,20 @@
 struct PhysicalDevice {
     PhysicalDevice() {}
     PhysicalDevice(std::string name) : deviceName(name) {}
-
+    PhysicalDevice& set_properties(VkPhysicalDeviceProperties properties) {
+        this->properties = properties;
+        return *this;
+    }
+    PhysicalDevice& set_features(VkPhysicalDeviceFeatures features) {
+        this->features = features;
+        return *this;
+    }
+    PhysicalDevice& set_memory_properties(VkPhysicalDeviceMemoryProperties memory_properties) {
+        this->memory_properties = memory_properties;
+        return *this;
+    }
     PhysicalDevice& add_queue_family_properties(VkQueueFamilyProperties properties, bool support_present = true) {
-        queue_family_properties.push_back(MockQueueFamilyProperties{properties, support_present});
+        queue_family_properties.push_back(MockQueueFamilyProperties(properties, support_present));
         return *this;
     }
     PhysicalDevice& add_queue_family_properties(MockQueueFamilyProperties properties) {

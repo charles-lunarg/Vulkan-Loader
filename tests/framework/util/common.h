@@ -157,6 +157,8 @@ struct Extension {
 };
 
 struct MockQueueFamilyProperties {
+    MockQueueFamilyProperties(VkQueueFamilyProperties properties, bool support_present = false)
+        : properties(properties), support_present(support_present) {}
     VkQueueFamilyProperties properties{};
     bool support_present = false;
     VkQueueFamilyProperties get() const noexcept { return properties; }

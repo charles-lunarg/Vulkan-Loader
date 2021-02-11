@@ -31,7 +31,7 @@
 #include "layer_defs.h"
 
 #include "shim_config.h"
-#include "shims/shim.h"
+#include "shim/shim.h"
 
 namespace detail {
 PlatformShimWrapper::PlatformShimWrapper() {
@@ -50,41 +50,66 @@ PlatformShimWrapper::~PlatformShimWrapper() {
     platform_shim->clear_override();
 }
 
-MockDriverHandle::MockDriverHandle() {}
-MockDriverHandle::MockDriverHandle(fs::path const& driver_name) {
+TestICDHandle::TestICDHandle() {}
+TestICDHandle::TestICDHandle(fs::path const& driver_name) {
     driver_library = LibraryWrapper(driver_name);
-
-    auto sym = driver_library.get_symbol<GetMockDriverFunc>(NEW_MOCK_DRIVER_STR);
-
-    proc_addr_mock_driver = sym;
+    proc_addr_get_test_icd = driver_library.get_symbol<GetNewTestICDFunc>(GET_TEST_ICD_FUNC_STR);
+    proc_addr_get_new_test_icd = driver_library.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
 }
-MockDriver& MockDriverHandle::get_mock_driver() {
-    assert(proc_addr_mock_driver != NULL && "symbol must be loaded before use");
-    return proc_addr_mock_driver();
+TestICD& TestICDHandle::get_test_icd() {
+    assert(proc_addr_get_test_icd != NULL && "symbol must be loaded before use");
+    return proc_addr_get_test_icd();
 }
-ManifestStores::ManifestStores(DebugMode debug_mode)
-    : null(FRAMEWORK_BUILD_DIRECTORY, "null_dir",debug_mode),
-      drivers(FRAMEWORK_BUILD_DIRECTORY, "driver_manifests", debug_mode),
-      explicit_layers(FRAMEWORK_BUILD_DIRECTORY, "layer_manifests", debug_mode),
-      implicit_layers(FRAMEWORK_BUILD_DIRECTORY, "layer_manifests", debug_mode) {}
-
+TestICD& TestICDHandle::get_new_test_icd() {
+    assert(proc_addr_get_new_test_icd != NULL && "symbol must be loaded before use");
+    return proc_addr_get_new_test_icd();
+}
 }  // namespace detail
-SingleDriverMockEnvironment::SingleDriverMockEnvironment(const char* driver_name_macro, DebugMode debug_mode )
+
+FrameworkEnvironment::FrameworkEnvironment(DebugMode debug_mode)
     : platform_shim(),
-      vulkan_functions(),
-      manifest_stores(debug_mode) {
-    platform_shim->redirect_all_paths(manifest_stores.null.location());
+      null_folder(FRAMEWORK_BUILD_DIRECTORY, "null_dir", debug_mode),
+      drivers_folder(FRAMEWORK_BUILD_DIRECTORY, "driver_manifests", debug_mode),
+      explicit_layers_folder(FRAMEWORK_BUILD_DIRECTORY, "layer_manifests", debug_mode),
+      implicit_layers_folder(FRAMEWORK_BUILD_DIRECTORY, "layer_manifests", debug_mode),
+      vulkan_functions() {
+    platform_shim->redirect_all_paths(null_folder.location());
 
-    platform_shim->set_path(ManifestCategory::Driver, manifest_stores.drivers.location());
-    platform_shim->set_path(ManifestCategory::Explicit, manifest_stores.explicit_layers.location());
-    platform_shim->set_path(ManifestCategory::Implicit, manifest_stores.implicit_layers.location());
+    platform_shim->set_path(ManifestCategory::Driver, drivers_folder.location());
+    platform_shim->set_path(ManifestCategory::Explicit, explicit_layers_folder.location());
+    platform_shim->set_path(ManifestCategory::Implicit, implicit_layers_folder.location());
+}
 
-    driver_handle = detail::MockDriverHandle(driver_name_macro);
+SingleDriverShim::SingleDriverShim(DriverShimDetails driver_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
+    driver_handle = detail::TestICDHandle(driver_details.macro_name);
 
     ManifestICD icd_manifest;
-    icd_manifest.lib_path = driver_name_macro;
-    icd_manifest.api_version = VK_MAKE_VERSION(1, 0, 0);
-    auto driver_loc = manifest_stores.drivers.write("mock_driver_icd.json", icd_manifest);
+    icd_manifest.lib_path = driver_details.macro_name;
+    icd_manifest.api_version = driver_details.api_version;
+    auto driver_loc = drivers_folder.write("test_icd_icd.json", icd_manifest);
     platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
 }
-MockDriver& SingleDriverMockEnvironment::get_mock_driver() { return driver_handle.get_mock_driver(); }
+TestICD& SingleDriverShim::get_test_icd() { return driver_handle.get_test_icd(); }
+
+MultipleDriverShim::MultipleDriverShim(std::vector<DriverShimDetails> driver_name_macros, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
+    uint32_t i = 0;
+    for (auto& driver_name : driver_name_macros) {
+        drivers.push_back(detail::TestICDHandle(driver_name.macro_name));
+
+        ManifestICD icd_manifest;
+        icd_manifest.lib_path = driver_name.macro_name;
+        icd_manifest.api_version = driver_name.api_version;
+        auto driver_loc = drivers_folder.write(std::string("test_icd_") + std::to_string(i++) + ".json", icd_manifest);
+        platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
+    }
+}
+TestICD& MultipleDriverShim::get_test_icd(int i) { return drivers[i].get_test_icd(); }
+TestICD& MultipleDriverShim::get_test_icd(std::string const& driver_name) {
+    for (auto& driver : drivers) {
+        if (driver.driver_name == driver_name) {
+            return driver.get_test_icd();
+        }
+    }
+    assert(false);
+    return drivers[0].get_test_icd();
+}

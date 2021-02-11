@@ -28,13 +28,9 @@
 #include "test_environment.h"
 
 #include "driver_defs.h"
-#include "drivers/mock_driver.h"
+#include "icd/test_icd.h"
 
 #include "framework_config.h"
-
-GetMockDriverFunc load_get_mock_driver_func(LibraryWrapper const& lib) {
-    return lib.get_symbol<GetMockDriverFunc>(NEW_MOCK_DRIVER_STR);
-}
 
 struct DriverSetup {
     DriverSetup(const char* driver_path, const char* manifest_name)
@@ -47,12 +43,12 @@ struct DriverSetup {
         set_env_var("VK_ICD_FILENAMES", (driver_store.location() + manifest_name).str());
 
         driver_wrapper = LibraryWrapper(fs::path(driver_path));
-        get_mock_driver = load_get_mock_driver_func(driver_wrapper);
+        get_new_test_icd = driver_wrapper.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
     }
     ~DriverSetup() { remove_env_var("VK_ICD_FILENAMES"); }
     fs::FolderManager driver_store;
     LibraryWrapper driver_wrapper;
-    GetMockDriverFunc get_mock_driver;
+    GetNewTestICDFunc get_new_test_icd;
     VulkanFunctions vulkan_functions;
 };
 
@@ -61,8 +57,8 @@ struct DriverSetup {
 // does not support vk_icdGetInstanceProcAddr
 // must export vkGetInstanceProcAddr, vkCreateInstance, vkEnumerateInstanceExtensionProperties
 TEST(DriverNone, version_0) {
-    DriverSetup setup(MOCK_DRIVER_PATH_EXPORT_NONE, "mock_driver_export_none.json");
-    auto& driver = setup.get_mock_driver();
+    DriverSetup setup(TEST_ICD_PATH_EXPORT_NONE, "test_icd_export_none.json");
+    auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -74,8 +70,8 @@ TEST(DriverNone, version_0) {
 // Don't support vk_icdNegotiateLoaderICDInterfaceVersion
 // the loader calls vk_icdGetInstanceProcAddr first
 TEST(DriverICDGIPA, version_1) {
-    DriverSetup setup(MOCK_DRIVER_PATH_EXPORT_ICD_GIPA, "mock_driver_export_icd_gipa.json");
-    auto& driver = setup.get_mock_driver();
+    DriverSetup setup(TEST_ICD_PATH_EXPORT_ICD_GIPA, "test_icd_export_icd_gipa.json");
+    auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -86,13 +82,13 @@ TEST(DriverICDGIPA, version_1) {
 
 // support vk_icdNegotiateLoaderICDInterfaceVersion but not vk_icdGetInstanceProcAddr
 // should assert that `interface_vers == 0` due to version mismatch, only checkable in Debug Mode
-TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_version) {\
+TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_version) {
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-    DriverSetup setup(MOCK_DRIVER_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "mock_driver_export_negotiate_interface_version.json");
+    DriverSetup setup(TEST_ICD_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "test_icd_export_negotiate_interface_version.json");
 
     InstWrapper inst{setup.vulkan_functions};
     InstanceCreateInfo inst_create_info;
-#if !defined(NDEBUG)    
+#if !defined(NDEBUG)
 #if defined(WIN32)
     ASSERT_DEATH(CreateInst(inst, inst_create_info), "");
 #else
@@ -105,8 +101,8 @@ TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_versi
 
 // export vk_icdNegotiateLoaderICDInterfaceVersion and vk_icdGetInstanceProcAddr
 TEST(DriverNegotiateInterfaceVersionAndICDGIPA, version_2) {
-    DriverSetup setup(MOCK_DRIVER_PATH_VERSION_2, "mock_driver_version_2.json");
-    auto& driver = setup.get_mock_driver();
+    DriverSetup setup(TEST_ICD_PATH_VERSION_2, "test_icd_version_2.json");
+    auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -117,16 +113,14 @@ TEST(DriverNegotiateInterfaceVersionAndICDGIPA, version_2) {
 
 class ICDInterfaceVersion2Plus : public ::testing::Test {
    protected:
-    virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverMockEnvironment>(new SingleDriverMockEnvironment(MOCK_DRIVER_PATH_VERSION_2));
-    }
+    virtual void SetUp() { env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(TEST_ICD_PATH_VERSION_2)); }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverMockEnvironment> env;
+    std::unique_ptr<SingleDriverShim> env;
 };
 
 TEST_F(ICDInterfaceVersion2Plus, vk_icdNegotiateLoaderICDInterfaceVersion) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
 
     for (uint32_t i = 0; i <= 6; i++) {
         for (uint32_t j = i; j <= 6; j++) {
@@ -140,7 +134,7 @@ TEST_F(ICDInterfaceVersion2Plus, vk_icdNegotiateLoaderICDInterfaceVersion) {
 }
 
 TEST_F(ICDInterfaceVersion2Plus, version3) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_0");
     {
         driver.min_icd_interface_version = 2;
@@ -152,7 +146,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
     }
     {
         driver.min_icd_interface_version = 3;
-        driver.enable_icd_wsi = true;
+        driver.enable_icd_wsi = false;
         InstWrapper inst{env->vulkan_functions};
         InstanceCreateInfo inst_create_info;
         ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
@@ -169,7 +163,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
 }
 
 TEST_F(ICDInterfaceVersion2Plus, version4) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_0");
     InstWrapper inst{env->vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -198,12 +192,12 @@ TEST_F(ICDInterfaceVersion2Plus, l5_icd5) {
 class ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverMockEnvironment>(
-            new SingleDriverMockEnvironment(MOCK_DRIVER_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES));
+        env = std::unique_ptr<SingleDriverShim>(
+            new SingleDriverShim(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES));
     }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverMockEnvironment> env;
+    std::unique_ptr<SingleDriverShim> env;
 };
 
 // Need more work to shim dxgi for this test to work
@@ -212,7 +206,7 @@ class ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices : public ::testing
 // The loader will only attempt to sort physical devices on an ICD if version 6 of the interface is supported.
 // This version provides the vk_icdEnumerateAdapterPhysicalDevices function.
 TEST_F(ICDInterfaceVersion2Plus, version_5) {
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_1");
     driver.physical_devices.emplace_back("physical_device_0");
     uint32_t physical_count = driver.physical_devices.size();
@@ -235,7 +229,7 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     // Version 6 provides a mechanism to allow the loader to sort physical devices.
     // The loader will only attempt to sort physical devices on an ICD if version 6 of the interface is supported.
     // This version provides the vk_icdEnumerateAdapterPhysicalDevices function.
-    auto& driver = env->get_mock_driver();
+    auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_1");
     driver.physical_devices.emplace_back("physical_device_0");
     uint32_t physical_count = driver.physical_devices.size();
@@ -258,9 +252,43 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 }
 #endif  // defined(WIN32)
 
+TEST(MultipleDriverConfig, Basic) {
+    MultipleDriverShim env({DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES),
+                        DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES),
+                        DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES)}, DebugMode::no_delete);
+
+    env.get_test_icd(0).physical_devices.emplace_back("physical_device_0");
+    PhysicalDevice& phys_dev0 = env.get_test_icd(0).physical_devices.at(0);
+    strcpy(phys_dev0.properties.deviceName, "dev0");
+    phys_dev0.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+
+    env.get_test_icd(1).physical_devices.emplace_back("physical_device_1");
+    PhysicalDevice& phys_dev1 = env.get_test_icd(1).physical_devices.at(0);
+    strcpy(phys_dev1.properties.deviceName, "dev1");
+    phys_dev1.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+
+    env.get_test_icd(2).physical_devices.emplace_back("physical_device_2");
+    PhysicalDevice& phys_dev2 = env.get_test_icd(2).physical_devices.at(0);
+    strcpy(phys_dev2.properties.deviceName, "dev2");
+    phys_dev2.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
+
+    InstWrapper inst{env.vulkan_functions};
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
+
+    std::array<VkPhysicalDevice, 3> phys_devs_array;
+    uint32_t phys_dev_count = 3;
+    ASSERT_EQ(vkEnumeratePhysicalDevices(inst, &phys_dev_count, phys_devs_array.data()), VK_SUCCESS);
+    ASSERT_EQ(phys_dev_count, 3);
+    ASSERT_EQ(env.get_test_icd(0).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+    ASSERT_EQ(env.get_test_icd(1).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
+    ASSERT_EQ(env.get_test_icd(2).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_CPU);
+
+}
+
 int main(int argc, char** argv) {
     int result;
-    
+
     ::testing::InitGoogleTest(&argc, argv);
     result = RUN_ALL_TESTS();
     return result;
