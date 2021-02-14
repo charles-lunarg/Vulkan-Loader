@@ -12,6 +12,9 @@ if(UNIX AND NOT APPLE)
     target_compile_options(vulkan_platform_enables INTERFACE -fPIC)
 endif()
 
+add_library(testing_framework_base_include_target INTERFACE)
+target_include_directories(testing_framework_base_include_target INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(util)
 add_subdirectory(shim)
 
@@ -44,7 +47,7 @@ target_compile_definitions(testing_dependencies INTERFACE "GTEST_LINKED_AS_SHARE
 target_link_libraries(testing_dependencies INTERFACE Vulkan::Headers vulkan_platform_enables test-environment)
 
 add_executable(loader_versions_tests loader_version_tests.cpp)
-target_link_libraries(loader_versions_tests PRIVATE testing_dependencies vulkan)
+target_link_libraries(loader_versions_tests PRIVATE testing_dependencies)
 #set_target_properties(loader_versions_tests PROPERTIES LINK_FLAGS /VERBOSE:LIB) 
 
 add_executable(loader_regression_tests loader_testing_framework.cpp loader_wsi_tests.cpp loader_testing_main.cpp )

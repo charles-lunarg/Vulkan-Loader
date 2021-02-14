@@ -63,7 +63,7 @@ FRAMEWORK_EXPORT int access(const char* in_pathname, int mode) {
 
     if (platform_shim.is_fake_path(path.parent_path())) {
         fs::path fake_path = platform_shim.get_fake_path(path.parent_path());
-        fake_path += path.filename();
+        fake_path /= path.filename();
         // printf("ACCESS: in_pathname %s as %s\n", split.path.c_str(), fake_path.c_str());
         return real_access(fake_path.c_str(), mode);
     }
@@ -86,7 +86,7 @@ FRAMEWORK_EXPORT FILE* fopen(const char* in_filename, const char* mode) {
 
     FILE* f_ptr;
     if (platform_shim.is_fake_path(path.parent_path())) {
-        auto fake_path = platform_shim.get_fake_path(path.parent_path()) + path.filename();
+        auto fake_path = platform_shim.get_fake_path(path.parent_path()) / path.filename();
         // printf("fopen %s as %s\n", in_filename, fake_path.c_str());
         f_ptr = real_fopen(fake_path.c_str(), mode);
     } else {

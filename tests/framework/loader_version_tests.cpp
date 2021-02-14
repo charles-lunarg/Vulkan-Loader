@@ -40,7 +40,7 @@ struct DriverSetup {
         icd_manifest.api_version = VK_MAKE_VERSION(1, 0, 0);
         driver_store.write(manifest_name, icd_manifest);
 
-        set_env_var("VK_ICD_FILENAMES", (driver_store.location() + manifest_name).str());
+        set_env_var("VK_ICD_FILENAMES", (driver_store.location() / manifest_name).str());
 
         driver_wrapper = LibraryWrapper(fs::path(driver_path));
         get_new_test_icd = driver_wrapper.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
@@ -253,37 +253,33 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 #endif  // defined(WIN32)
 
 TEST(MultipleDriverConfig, Basic) {
-    MultipleDriverShim env({DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES),
-                        DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES),
-                        DriverShimDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES)}, DebugMode::no_delete);
+    MultipleDriverShim env({TestICDDetails(TEST_ICD_PATH_VERSION_2),
+                        TestICDDetails(TEST_ICD_PATH_VERSION_2),
+                        TestICDDetails(TEST_ICD_PATH_VERSION_2)},
+                        DebugMode::none);
 
     env.get_test_icd(0).physical_devices.emplace_back("physical_device_0");
-    PhysicalDevice& phys_dev0 = env.get_test_icd(0).physical_devices.at(0);
-    strcpy(phys_dev0.properties.deviceName, "dev0");
-    phys_dev0.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    strcpy(env.get_test_icd(0).physical_devices.at(0).properties.deviceName, "dev0");
+    env.get_test_icd(0).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
     env.get_test_icd(1).physical_devices.emplace_back("physical_device_1");
-    PhysicalDevice& phys_dev1 = env.get_test_icd(1).physical_devices.at(0);
-    strcpy(phys_dev1.properties.deviceName, "dev1");
-    phys_dev1.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+    strcpy(env.get_test_icd(1).physical_devices.at(0).properties.deviceName, "dev1");
+    env.get_test_icd(1).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
 
     env.get_test_icd(2).physical_devices.emplace_back("physical_device_2");
-    PhysicalDevice& phys_dev2 = env.get_test_icd(2).physical_devices.at(0);
-    strcpy(phys_dev2.properties.deviceName, "dev2");
-    phys_dev2.properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
+    strcpy(env.get_test_icd(2).physical_devices.at(0).properties.deviceName, "dev2");
+    env.get_test_icd(2).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
 
     InstWrapper inst{env.vulkan_functions};
-    InstanceCreateInfo inst_create_info;
-    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
+    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
 
     std::array<VkPhysicalDevice, 3> phys_devs_array;
     uint32_t phys_dev_count = 3;
-    ASSERT_EQ(vkEnumeratePhysicalDevices(inst, &phys_dev_count, phys_devs_array.data()), VK_SUCCESS);
+    ASSERT_EQ(env.vulkan_functions.fp_vkEnumeratePhysicalDevices(inst, &phys_dev_count, phys_devs_array.data()), VK_SUCCESS);
     ASSERT_EQ(phys_dev_count, 3);
     ASSERT_EQ(env.get_test_icd(0).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
     ASSERT_EQ(env.get_test_icd(1).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
     ASSERT_EQ(env.get_test_icd(2).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_CPU);
-
 }
 
 int main(int argc, char** argv) {

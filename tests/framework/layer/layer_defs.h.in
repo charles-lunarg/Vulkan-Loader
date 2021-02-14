@@ -25,4 +25,9 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
+#pragma once
 #define LAYER_BUILD_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}"
+
+#define LAYER_BUILD_LOCATION "$<TARGET_FILE_DIR:test_layer_existence>"
+
+#define TEST_LAYER_PATH_EXISTENCE "$<TARGET_FILE:test_layer_existence>"

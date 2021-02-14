@@ -14,7 +14,7 @@
 
 namespace detail {
 struct PlatformShimWrapper {
-    PlatformShimWrapper();
+    PlatformShimWrapper(DebugMode debug_mode = DebugMode::none);
     ~PlatformShimWrapper();
     PlatformShimWrapper(PlatformShimWrapper const&) = delete;
     PlatformShimWrapper& operator=(PlatformShimWrapper const&) = delete;
@@ -24,6 +24,7 @@ struct PlatformShimWrapper {
 
     LibraryWrapper shim_library;
     PlatformShim* platform_shim;
+    DebugMode debug_mode = DebugMode::none;
 };
 
 struct TestICDHandle {
@@ -40,8 +41,19 @@ struct TestICDHandle {
 
 };
 }  // namespace detail
+
+struct TestICDDetails {
+    TestICDDetails(const char* macro_name, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
+        : macro_name(macro_name), api_version(api_version) {}
+    const char* macro_name = nullptr;
+    uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
+};
 struct FrameworkEnvironment {
     FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
+
+    void AddDriver(TestICDDetails driver_details, const std::string & json_name);
+    void AddImplicitLayer(const char* macro_name, Layer layer_info, const std::string & json_name);
+    void AddExplicitLayer(const char* macro_name, Layer layer_info, const std::string & json_name);
 
     detail::PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;
@@ -50,17 +62,12 @@ struct FrameworkEnvironment {
     fs::FolderManager implicit_layers_folder;
     VulkanFunctions vulkan_functions;
 };
-struct DriverShimDetails {
-    DriverShimDetails(const char* macro_name, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
-        : macro_name(macro_name), api_version(api_version) {}
-    const char* macro_name = nullptr;
-    uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
-};
 
 struct SingleDriverShim : FrameworkEnvironment {
-    SingleDriverShim(DriverShimDetails driver_details, DebugMode debug_mode = DebugMode::none);
+    SingleDriverShim(TestICDDetails driver_details, DebugMode debug_mode = DebugMode::none);
 
     TestICD& get_test_icd();
+    TestICD& get_new_test_icd();
 
     // FrameworkEnvironment env;
 
@@ -68,10 +75,13 @@ struct SingleDriverShim : FrameworkEnvironment {
 };
 
 struct MultipleDriverShim : FrameworkEnvironment {
-    MultipleDriverShim(std::vector<DriverShimDetails> driver_macro_names, DebugMode debug_mode = DebugMode::none);
+    MultipleDriverShim(std::vector<TestICDDetails> driver_macro_names, DebugMode debug_mode = DebugMode::none);
 
     TestICD& get_test_icd(int driver);
     TestICD& get_test_icd(std::string const& driver_name);
+
+    TestICD& get_new_test_icd(int driver);
+    TestICD& get_new_test_icd(std::string const& driver_name);
 
     std::vector<detail::TestICDHandle> drivers;
 };

@@ -37,8 +37,7 @@ enum class ManifestCategory { Implicit, Explicit, Driver };
 
 #if defined(WIN32)
 struct DXGIDriver {
-    DXGIDriver(fs::path const& manifest_path, int priority = 0)
-        : manifest_path(manifest_path.str()), priority(priority) {}
+    DXGIDriver(fs::path const& manifest_path, int priority = 0) : manifest_path(manifest_path.str()), priority(priority) {}
     std::string manifest_path;
     int priority = 0;  // 0 is highest
 };
@@ -54,10 +53,10 @@ struct SHIM_D3DKMT_ADAPTERINFO {
 // wont be found by the rest of the application
 struct PlatformShim {
     // Test Framework interface
-    void setup_override();
-    void clear_override();
+    void setup_override(DebugMode debug_mode = DebugMode::none);
+    void clear_override(DebugMode debug_mode = DebugMode::none);
 
-    void reset();
+    void reset(DebugMode debug_mode = DebugMode::none);
 
     void redirect_all_paths(fs::path const& path);
 
@@ -262,25 +261,28 @@ inline void clear_key_values(HKEY const& key) {
     }
 }
 
-inline void PlatformShim::setup_override() {
+inline void PlatformShim::setup_override(DebugMode debug_mode) {
     override_key(HKEY_LOCAL_MACHINE);
     override_key(HKEY_CURRENT_USER);
 }
-inline void PlatformShim::clear_override() {
-    revert_override(HKEY_CURRENT_USER);
-    revert_override(HKEY_LOCAL_MACHINE);
+inline void PlatformShim::clear_override(DebugMode debug_mode) {
+    if (debug_mode != DebugMode::no_delete) {
+        revert_override(HKEY_CURRENT_USER);
+        revert_override(HKEY_LOCAL_MACHINE);
 
-    LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, OVERRIDE_KEY_BASE_PATH);
-    if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + OVERRIDE_KEY_BASE_PATH);
+        LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, OVERRIDE_KEY_BASE_PATH);
+        if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + OVERRIDE_KEY_BASE_PATH);
+    }
 }
-inline void PlatformShim::reset() {
+inline void PlatformShim::reset(DebugMode debug_mode) {
     KeyWrapper implicit_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers"};
     KeyWrapper explicit_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers"};
     KeyWrapper driver_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\Drivers"};
-
-    clear_key_values(implicit_key);
-    clear_key_values(explicit_key);
-    clear_key_values(driver_key);
+    if (debug_mode != DebugMode::no_delete) {
+        clear_key_values(implicit_key);
+        clear_key_values(explicit_key);
+        clear_key_values(driver_key);
+    }
 }
 
 inline void PlatformShim::set_path(ManifestCategory category, fs::path const& path) {}
@@ -294,9 +296,7 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
     }
 }
 
-inline void PlatformShim::add_dxgi_manifest(DXGIDriver const& driver) {
-    dxgi_drivers.push_back(driver);
-}
+inline void PlatformShim::add_dxgi_manifest(DXGIDriver const& driver) { dxgi_drivers.push_back(driver); }
 
 inline void PlatformShim::add_D3DKMT_ADAPTERINFO(SHIM_D3DKMT_ADAPTERINFO adapter_info) { D3DKMT_adapters.push_back(adapter_info); }
 
@@ -337,9 +337,9 @@ inline std::string to_str(ManifestCategory category) {
         return "icd.d";
 }
 
-inline void PlatformShim::setup_override() {}
-inline void PlatformShim::clear_override() {}
-inline void PlatformShim::reset() { redirection_map.clear(); }
+inline void PlatformShim::setup_override(DebugMode debug_mode) {}
+inline void PlatformShim::clear_override(DebugMode debug_mode) {}
+inline void PlatformShim::reset(DebugMode debug_mode) { redirection_map.clear(); }
 
 inline void PlatformShim::add(fs::path const& path, fs::path const& new_path) { redirection_map[path.str()] = new_path; }
 inline void PlatformShim::remove(fs::path const& path) { redirection_map.erase(path.str()); }
@@ -357,10 +357,10 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
 
 inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCategory category) {
     // default paths
-    add(fs::path("/usr/local/etc/vulkan") + to_str(category), new_path);
-    add(fs::path("/usr/local/share/vulkan") + to_str(category), new_path);
-    add(fs::path("/etc/vulkan") + to_str(category), new_path);
-    add(fs::path("/usr/share/vulkan") + to_str(category), new_path);
+    add(fs::path("/usr/local/etc/vulkan") / to_str(category), new_path);
+    add(fs::path("/usr/local/share/vulkan") / to_str(category), new_path);
+    add(fs::path("/etc/vulkan") / to_str(category), new_path);
+    add(fs::path("/usr/share/vulkan") / to_str(category), new_path);
 
     std::vector<std::string> xdg_paths;
     std::string xdg_data_dirs_var = get_env_var("XDG_DATA_DIRS");
@@ -373,12 +373,12 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
         xdg_paths.insert(xdg_paths.begin(), paths.begin(), paths.end());
     }
     for (auto& path : xdg_paths) {
-        add(fs::path(path) + "vulkan" + to_str(category), new_path);
+        add(fs::path(path) / "vulkan" / to_str(category), new_path);
     }
 
     std::string home = get_env_var("HOME");
     if (home.size() == 0) return;
-    add(fs::path(home) + ".local/share/vulkan" + to_str(category), new_path);
+    add(fs::path(home) / ".local/share/vulkan" / to_str(category), new_path);
 }
 
 inline void PlatformShim::set_path(ManifestCategory category, fs::path const& path) {

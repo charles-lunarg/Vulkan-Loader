@@ -59,6 +59,8 @@ struct VulkanFunctions {
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fp_vkGetPhysicalDeviceSurfacePresentModesKHR = nullptr;
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fp_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = nullptr;
     PFN_vkEnumerateDeviceExtensionProperties fp_vkEnumerateDeviceExtensionProperties = nullptr;
+    PFN_vkEnumerateDeviceLayerProperties fp_vkEnumerateDeviceLayerProperties = nullptr;
+
     PFN_vkGetDeviceProcAddr fp_vkGetDeviceProcAddr = nullptr;
     PFN_vkCreateDevice fp_vkCreateDevice = nullptr;
 
@@ -177,3 +179,12 @@ struct DeviceWrapper {
     VulkanFunctions* functions = nullptr;
     VkDevice dev = VK_NULL_HANDLE;
 };
+
+inline bool operator==(const VkExtent3D & a, const VkExtent3D & b) {
+    return a.width == b.width && a.height == b.height && a.depth == b.depth;
+}
+
+inline bool operator==(const VkQueueFamilyProperties& a, const VkQueueFamilyProperties& b) {
+    return a.minImageTransferGranularity == b.minImageTransferGranularity && a.queueCount == b.queueCount &&
+           a.queueFlags == b.queueFlags && a.timestampValidBits == b.timestampValidBits;
+}

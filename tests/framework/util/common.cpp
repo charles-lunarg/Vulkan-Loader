@@ -175,28 +175,51 @@ std::string make_native(std::string const& in_path) {
     }
 #elif defined(__linux__) || defined(APPLE)
     for (size_t i = 0; i < in_path.size(); i++) {
-        if (i + 1 < in_path.size() && in_path[i] == '\\' && in_path[i + 1] == '\\'){
+        if (i + 1 < in_path.size() && in_path[i] == '\\' && in_path[i + 1] == '\\') {
             out += '/';
             i++;
-        }
-        else
+        } else
             out += in_path[i];
     }
 #endif
     return out;
 }
 
+// Json doesn't allow `\` in strings, it must be escaped. Thus we have to convert '\\' to '\\\\' in strings
+std::string fixup_backslashes_in_path(std::string const& in_path) {
+    std::string out;
+    for (auto& c : in_path) {
+        if (c == '\\')
+            out += "\\\\";
+        else
+            out += c;
+    }
+    return out;
+}
+
 path& path::operator+=(path const& in) {
-    if (contents.back() != path_separator && in.contents.front() != path_separator) contents += path_separator;
     contents += in.contents;
     return *this;
 }
 path& path::operator+=(std::string const& in) {
-    if (contents.back() != path_separator && in.front() != path_separator) contents += path_separator;
     contents += in;
     return *this;
 }
 path& path::operator+=(const char* in) {
+    contents += std::string{in};
+    return *this;
+}
+path& path::operator/=(path const& in) {
+    if (contents.back() != path_separator && in.contents.front() != path_separator) contents += path_separator;
+    contents += in.contents;
+    return *this;
+}
+path& path::operator/=(std::string const& in) {
+    if (contents.back() != path_separator && in.front() != path_separator) contents += path_separator;
+    contents += in;
+    return *this;
+}
+path& path::operator/=(const char* in) {
     std::string in_str{in};
     if (contents.back() != path_separator && in_str.front() != path_separator) contents += path_separator;
     contents += in_str;
@@ -218,6 +241,22 @@ path path::operator+(const char* in) const {
     return new_path;
 }
 
+path path::operator/(path const& in) const {
+    path new_path = contents;
+    new_path /= in;
+    return new_path;
+}
+path path::operator/(std::string const& in) const {
+    path new_path = contents;
+    new_path /= in;
+    return new_path;
+}
+path path::operator/(const char* in) const {
+    path new_path(contents);
+    new_path /= in;
+    return new_path;
+}
+
 path path::parent_path() const {
     auto last_div = contents.rfind(path_separator);
     if (last_div == std::string::npos) return "";
@@ -229,8 +268,31 @@ bool path::has_parent_path() const {
 }
 path path::filename() const {
     auto last_div = contents.rfind(path_separator);
-    if (last_div == std::string::npos) return "";
     return path(contents.substr(last_div + 1, contents.size() - last_div + 1));
+}
+
+path path::extension() const {
+    auto last_div = contents.rfind(path_separator);
+    auto ext_div = contents.rfind('.');
+    // Make sure to not get the special `.` and `..`, as well as any filename that being with a dot, like .profile
+    if (last_div + 1 == ext_div || (last_div + 2 == ext_div && contents[last_div + 1] == '.')) return path("");
+    path temp = path(contents.substr(ext_div, contents.size() - ext_div + 1));
+
+    return path(contents.substr(ext_div, contents.size() - ext_div + 1));
+}
+
+path path::stem() const {
+    auto last_div = contents.rfind(path_separator);
+    auto ext_div = contents.rfind('.');
+    if (last_div + 1 == ext_div || (last_div + 2 == ext_div && contents[last_div + 1] == '.')) {
+        return path(contents.substr(last_div + 1, contents.size() - last_div + 1));
+    }
+    return path(contents.substr(last_div + 1, ext_div - last_div - 1));
+}
+
+path& path::replace_filename(path const& replacement) {
+    *this = parent_path() / replacement.str();
+    return *this;
 }
 
 // internal implementation helper for per-platform creating & destroying folders
@@ -260,7 +322,7 @@ int delete_folder(path const& folder) {
         /* Skip the names "." and ".." as we don't want to recurse on them. */
         if (!strcmp(file->d_name, ".") || !strcmp(file->d_name, "..")) continue;
 
-        path file_path = folder + file->d_name;
+        path file_path = folder / file->d_name;
         struct stat statbuf;
         if (!stat(file_path.c_str(), &statbuf)) {
             if (S_ISDIR(statbuf.st_mode))
@@ -278,8 +340,7 @@ int delete_folder(path const& folder) {
 #endif
 }
 
-FolderManager::FolderManager(path root_path, std::string name, DebugMode debug)
-    : debug(debug), folder(root_path + name) {
+FolderManager::FolderManager(path root_path, std::string name, DebugMode debug) : debug(debug), folder(root_path / name) {
     create_folder(folder);
 }
 FolderManager::~FolderManager() {
@@ -297,7 +358,7 @@ FolderManager::~FolderManager() {
     }
 }
 path FolderManager::write(std::string const& name, ManifestICD const& icd_manifest) {
-    path out_path = folder + name;
+    path out_path = folder / name;
     auto found = std::find(files.begin(), files.end(), name);
     if (found != files.end()) {
         if (debug >= DebugMode::log) std::cout << "Writing icd manifest to " << name << "\n";
@@ -310,7 +371,7 @@ path FolderManager::write(std::string const& name, ManifestICD const& icd_manife
     return out_path;
 }
 path FolderManager::write(std::string const& name, ManifestLayer const& layer_manifest) {
-    path out_path = folder + name;
+    path out_path = folder / name;
     auto found = std::find(files.begin(), files.end(), name);
     if (found != files.end()) {
         if (debug >= DebugMode::log) std::cout << "Writing layer manifest to " << name << "\n";

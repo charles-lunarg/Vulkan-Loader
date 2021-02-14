@@ -16,15 +16,13 @@
 # ~~~
 
 add_library(testing_framework_common STATIC common.cpp common.h)
-target_include_directories(testing_framework_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(testing_framework_common PUBLIC Vulkan::Headers vulkan_platform_enables)
+target_link_libraries(testing_framework_common PUBLIC Vulkan::Headers vulkan_platform_enables testing_framework_base_include_target)
 if(UNIX)
     target_link_libraries(testing_framework_common PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
 add_library(testing_framework_util STATIC test_util.cpp test_util.h)
-target_include_directories(testing_framework_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(testing_framework_util PRIVATE testing_framework_common)
+target_link_libraries(testing_framework_util PRIVATE testing_framework_common PUBLIC testing_framework_base_include_target)
 
 # setup vulkan_library_path.h
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/vulkan_library_path_$<CONFIG>.h"

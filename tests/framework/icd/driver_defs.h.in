@@ -25,6 +25,7 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
+#pragma once
 #define DRIVER_BUILD_LOCATION "$<TARGET_FILE_DIR:test_icd_export_none>"
 
 #define TEST_ICD_PATH_EXPORT_NONE "$<TARGET_FILE:test_icd_export_none>"

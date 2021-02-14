@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2015-2020 The Khronos Group Inc.
- * Copyright (c) 2015-2020 Valve Corporation
- * Copyright (c) 2015-2020 LunarG, Inc.
+ * Copyright (c) 2021 The Khronos Group Inc.
+ * Copyright (c) 2021 Valve Corporation
+ * Copyright (c) 2021 LunarG, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and/or associated documentation files (the "Materials"), to
@@ -31,7 +31,7 @@
 class RegressionTests : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(DriverShimDetails(TEST_ICD_PATH_VERSION_2)));
+        env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(TestICDDetails(TEST_ICD_PATH_VERSION_2)));
     }
 
     virtual void TearDown() { env.reset(); }

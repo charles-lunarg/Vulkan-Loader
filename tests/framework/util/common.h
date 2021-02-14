@@ -82,7 +82,12 @@ bool remove_env_var(std::string const& name);
 std::string get_env_var(std::string const& name);
 #endif
 
-enum class DebugMode { none, log, no_delete };
+enum class DebugMode {
+    none,
+    log,       // log all folder and file creation & deletion
+    no_delete  // Will not delete create folders & files, but will report 'deleting them' to show when something *should* of been
+               // deleted
+};
 
 inline std::string version_to_string(uint32_t version) {
     return std::to_string(VK_VERSION_MAJOR(version)) + "." + std::to_string(VK_VERSION_MINOR(version)) + "." +
@@ -98,11 +103,13 @@ struct ManifestICD {
 
 struct ManifestLayer {
     struct LayerDescription {
-        enum class Type { GLOBAL, INSTANCE };
+        enum class Type { INSTANCE, GLOBAL, DEVICE };
         std::string get_type_str(Type type) const {
             if (type == Type::GLOBAL)
                 return "GLOBAL";
-            else
+            else if (type == Type::DEVICE)
+                return "DEVICE";
+            else  // default
                 return "INSTANCE";
         }
         struct FunctionOverride {
@@ -117,7 +124,7 @@ struct ManifestLayer {
             std::string get_manifest_str() const;
         };
         std::string name;
-        Type type;
+        Type type = Type::INSTANCE;
         uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
         uint32_t implementation_version = 0;
         std::string description;
@@ -166,7 +173,7 @@ struct MockQueueFamilyProperties {
 
 namespace fs {
 std::string make_native(std::string const&);
-
+std::string fixup_backslashes_in_path(std::string const& in_path);
 struct path {
    private:
 #if defined(WIN32)
@@ -180,19 +187,39 @@ struct path {
     path(std::string const& in) : contents(make_native(in)) {}
     path(const char* in) : contents(make_native(std::string(in))) {}
 
+    // concat paths without directoryseperator
     path& operator+=(path const& in);
-
     path& operator+=(std::string const& in);
     path& operator+=(const char* in);
+
+    // append paths with directoryseperator
+    path& operator/=(path const& in);
+    path& operator/=(std::string const& in);
+    path& operator/=(const char* in);
+
+    // concat paths without directory seperator
     path operator+(path const& in) const;
     path operator+(std::string const& in) const;
     path operator+(const char* in) const;
 
+    // append paths with directory seperator
+    path operator/(path const& in) const;
+    path operator/(std::string const& in) const;
+    path operator/(const char* in) const;
+
+    // accesors
     path parent_path() const;
     bool has_parent_path() const;
     path filename() const;
+    path extension() const;
+    path stem() const;
 
+    // modifiers
+    path& replace_filename(path const& replacement);
+
+    // get c style string
     const char* c_str() const { return contents.c_str(); }
+    // get C++ style string
     std::string const& str() const { return contents; }
     std::string& str() { return contents; }
 
@@ -221,6 +248,12 @@ class FolderManager {
     path folder;
     std::vector<std::string> files;
 };
+
+inline void copy_file(path const& origin, path const& destination) {
+    std::ifstream src(origin.str(), std::ios::binary);
+    std::ofstream dst(destination.str(), std::ios::binary);
+    dst << src.rdbuf();
+}
 
 }  // namespace fs
 
