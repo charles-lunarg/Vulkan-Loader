@@ -36,6 +36,7 @@
 #include <iostream>
 #include <fstream>
 #include <ostream>
+#include <random>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -125,6 +126,7 @@ struct ManifestLayer {
         };
         std::string name;
         Type type = Type::INSTANCE;
+        std::string lib_path;
         uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
         uint32_t implementation_version = 0;
         std::string description;
@@ -142,8 +144,6 @@ struct ManifestLayer {
     uint32_t file_format_minor = 1;
     uint32_t file_format_patch = 2;
     std::vector<LayerDescription> layers;
-
-    std::string lib_path;
 
     std::string get_manifest_str() const;
 };

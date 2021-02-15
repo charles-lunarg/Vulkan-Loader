@@ -53,6 +53,7 @@ bool set_env_var(std::string const& name, std::string const& value) { return set
 bool remove_env_var(std::string const& name) { return unsetenv(name.c_str()); }
 std::string get_env_var(std::string const& name) {
     char* ret = getenv(name.c_str());
+    if (ret == nullptr) return std::string();
     return ret;
 }
 #endif
@@ -89,6 +90,7 @@ std::string ManifestLayer::LayerDescription::get_manifest_str() const {
     out += "\t{\n";
     out += "\t\t\"name\":\"" + name + "\",\n";
     out += "\t\t\"type\":\"" + get_type_str(type) + "\",\n";
+    out += "\t\t\"library_path\": \"" + lib_path + "\",\n";
     out += "\t\t\"api_version\": \"" + version_to_string(api_version) + "\",\n";
     out += "\t\t\"implementation_version\":\"" + std::to_string(implementation_version) + "\",\n";
     out += "\t\t\"description\": \"" + description + "\"";
@@ -147,12 +149,12 @@ std::string ManifestLayer::LayerDescription::get_manifest_str() const {
 std::string ManifestLayer::get_manifest_str() const {
     std::string out;
     out += "{\n";
-    out += "\"file_format_version\": \"1.0.0\",\n";
+    out += "\t\"file_format_version\": \"1.0.0\",\n";
     if (layers.size() == 1) {
-        out += "\"layer\": ";
+        out += "\t\"layer\": ";
         out += layers.at(0).get_manifest_str() + "\n";
     } else {
-        out += "\"layers\": [";
+        out += "\"\tlayers\": [";
         for (size_t i = 0; i < layers.size(); i++) {
             if (i > 0) out += ",";
             out += "\n" + layers.at(0).get_manifest_str();

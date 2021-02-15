@@ -28,6 +28,7 @@
 #include "util/test_util.h"
 #include "test_environment.h"
 #include "driver_defs.h"
+#include "layer_defs.h"
 
 class RegressionTests : public ::testing::Test {
    protected:
@@ -46,7 +47,8 @@ TEST_F(RegressionTests, CreateInstance_BasicRun) {
     driver.SetMinICDInterfaceVersion(5);
 
     InstWrapper inst{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 }
 
 TEST_F(RegressionTests, CreateInstance_DestroyInstanceNullHandle) {
@@ -86,21 +88,27 @@ TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
     ASSERT_EQ(result, VK_ERROR_LAYER_NOT_PRESENT);
 }
 
-// TODO: Need layer mocking support to finish this test
-/*
 TEST_F(RegressionTests, CreateInstance_LayerPresent) {
+    std::string layer_name = "ExistenceLayer";
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = layer_name;
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer_manifest;
+    layer_manifest.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer_manifest, "ExistenceLayer.json");
+
     auto& driver = env->get_test_icd();
-    auto layer_name = "temp_name_replace_with_real_later";
-    Layer layer{
-        std::string(layer_name), VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), std::string("completely real layer"), {}};
+    Layer layer{layer_name, VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), layer_name, {}};
     driver.AddInstanceLayer(layer);
 
     InstWrapper inst{env->vulkan_functions};
     auto inst_info = driver.GetVkInstanceCreateInfo();
-    inst_info.add_layer(layer_name);
+    inst_info.add_layer(layer_name.c_str());
     ASSERT_EQ(CreateInst(inst, inst_info), VK_SUCCESS);
 }
-*/
 
 TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
     auto& driver = env->get_test_icd();
@@ -112,7 +120,8 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
     driver.physical_devices.emplace_back("physical_device_3");
 
     InstWrapper inst{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = driver.physical_devices.size();
@@ -155,7 +164,8 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
     driver.physical_devices.emplace_back("physical_device_2");
 
     InstWrapper inst1{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst1, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst1, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count_one_call = driver.physical_devices.size();
     uint32_t returned_physical_count_one_call = driver.physical_devices.size();
@@ -166,7 +176,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
     ASSERT_EQ(physical_count_one_call, returned_physical_count_one_call);
 
     InstWrapper inst2{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst2, InstanceCreateInfo{}), VK_SUCCESS);
+    ASSERT_EQ(CreateInst(inst2, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = 0;
@@ -190,7 +200,8 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
     driver.physical_devices.emplace_back("physical_device_1");
 
     InstWrapper inst{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count = 0;
     VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, nullptr);
@@ -208,52 +219,36 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
 }
 
 // Test to make sure that layers enabled in the instance show up in the list of device layers.
-
-//: TODO device layer tests
+// TODO: make layers actually work
 /*
 TEST_F(RegressionTests, EnumerateDeviceLayers_LayersMatch) {
-    {
-        auto& driver = env->get_test_icd();
-        const char* test_layer_name = "test_layer_name1";
-        driver.AddInstanceLayer(Layer(test_layer_name));
+    std::string layer_name = "ExistenceLayer";
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = layer_name;
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
 
-        driver.physical_devices.emplace_back("physical_device_0");
+    ManifestLayer layer_manifest;
+    layer_manifest.layers.push_back(layer_desc);
+    env->AddExplicitLayer(layer_manifest, "ExistenceLayer.json");
 
-        InstWrapper inst{env->vulkan_functions};
-        ASSERT_EQ(CreateInst(inst, driver.GetVkInstanceCreateInfo()), VK_SUCCESS);
+    auto& driver = env->get_test_icd();
+    driver.physical_devices.emplace_back("physical_device_0");
+    driver.AddInstanceLayer(Layer(layer_name));
 
-        VkPhysicalDevice physical_device;
-        CreatePhysDev(inst, physical_device);
+    InstWrapper inst{env->vulkan_functions};
+    InstanceCreateInfo inst_create_info;
+    inst_create_info.add_layer(layer_name.c_str());
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
-        uint32_t layer_count = 0;
-        VkLayerProperties layer_props;
-        inst->fp_vkEnumerateDeviceLayerProperties(physical_device, &layer_count, &layer_props);
-        ASSERT_EQ(layer_count, driver.instance_layers.size());
-        ASSERT_EQ(strcmp(layer_props.layerName, test_layer_name), 0);
-    }
-    {
-        auto& driver = env->get_new_test_icd();
-        const char* test_layer_name1 = "test_layer_name1";
-        const char* test_layer_name2 = "test_layer_name2";
-        driver.AddInstanceLayer(Layer(test_layer_name1));
-        driver.AddInstanceLayer(Layer(test_layer_name2));
+    VkPhysicalDevice physical_device;
+    CreatePhysDev(inst, physical_device);
 
-        driver.physical_devices.emplace_back("physical_device_0");
-
-        InstWrapper inst{env->vulkan_functions};
-        ASSERT_EQ(CreateInst(inst, driver.GetVkInstanceCreateInfo()), VK_SUCCESS);
-
-        VkPhysicalDevice physical_device;
-        CreatePhysDev(inst, physical_device);
-
-        uint32_t layer_count = 0;
-        std::array<VkLayerProperties, 2> layer_props;
-        inst->fp_vkEnumerateDeviceLayerProperties(physical_device, &layer_count, layer_props.data());
-        ASSERT_EQ(layer_count, driver.instance_layers.size());
-        ASSERT_EQ(strcmp(layer_props[0].layerName, test_layer_name1), 0);
-        ASSERT_EQ(strcmp(layer_props[1].layerName, test_layer_name2), 0);
-
-    }
+    uint32_t layer_count = 0;
+    VkLayerProperties layer_props;
+    inst->fp_vkEnumerateDeviceLayerProperties(physical_device, &layer_count, &layer_props);
+    ASSERT_EQ(layer_count, 1);
+    ASSERT_EQ(strcmp(layer_props.layerName, layer_name.c_str()), 0);
 }
 */
 
@@ -266,7 +261,8 @@ TEST_F(RegressionTests, CreateDevice_ExtensionNotPresent) {
     driver.physical_devices.back().queue_family_properties.push_back(family_props);
 
     InstWrapper inst{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     VkPhysicalDevice phys_dev;
     ASSERT_EQ(CreatePhysDev(inst, phys_dev), VK_SUCCESS);
@@ -300,7 +296,8 @@ TEST_F(RegressionTests, CreateDevice_LayersNotPresent) {
     driver.physical_devices.back().queue_family_properties.push_back(family_props);
 
     InstWrapper inst{env->vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     VkPhysicalDevice phys_dev;
     ASSERT_EQ(CreatePhysDev(inst, phys_dev), VK_SUCCESS);
@@ -327,11 +324,23 @@ TEST_F(RegressionTests, CreateDevice_LayersNotPresent) {
 
 // TODO: Layer support
 TEST_F(RegressionTests, EnumerateInstanceLayerProperties_PropertyCountLessThanAvailable) {
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = "ExistenceLayer";
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer;
+    layer.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer, "test_layer_1.json");
+    env->AddExplicitLayer(layer, "test_layer_2.json");
+
     auto& driver = env->get_test_icd();
 
     uint32_t layer_count = 0;
     VkResult result = env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
     ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(layer_count, 2);
 
     std::array<VkLayerProperties, 2> layers;
     layer_count = 1;

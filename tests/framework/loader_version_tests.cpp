@@ -271,7 +271,8 @@ TEST(MultipleDriverConfig, Basic) {
     env.get_test_icd(2).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
 
     InstWrapper inst{env.vulkan_functions};
-    ASSERT_EQ(CreateInst(inst, InstanceCreateInfo{}), VK_SUCCESS);
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     std::array<VkPhysicalDevice, 3> phys_devs_array;
     uint32_t phys_dev_count = 3;

@@ -52,8 +52,8 @@ struct FrameworkEnvironment {
     FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
 
     void AddDriver(TestICDDetails driver_details, const std::string & json_name);
-    void AddImplicitLayer(const char* macro_name, Layer layer_info, const std::string & json_name);
-    void AddExplicitLayer(const char* macro_name, Layer layer_info, const std::string & json_name);
+    void AddImplicitLayer(ManifestLayer layer_manifest, const std::string & json_name);
+    void AddExplicitLayer(ManifestLayer layer_manifest, const std::string & json_name);
 
     detail::PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;

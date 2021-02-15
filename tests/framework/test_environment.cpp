@@ -87,8 +87,14 @@ void FrameworkEnvironment::AddDriver(TestICDDetails driver_details, const std::s
     auto driver_loc = drivers_folder.write(json_name, icd_manifest);
     platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
 }
-void FrameworkEnvironment::AddImplicitLayer(const char* macro_name, Layer layer_info, const std::string& json_name) {}
-void FrameworkEnvironment::AddExplicitLayer(const char* macro_name, Layer layer_info, const std::string& json_name) {}
+void FrameworkEnvironment::AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
+    auto layer_loc = implicit_layers_folder.write(json_name, layer_manifest);
+    platform_shim->add_manifest(ManifestCategory::Implicit, layer_loc);
+}
+void FrameworkEnvironment::AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
+    auto layer_loc = explicit_layers_folder.write(json_name, layer_manifest);
+    platform_shim->add_manifest(ManifestCategory::Explicit, layer_loc);
+}
 
 SingleDriverShim::SingleDriverShim(TestICDDetails driver_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
     driver_handle = detail::TestICDHandle(driver_details.macro_name);

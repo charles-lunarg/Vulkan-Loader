@@ -73,6 +73,8 @@ struct PlatformShim {
     std::vector<DXGIDriver> dxgi_drivers;
     std::vector<SHIM_D3DKMT_ADAPTERINFO> D3DKMT_adapters;
 
+    uint32_t random_base_path = 0;
+
 #elif defined(__linux__) || defined(__APPLE__)
     bool is_fake_path(fs::path const& path);
     fs::path const& get_fake_path(fs::path const& path);
@@ -162,10 +164,13 @@ inline void print_error_message(LSTATUS status, const char* function_name, std::
     LocalFree(lpMsgBuf);
 }
 
-#define OVERRIDE_KEY_BASE_PATH "SOFTWARE\\LoaderRegressionTests"
+inline std::string override_base_path(uint32_t random_base_path) {
+    return std::string("SOFTWARE\\LoaderRegressionTests_") + std::to_string(random_base_path);
+}
 
-inline std::string get_override_path(HKEY root_key) {
-    std::string override_path = std::string(OVERRIDE_KEY_BASE_PATH);
+inline std::string get_override_path(HKEY root_key, uint32_t random_base_path) {
+    std::string override_path = override_base_path(random_base_path);
+
     if (root_key == HKEY_CURRENT_USER) {
         override_path += "\\HKCU";
     } else if (root_key == HKEY_LOCAL_MACHINE) {
@@ -188,11 +193,11 @@ inline void close_key(HKEY& key) {
     if (out != ERROR_SUCCESS) std::cerr << win_api_error_str(out) << " failed to close key " << key << "\n";
 }
 
-inline void override_key(HKEY root_key, const char* path = nullptr) {
+inline void override_key(HKEY root_key, uint32_t random_base_path) {
     DWORD dDisposition{};
     LSTATUS out;
 
-    auto override_path = get_override_path(root_key);
+    auto override_path = get_override_path(root_key, random_base_path);
     HKEY override_key;
     out = RegCreateKeyExA(HKEY_CURRENT_USER, override_path.c_str(), NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
                           &override_key, &dDisposition);
@@ -204,11 +209,11 @@ inline void override_key(HKEY root_key, const char* path = nullptr) {
 
     close_key(override_key);
 }
-inline void revert_override(HKEY root_key) {
+inline void revert_override(HKEY root_key, uint32_t random_base_path) {
     LSTATUS out = RegOverridePredefKey(root_key, NULL);
     if (out != ERROR_SUCCESS) std::cerr << win_api_error_str(out) << " failed to revert override key " << root_key << "\n";
 
-    auto override_path = get_override_path(root_key);
+    auto override_path = get_override_path(root_key, random_base_path);
     out = RegDeleteTreeA(HKEY_CURRENT_USER, override_path.c_str());
     if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteTreeA", std::string("Key") + override_path);
 }
@@ -262,16 +267,20 @@ inline void clear_key_values(HKEY const& key) {
 }
 
 inline void PlatformShim::setup_override(DebugMode debug_mode) {
-    override_key(HKEY_LOCAL_MACHINE);
-    override_key(HKEY_CURRENT_USER);
+    std::random_device rd;
+    std::ranlux48 gen(rd());
+    std::uniform_int_distribution<uint32_t> dist(0, 2000000);
+    random_base_path = dist(gen);
+    override_key(HKEY_LOCAL_MACHINE, random_base_path);
+    override_key(HKEY_CURRENT_USER, random_base_path);
 }
 inline void PlatformShim::clear_override(DebugMode debug_mode) {
     if (debug_mode != DebugMode::no_delete) {
-        revert_override(HKEY_CURRENT_USER);
-        revert_override(HKEY_LOCAL_MACHINE);
+        revert_override(HKEY_CURRENT_USER, random_base_path);
+        revert_override(HKEY_LOCAL_MACHINE, random_base_path);
 
-        LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, OVERRIDE_KEY_BASE_PATH);
-        if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + OVERRIDE_KEY_BASE_PATH);
+        LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, override_base_path(random_base_path).c_str());
+        if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + override_base_path(random_base_path).c_str());
     }
 }
 inline void PlatformShim::reset(DebugMode debug_mode) {
