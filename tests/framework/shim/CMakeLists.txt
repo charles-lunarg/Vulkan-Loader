@@ -30,19 +30,6 @@ elseif(APPLE)
 
 endif()
 
-# get shim location folder
-file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/shim_config_$<CONFIG>.h"
-    INPUT "${CMAKE_CURRENT_SOURCE_DIR}/shim_config.h.in")
-# copy shim_config_$<CONFIG> to shim_config.h
-add_custom_command (
-    COMMAND ${CMAKE_COMMAND} "-E" "copy_if_different" "${CMAKE_CURRENT_BINARY_DIR}/shim_config_$<CONFIG>.h" "${CMAKE_CURRENT_BINARY_DIR}/shim_config.h"
-    VERBATIM
-    PRE_BUILD
-    DEPENDS  "${CMAKE_CURRENT_BINARY_DIR}/shim_config_$<CONFIG>.h"
-    OUTPUT   "${CMAKE_CURRENT_BINARY_DIR}/shim_config.h"
-    COMMENT  "creating shim_config.h file ({event: PRE_BUILD}, {filename: shim_config.h})"
-)
-add_custom_target (shim_config_generated_output DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/shim_config.h")
-
+loader_framework_config_helper(shim_config shim_config_generated_output)
 add_dependencies(shim-library shim_config_generated_output)
 

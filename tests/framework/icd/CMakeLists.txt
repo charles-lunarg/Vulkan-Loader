@@ -27,7 +27,7 @@ target_compile_definitions(test_icd_deps INTERFACE
     $<$<PLATFORM_ID:WIN32>:-DWIN32_LEAN_AND_MEAN,-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING>
     VK_NO_PROTOTYPES)
 
-target_link_libraries(test_icd_deps INTERFACE Vulkan::Headers vulkan_platform_enables testing_framework_util)
+target_link_libraries(test_icd_deps INTERFACE Vulkan::Headers testing_framework_base_target testing_framework_util)
 target_include_directories(test_icd_deps INTERFACE ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_BINARY_DIR}/tests/framework)
 
 set(TEST_ICD_SOURCES test_icd.cpp test_icd.h)
@@ -58,27 +58,15 @@ add_library(test_icd_version_2_export_icd_gpdpa SHARED ${TEST_ICD_SOURCES})
 target_link_libraries(test_icd_version_2_export_icd_gpdpa PRIVATE test_icd_deps)
 target_compile_definitions(test_icd_version_2_export_icd_gpdpa PRIVATE TEST_ICD_EXPORT_ICD_GPDPA=1 ${TEST_ICD_VERSION_2_DEFINES})
 
-# get driver location folder
-file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/driver_defs_$<CONFIG>.h"
-    INPUT "${CMAKE_CURRENT_SOURCE_DIR}/driver_defs.h.in")
-# copy driver_defs_$<CONFIG> to driver_defs.h
-add_custom_command (
-    COMMAND ${CMAKE_COMMAND} "-E" "copy_if_different" "${CMAKE_CURRENT_BINARY_DIR}/driver_defs_$<CONFIG>.h" "${CMAKE_CURRENT_BINARY_DIR}/driver_defs.h"
-    VERBATIM
-    PRE_BUILD
-    DEPENDS  "${CMAKE_CURRENT_BINARY_DIR}/driver_defs_$<CONFIG>.h"
-    OUTPUT   "${CMAKE_CURRENT_BINARY_DIR}/driver_defs.h"
-    COMMENT  "creating driver_defs.h file ({event: PRE_BUILD}, {filename: driver_defs.h})"
-)
-add_custom_target (driver_definitions_generated_output DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/driver_defs.h")
+loader_framework_config_helper(driver_defs driver_definitions_generated_output)
 
 add_library(test_icd_definitions INTERFACE)
 target_include_directories(test_icd_definitions INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 add_dependencies(test_icd_definitions driver_definitions_generated_output
     test_icd_export_none
-    test_icd_export_icd_gipa 
-    test_icd_export_negotiate_interface_version 
-    test_icd_version_2 
-    test_icd_version_2_export_icd_enumerate_adapter_physical_devices 
+    test_icd_export_icd_gipa
+    test_icd_export_negotiate_interface_version
+    test_icd_version_2
+    test_icd_version_2_export_icd_enumerate_adapter_physical_devices
     test_icd_version_2_export_icd_gpdpa)
 

@@ -87,7 +87,7 @@ TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
     VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
     ASSERT_EQ(result, VK_ERROR_LAYER_NOT_PRESENT);
 }
-
+/*
 TEST_F(RegressionTests, CreateInstance_LayerPresent) {
     std::string layer_name = "ExistenceLayer";
     ManifestLayer::LayerDescription layer_desc;
@@ -109,7 +109,7 @@ TEST_F(RegressionTests, CreateInstance_LayerPresent) {
     inst_info.add_layer(layer_name.c_str());
     ASSERT_EQ(CreateInst(inst, inst_info), VK_SUCCESS);
 }
-
+*/
 TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
     auto& driver = env->get_test_icd();
     driver.SetMinICDInterfaceVersion(5);

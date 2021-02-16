@@ -29,27 +29,15 @@ target_compile_definitions(test_layer_deps  INTERFACE
     $<$<PLATFORM_ID:WIN32>:-DWIN32_LEAN_AND_MEAN,-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING>
     VK_NO_PROTOTYPES)
 
-target_link_libraries(test_layer_deps INTERFACE Vulkan::Headers vulkan_platform_enables testing_framework_util test_layer_util)
+target_link_libraries(test_layer_deps INTERFACE Vulkan::Headers testing_framework_base_target testing_framework_util test_layer_util)
 target_include_directories(test_layer_deps INTERFACE ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_BINARY_DIR}/tests/framework)
 
 add_library(test_layer_existence SHARED existence_layer.cpp)
 target_link_libraries(test_layer_existence PRIVATE test_layer_deps)
 
-# get layer location folder
-file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/layer_defs_$<CONFIG>.h"
-    INPUT "${CMAKE_CURRENT_SOURCE_DIR}/layer_defs.h.in")
-# copy layer_defs_$<CONFIG> to layer_defs.h
-add_custom_command (
-    COMMAND ${CMAKE_COMMAND} "-E" "copy_if_different" "${CMAKE_CURRENT_BINARY_DIR}/layer_defs_$<CONFIG>.h" "${CMAKE_CURRENT_BINARY_DIR}/layer_defs.h"
-    VERBATIM
-    PRE_BUILD
-    DEPENDS  "${CMAKE_CURRENT_BINARY_DIR}/layer_defs_$<CONFIG>.h"
-    OUTPUT   "${CMAKE_CURRENT_BINARY_DIR}/layer_defs.h"
-    COMMENT  "creating layer_defs.h file ({event: PRE_BUILD}, {filename: layer_defs.h})"
-)
-add_custom_target (layer_definitions_generated_output DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/layer_defs.h")
+loader_framework_config_helper(layer_defs layer_definitions_generated_output)
 
 add_library(test_layer_definitions INTERFACE)
 target_include_directories(test_layer_definitions INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-add_dependencies(test_layer_definitions layer_definitions_generated_output test_layer_existence) 
+add_dependencies(test_layer_definitions layer_definitions_generated_output test_layer_existence)
 
