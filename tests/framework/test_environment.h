@@ -2,7 +2,6 @@
 
 #include "util/common.h"
 #include "util/test_util.h"
-
 #include "util/include_gtest.h"
 
 #include "shim/shim.h"
@@ -11,6 +10,8 @@
 #include "icd/test_icd.h"
 
 #include "framework_config.h"
+#include "driver_defs.h"
+#include "layer_defs.h"
 
 namespace detail {
 struct PlatformShimWrapper {

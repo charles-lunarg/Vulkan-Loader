@@ -22,16 +22,19 @@ if(UNIX)
 endif()
 
 add_library(testing_framework_util STATIC test_util.cpp test_util.h)
-target_link_libraries(testing_framework_util PRIVATE testing_framework_common PUBLIC testing_framework_base_target)
+target_link_libraries(testing_framework_util PUBLIC testing_framework_common)
 
 # Function which can process a C/C++ header file that contains CMake Generator expressions in it
 # Arguments:
 # CONFIG_FILE_NAME: header to run through cmake. Only list the stem, no .h or .h.should be present
-# OUTPUT_TARGET_NAME: target name that gets created and allows other targets to depend on this generated header
+# OUTPUT_TARGET_NAME: Target to create which other targets can depend on
+# DEPENDANT_TARGET: Target name which depends on this config file beign present
 function(loader_framework_config_helper CONFIG_FILE_NAME OUTPUT_TARGET_NAME)
     string(CONCAT SRC_DIR_INPUT_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/" ${CONFIG_FILE_NAME} ".h.in")
     string(CONCAT BIN_DIR_INTERMEDIATE_CONFIG_HEADER "${CMAKE_CURRENT_BINARY_DIR}/" ${CONFIG_FILE_NAME} "_$<CONFIG>.h")
     string(CONCAT BIN_DIR_OUTPUT_HEADER "${CMAKE_CURRENT_BINARY_DIR}/" ${CONFIG_FILE_NAME} ".h")
+    string(CONCAT OUTPUT_CUSTOM_TARGET ${CONFIG_FILE_NAME} "_custom_target")
+
     string(CONCAT CUSTOM_COMMAND_COMMENT "creating " ${CONFIG_FILE_NAME} ".h file ({event: PRE_BUILD}, {filename: " ${CONFIG_FILE_NAME} ".h })")
 
     # setup CONFIG_FILE_NAME.h
@@ -39,18 +42,19 @@ function(loader_framework_config_helper CONFIG_FILE_NAME OUTPUT_TARGET_NAME)
 
     # copy CONFIG_FILE_NAME_$<CONFIG> to the loader build directory
     add_custom_command(
+        PRE_BUILD
         COMMAND ${CMAKE_COMMAND} "-E" "copy_if_different" ${BIN_DIR_INTERMEDIATE_CONFIG_HEADER} ${BIN_DIR_OUTPUT_HEADER}
         VERBATIM
         PRE_BUILD
         DEPENDS  ${BIN_DIR_INTERMEDIATE_CONFIG_HEADER}
         OUTPUT   ${BIN_DIR_OUTPUT_HEADER}
-        COMMENT  "creating vulkan_library_path.h file ({event: PRE_BUILD}, {filename: vulkan_library_path.h})"
+        COMMENT  ${CUSTOM_COMMAND_COMMENT}
         )
-
-    add_custom_target (${OUTPUT_TARGET_NAME} DEPENDS ${BIN_DIR_OUTPUT_HEADER})
+    add_custom_target (${OUTPUT_CUSTOM_TARGET} DEPENDS ${BIN_DIR_OUTPUT_HEADER})
+    add_library(${OUTPUT_TARGET_NAME} INTERFACE)
+    target_include_directories(${OUTPUT_TARGET_NAME} INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+    add_dependencies (${OUTPUT_TARGET_NAME} ${OUTPUT_CUSTOM_TARGET})
 endfunction()
 
-loader_framework_config_helper(vulkan_library_path generated_vulkan_library_path_header)
-
-target_include_directories(testing_framework_util PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-add_dependencies(testing_framework_util generated_vulkan_library_path_header)
+loader_framework_config_helper(vulkan_library_path vulkan_library_path_generated_target)
+target_link_libraries(testing_framework_util PUBLIC vulkan_library_path_generated_target)

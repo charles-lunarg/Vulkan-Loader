@@ -25,10 +25,7 @@
  * Author: Charles Giessen <charles@lunarg.com>
  */
 
-#include "util/test_util.h"
 #include "test_environment.h"
-#include "driver_defs.h"
-#include "layer_defs.h"
 
 class RegressionTests : public ::testing::Test {
    protected:
@@ -346,4 +343,12 @@ TEST_F(RegressionTests, EnumerateInstanceLayerProperties_PropertyCountLessThanAv
     layer_count = 1;
     result = env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
     ASSERT_EQ(result, VK_INCOMPLETE);
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+
+    int result = RUN_ALL_TESTS();
+    return result;
 }

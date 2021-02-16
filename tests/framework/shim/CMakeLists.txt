@@ -19,17 +19,17 @@ if (WIN32)
 
 add_library(shim-library SHARED shim.h windows_shim.cpp)
 target_link_libraries(shim-library PRIVATE detours cfgmgr32 testing_framework_common)
-target_include_directories(shim-library PUBLIC ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_CURRENT_BINARY_DIR} PRIVATE ${CMAKE_SOURCE_DIR}/loader)
+target_include_directories(shim-library PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/loader)
 
 elseif(UNIX)
 add_library(shim-library SHARED shim.h linux_shim.cpp)
 target_link_libraries(shim-library PRIVATE testing_framework_common)
-target_include_directories(shim-library PUBLIC ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(shim-library PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 elseif(APPLE)
 
 endif()
 
-loader_framework_config_helper(shim_config shim_config_generated_output)
-add_dependencies(shim-library shim_config_generated_output)
+loader_framework_config_helper(shim_config shim_config_generated_target)
+target_link_libraries(shim-library PRIVATE shim_config_generated_target)
 

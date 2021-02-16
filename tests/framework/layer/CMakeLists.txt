@@ -16,7 +16,7 @@
 # ~~~
 
 add_library(test_layer_util STATIC layer_util.cpp layer_util.h)
-target_include_directories(test_layer_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(test_layer_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR})
 target_link_libraries(test_layer_util PRIVATE testing_framework_common)
 
 add_library(test_layer_deps INTERFACE)
@@ -29,15 +29,8 @@ target_compile_definitions(test_layer_deps  INTERFACE
     $<$<PLATFORM_ID:WIN32>:-DWIN32_LEAN_AND_MEAN,-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING>
     VK_NO_PROTOTYPES)
 
-target_link_libraries(test_layer_deps INTERFACE Vulkan::Headers testing_framework_base_target testing_framework_util test_layer_util)
-target_include_directories(test_layer_deps INTERFACE ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_BINARY_DIR}/tests/framework)
+loader_framework_config_helper(layer_defs layer_definitions_generated_target)
+target_link_libraries(test_layer_deps INTERFACE layer_definitions_generated_target Vulkan::Headers testing_framework_util test_layer_util)
 
 add_library(test_layer_existence SHARED existence_layer.cpp)
 target_link_libraries(test_layer_existence PRIVATE test_layer_deps)
-
-loader_framework_config_helper(layer_defs layer_definitions_generated_output)
-
-add_library(test_layer_definitions INTERFACE)
-target_include_directories(test_layer_definitions INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-add_dependencies(test_layer_definitions layer_definitions_generated_output test_layer_existence)
-

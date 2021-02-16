@@ -27,11 +27,6 @@
 
 #include "test_environment.h"
 
-#include "driver_defs.h"
-#include "icd/test_icd.h"
-
-#include "framework_config.h"
-
 struct DriverSetup {
     DriverSetup(const char* driver_path, const char* manifest_name)
         : driver_store(FRAMEWORK_BUILD_DIRECTORY, "version_test_manifests") {

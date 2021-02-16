@@ -28,7 +28,12 @@ target_compile_options(testing_framework_base_target INTERFACE
 if(UNIX AND NOT APPLE)
     target_compile_options(testing_framework_base_target INTERFACE -fPIC)
 endif()
-target_include_directories(testing_framework_base_target INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(testing_framework_base_target INTERFACE ${CMAKE_SOURCE_DIR}/tests/framework)
+
+if (UNIX)
+    target_compile_options(testing_framework_base_target INTERFACE -fsanitize=address)
+    target_link_options(testing_framework_base_target INTERFACE -fsanitize=address)
+endif (UNIX)
 
 add_subdirectory(util)
 add_subdirectory(shim)
@@ -40,19 +45,12 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/framework_config.h.in" "${CMAKE_CURR
 
 add_library(test-environment STATIC test_environment.cpp test_environment.h)
 target_link_libraries(test-environment
-    PUBLIC test_icd_definitions test_layer_definitions gtest gtest_main
-    testing_framework_common testing_framework_util shim-library)
-target_include_directories(test-environment PUBLIC ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_BINARY_DIR}/tests/framework ${CMAKE_CURRENT_SOURCE_DIR})
+    PUBLIC gtest gtest_main test_icd_definitions_generated_target layer_definitions_generated_target testing_framework_util shim_config_generated_target shim-library)
+target_include_directories(test-environment PUBLIC ${CMAKE_BINARY_DIR}/tests/framework)
 target_compile_definitions(test-environment PUBLIC "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
 add_library(testing_dependencies INTERFACE)
 
-# if (UNIX)
-#     target_compile_options(testing_dependencies INTERFACE -fsanitize=address)
-#     target_link_options(testing_dependencies INTERFACE -fsanitize=address)
-# endif (UNIX)
-
-target_include_directories(testing_dependencies INTERFACE ${CMAKE_SOURCE_DIR}/tests/framework ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_options(testing_dependencies INTERFACE $<$<PLATFORM_ID:WIN32>:${MSVC_LOADER_COMPILE_OPTIONS},/permissive->)
 target_compile_definitions(testing_dependencies INTERFACE
 # Workaround for TR1 deprecation in Visual Studio 15.5 until Google Test is updated
@@ -61,11 +59,14 @@ target_compile_definitions(testing_dependencies INTERFACE
 target_compile_definitions(testing_dependencies INTERFACE "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 target_link_libraries(testing_dependencies INTERFACE Vulkan::Headers testing_framework_base_target test-environment)
 
+add_executable(loader_regression_tests loader_testing_framework.cpp)
+target_link_libraries(loader_regression_tests PRIVATE testing_dependencies)
+
 add_executable(loader_versions_tests loader_version_tests.cpp)
 target_link_libraries(loader_versions_tests PRIVATE testing_dependencies)
 
-add_executable(loader_regression_tests loader_testing_framework.cpp loader_wsi_tests.cpp loader_testing_main.cpp )
-target_link_libraries(loader_regression_tests PRIVATE testing_dependencies)
+add_executable(loader_wsi_tests loader_wsi_tests.cpp)
+target_link_libraries(loader_wsi_tests PRIVATE testing_dependencies)
 
 # Copy loader and googletest (gtest) libs to test dir so the test executable can find them.
 if(WIN32)

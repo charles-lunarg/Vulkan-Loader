@@ -26,7 +26,6 @@
  */
 
 #include "test_environment.h"
-#include "driver_defs.h"
 
 class RegressionTests : public ::testing::Test {
    protected:
@@ -106,3 +105,11 @@ TEST_F(RegressionTests, CreateSurfaceWin32) {
 }
 
 #endif
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+
+    int result = RUN_ALL_TESTS();
+    return result;
+}
