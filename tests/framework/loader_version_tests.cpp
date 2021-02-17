@@ -215,9 +215,8 @@ TEST_F(ICDInterfaceVersion2Plus, version_5) {
     InstanceCreateInfo inst_create_info;
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
-    VkResult result =
-        env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, physical_device_handles.data());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
+                                                                              physical_device_handles.data()));
     ASSERT_EQ(physical_count, returned_physical_count);
     ASSERT_EQ(driver.called_enumerate_adapter_physical_devices, CalledEnumerateAdapterPhysicalDevices::not_called);
 }
@@ -234,9 +233,8 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 
     driver.min_icd_interface_version = 6;
 
-    
     SHIM_D3DKMT_ADAPTERINFO d3dkmt_adapter_info{};
-    
+
     DXGIDriver dxgi_driver(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GPUPreference::high_performance);
     env->platform_shim->add_dxgi_manifest(dxgi_driver);
     DXGI_ADAPTER_DESC1 desc1{};
@@ -255,11 +253,10 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     InstanceCreateInfo inst_create_info;
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
-    VkResult result = env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr));
     ASSERT_EQ(physical_count, returned_physical_count);
-    result =
-        env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, physical_device_handles.data());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
+                                                                              physical_device_handles.data()));
     ASSERT_EQ(physical_count, returned_physical_count);
     ASSERT_EQ(driver.called_enumerate_adapter_physical_devices, CalledEnumerateAdapterPhysicalDevices::called);
 }

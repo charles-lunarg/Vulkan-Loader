@@ -183,8 +183,21 @@ struct DeviceWrapper {
 inline bool operator==(const VkExtent3D& a, const VkExtent3D& b) {
     return a.width == b.width && a.height == b.height && a.depth == b.depth;
 }
+inline bool operator!=(const VkExtent3D& a, const VkExtent3D& b) { return !(a == b); }
 
 inline bool operator==(const VkQueueFamilyProperties& a, const VkQueueFamilyProperties& b) {
     return a.minImageTransferGranularity == b.minImageTransferGranularity && a.queueCount == b.queueCount &&
            a.queueFlags == b.queueFlags && a.timestampValidBits == b.timestampValidBits;
 }
+inline bool operator!=(const VkQueueFamilyProperties& a, const VkQueueFamilyProperties& b) { return !(a == b); }
+
+inline bool operator==(const VkLayerProperties& a, const VkLayerProperties& b) {
+    return strncmp(a.layerName, b.layerName, 256) == 0 && strncmp(a.description, b.description, 256) == 0 &&
+           a.implementationVersion == b.implementationVersion && a.specVersion == b.specVersion;
+}
+inline bool operator!=(const VkLayerProperties& a, const VkLayerProperties& b) { return !(a == b); }
+
+inline bool operator==(const VkExtensionProperties& a, const VkExtensionProperties& b) {
+    return strncmp(a.extensionName, b.extensionName, 256) == 0 && a.specVersion == b.specVersion;
+}
+inline bool operator!=(const VkExtensionProperties& a, const VkExtensionProperties& b) { return !(a == b); }

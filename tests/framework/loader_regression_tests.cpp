@@ -62,15 +62,13 @@ TEST_F(RegressionTests, CreateInstance_ExtensionNotPresent) {
         VkInstance inst = VK_NULL_HANDLE;
         auto inst_info = driver.GetVkInstanceCreateInfo();
         inst_info.add_extension("VK_EXT_validation_features");  // test icd won't report this as supported
-        VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
-        ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+        ASSERT_EQ(VK_ERROR_EXTENSION_NOT_PRESENT,  env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst));
     }
     {
         VkInstance inst = VK_NULL_HANDLE;
         auto inst_info = driver.GetVkInstanceCreateInfo();
         inst_info.add_extension("Non_existant_extension");  // unknown instance extension
-        VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
-        ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+        ASSERT_EQ(VK_ERROR_EXTENSION_NOT_PRESENT,  env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst));
     }
 }
 
@@ -81,8 +79,7 @@ TEST_F(RegressionTests, CreateInstance_LayerNotPresent) {
     auto inst_info = driver.GetVkInstanceCreateInfo();
     inst_info.add_layer("non_existant_layer");
 
-    VkResult result = env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst);
-    ASSERT_EQ(result, VK_ERROR_LAYER_NOT_PRESENT);
+    ASSERT_EQ(VK_ERROR_LAYER_NOT_PRESENT,  env->vulkan_functions.fp_vkCreateInstance(inst_info.get(), VK_NULL_HANDLE, &inst));
 }
 /*
 TEST_F(RegressionTests, CreateInstance_LayerPresent) {
@@ -123,8 +120,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_OneCall) {
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = driver.physical_devices.size();
     std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
-    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count, physical_device_handles.data());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS,  inst->fp_vkEnumeratePhysicalDevices(inst, &returned_physical_count, physical_device_handles.data()));
     ASSERT_EQ(physical_count, returned_physical_count);
 }
 
@@ -141,14 +137,12 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCall) {
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = 0;
-    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr);
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst->fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr));
     ASSERT_EQ(physical_count, returned_physical_count);
 
     std::unique_ptr<VkPhysicalDevice[]> physical_device_handles(new VkPhysicalDevice[physical_count]);
-    result =
-        env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, physical_device_handles.get());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
+                                                                              physical_device_handles.get()));
     ASSERT_EQ(physical_count, returned_physical_count);
 }
 
@@ -167,9 +161,8 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
     uint32_t physical_count_one_call = driver.physical_devices.size();
     uint32_t returned_physical_count_one_call = driver.physical_devices.size();
     std::unique_ptr<VkPhysicalDevice[]> physical_device_handles_one_call(new VkPhysicalDevice[physical_count_one_call]);
-    VkResult result =
-        inst1->fp_vkEnumeratePhysicalDevices(inst1, &returned_physical_count_one_call, physical_device_handles_one_call.get());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst1->fp_vkEnumeratePhysicalDevices(inst1, &returned_physical_count_one_call,
+                                                               physical_device_handles_one_call.get()));
     ASSERT_EQ(physical_count_one_call, returned_physical_count_one_call);
 
     InstWrapper inst2{env->vulkan_functions};
@@ -177,13 +170,11 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_MatchOneAndTwoCallNumbers) {
 
     uint32_t physical_count = driver.physical_devices.size();
     uint32_t returned_physical_count = 0;
-    result = inst2->fp_vkEnumeratePhysicalDevices(inst2, &returned_physical_count, nullptr);
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst2->fp_vkEnumeratePhysicalDevices(inst2, &returned_physical_count, nullptr));
     ASSERT_EQ(physical_count, returned_physical_count);
 
     std::unique_ptr<VkPhysicalDevice[]> physical_device_handles(new VkPhysicalDevice[physical_count]);
-    result = inst2->fp_vkEnumeratePhysicalDevices(inst2, &returned_physical_count, physical_device_handles.get());
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst2->fp_vkEnumeratePhysicalDevices(inst2, &returned_physical_count, physical_device_handles.get()));
     ASSERT_EQ(physical_count, returned_physical_count);
 
     ASSERT_EQ(returned_physical_count, returned_physical_count);
@@ -201,8 +192,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
     uint32_t physical_count = 0;
-    VkResult result = inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, nullptr);
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, nullptr));
     ASSERT_EQ(physical_count, driver.physical_devices.size());
 
     std::unique_ptr<VkPhysicalDevice[]> physical(new VkPhysicalDevice[physical_count]);
@@ -210,8 +200,7 @@ TEST_F(RegressionTests, EnumeratePhysicalDevices_TwoCallIncomplete) {
     // Remove one from the physical device count so we can get the VK_INCOMPLETE message
     physical_count = 1;
 
-    result = inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, physical.get());
-    ASSERT_EQ(result, VK_INCOMPLETE);
+    ASSERT_EQ(VK_INCOMPLETE, inst->fp_vkEnumeratePhysicalDevices(inst, &physical_count, physical.get()));
     ASSERT_EQ(physical_count, 1);
 }
 
@@ -280,8 +269,7 @@ TEST_F(RegressionTests, CreateDevice_ExtensionNotPresent) {
     dev_create_info.add_device_queue(queue_info);
 
     VkDevice device;
-    VkResult result = inst->fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device);
-    ASSERT_EQ(result, VK_ERROR_EXTENSION_NOT_PRESENT);
+    ASSERT_EQ(VK_ERROR_EXTENSION_NOT_PRESENT, inst->fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device));
 }
 
 TEST_F(RegressionTests, CreateDevice_LayersNotPresent) {
@@ -315,8 +303,7 @@ TEST_F(RegressionTests, CreateDevice_LayersNotPresent) {
     dev_create_info.add_device_queue(queue_info);
 
     VkDevice device;
-    VkResult result = inst->fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device);
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, inst->fp_vkCreateDevice(phys_dev, dev_create_info.get(), nullptr, &device));
 }
 
 // TODO: Layer support
@@ -332,15 +319,128 @@ TEST_F(RegressionTests, EnumerateInstanceLayerProperties_PropertyCountLessThanAv
     env->AddExplicitLayer(layer, "test_layer_1.json");
     env->AddExplicitLayer(layer, "test_layer_2.json");
 
-    auto& driver = env->get_test_icd();
-
     uint32_t layer_count = 0;
-    VkResult result = env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-    ASSERT_EQ(result, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
     ASSERT_EQ(layer_count, 2);
 
     std::array<VkLayerProperties, 2> layers;
-    layer_count = 1;
-    result = env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
-    ASSERT_EQ(result, VK_INCOMPLETE);
+    layer_count = 1;  // artificially remove one layer
+    ASSERT_EQ(VK_INCOMPLETE, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data()));
+    ASSERT_EQ(layer_count, 1);
+    ASSERT_EQ(layers[0], layer_desc.get_layer_properties());
+    ASSERT_NE(layers[1], layer_desc.get_layer_properties());
+}
+
+/*
+TEST_F(RegressionTests, EnumerateDeviceLayerProperties_PropertyCountLessThanAvailable){
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = "ExistenceLayer";
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer;
+    layer.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer, "test_layer_1.json");
+    env->AddExplicitLayer(layer, "test_layer_2.json");
+
+    MockQueueFamilyProperties family_props{{VK_QUEUE_GRAPHICS_BIT, 1, 0, {1, 1, 1}}, true};
+
+    auto& driver = env->get_test_icd();
+    driver.physical_devices.emplace_back("physical_device_0");
+
+    InstWrapper inst{env->vulkan_functions};
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
+
+    VkPhysicalDevice phys_dev;
+    ASSERT_EQ(CreatePhysDev(inst, phys_dev), VK_SUCCESS);
+
+    uint32_t layer_count = 0;
+    ASSERT_EQ(VK_SUCCESS, inst->fp_vkEnumerateDeviceLayerProperties(phys_dev, &layer_count, nullptr));
+    ASSERT_EQ(layer_count, 2);
+
+    std::array<VkLayerProperties, 2> layers;
+    layer_count = 1; //artificially remove one layer
+
+    ASSERT_EQ(VK_INCOMPLETE, inst->fp_vkEnumerateDeviceLayerProperties(phys_dev, &layer_count, layers.data()));
+    ASSERT_EQ(layer_count, 1);
+}
+*/
+
+TEST_F(RegressionTests, EnumerateInstanceLayerProperties_Count) {
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = "ExistenceLayer";
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer;
+    layer.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer, "test_layer_1.json");
+    env->AddExplicitLayer(layer, "test_layer_2.json");
+
+    uint32_t layer_count = 0;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
+    ASSERT_EQ(layer_count, 2);
+}
+
+TEST_F(RegressionTests, EnumerateInstanceLayerProperties_OnePass) {
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = "ExistenceLayer";
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer;
+    layer.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer, "test_layer_1.json");
+    env->AddExplicitLayer(layer, "test_layer_2.json");
+
+    uint32_t layer_count = 2;
+    std::array<VkLayerProperties, 2> layers;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data()));
+    ASSERT_EQ(layer_count, 2);
+    ASSERT_EQ(layers[0], layer_desc.get_layer_properties());
+    ASSERT_EQ(layers[1], layer_desc.get_layer_properties());
+}
+
+TEST_F(RegressionTests, EnumerateInstanceLayerProperties_TwoPass) {
+    ManifestLayer::LayerDescription layer_desc;
+    layer_desc.name = "ExistenceLayer";
+    layer_desc.description = "Test layer";
+    layer_desc.lib_path = TEST_LAYER_PATH_EXISTENCE;
+
+    ManifestLayer layer;
+    layer.layers.push_back(layer_desc);
+
+    env->AddExplicitLayer(layer, "test_layer_1.json");
+    env->AddExplicitLayer(layer, "test_layer_2.json");
+
+    uint32_t layer_count = 0;
+    std::array<VkLayerProperties, 2> layers;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
+    ASSERT_EQ(layer_count, 2);
+
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data()));
+    ASSERT_EQ(layer_count, 2);
+    ASSERT_EQ(layers[0], layer_desc.get_layer_properties());
+    ASSERT_EQ(layers[1], layer_desc.get_layer_properties());
+}
+
+TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_PropertyCountLessThanAvailable) {
+    Extension first_ext{"FirstTestExtension"};
+    Extension second_ext{"SecondTestExtension"};
+    env->get_new_test_icd().AddInstanceExtensions({first_ext, second_ext});
+
+    uint32_t extension_count = 0;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
+    ASSERT_EQ(extension_count, 2);
+    extension_count = 1;  // artificially remove one extension
+
+    std::array<VkExtensionProperties, 2> extensions;
+    ASSERT_EQ(VK_INCOMPLETE, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
+    ASSERT_EQ(extension_count, 1);
+
+    ASSERT_EQ(extensions[0], first_ext.get());
 }

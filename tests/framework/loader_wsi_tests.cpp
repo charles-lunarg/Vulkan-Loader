@@ -103,8 +103,7 @@ TEST_F(RegressionTests, CreateSurfaceWin32) {
     surf_create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     surf_create_info.hwnd = h_wnd;
     surf_create_info.hinstance = h_instance;
-    VkResult res = env->vulkan_functions.fp_vkCreateWin32SurfaceKHR(inst, &surf_create_info, nullptr, &surface);
-    ASSERT_EQ(res, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateWin32SurfaceKHR(inst, &surf_create_info, nullptr, &surface));
     ASSERT_TRUE(surface != nullptr);
     //    ASSERT_EQ(driver.is_using_icd_wsi, UsingICDProvidedWSI::not_using);
 
@@ -165,8 +164,7 @@ TEST_F(RegressionTests, CreateSurfaceXCB) {
     xcb_createInfo.window = xcb_window;
 
     VkSurfaceKHR surface{};
-    VkResult res = env->vulkan_functions.fp_vkCreateXcbSurfaceKHR(inst, &xcb_createInfo, nullptr, &surface);
-    ASSERT_EQ(res, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateXcbSurfaceKHR(inst, &xcb_createInfo, nullptr, &surface));
     ASSERT_TRUE(surface != nullptr);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
@@ -215,8 +213,7 @@ TEST_F(RegressionTests, CreateSurfaceXLIB) {
     createInfo.window = xlib_window;
 
     VkSurfaceKHR surface;
-    VkResult res = env->vulkan_functions.fp_vkCreateXlibSurfaceKHR(inst, &createInfo, nullptr, &surface);
-    ASSERT_EQ(res, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateXlibSurfaceKHR(inst, &createInfo, nullptr, &surface));
     ASSERT_TRUE(surface != nullptr);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
@@ -263,7 +260,7 @@ TEST_F(RegressionTests, CreateSurfaceWayland) {
     wayland.display = wl_display_connect(nullptr);
     ASSERT_NE(wayland.display, nullptr);
     wayland.registry = wl_display_get_registry(wayland.display);
-    wl_registry_add_listener(wl_display_get_registry(wayland.display), &wayland_registry_listener, static_cast<void *>(&wayland));
+    wl_registry_add_listener(wl_display_get_registry(wayland.display), &wayland_registry_listener, static_cast<void*>(&wayland));
     wl_display_roundtrip(wayland.display);
     wl_registry_destroy(wayland.registry);
 
@@ -275,8 +272,7 @@ TEST_F(RegressionTests, CreateSurfaceWayland) {
     createInfo.surface = wayland.surface;
 
     VkSurfaceKHR surface;
-    VkResult res = env->vulkan_functions.fp_vkCreateWaylandSurfaceKHR(inst, &createInfo, nullptr, &surface);
-    ASSERT_EQ(res, VK_SUCCESS);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateWaylandSurfaceKHR(inst, &createInfo, nullptr, &surface));
     ASSERT_TRUE(surface != nullptr);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);

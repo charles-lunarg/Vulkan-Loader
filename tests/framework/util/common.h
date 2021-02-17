@@ -139,6 +139,7 @@ struct ManifestLayer {
         std::vector<std::string> pre_instance_functions;
 
         std::string get_manifest_str() const;
+        VkLayerProperties get_layer_properties() const;
     };
     uint32_t file_format_major = 1;
     uint32_t file_format_minor = 1;
@@ -157,7 +158,7 @@ struct Extension {
 
     VkExtensionProperties get() const noexcept {
         VkExtensionProperties props{};
-        std::strncpy(props.extensionName, extensionName.data(), VK_MAX_EXTENSION_NAME_SIZE);
+        std::strncpy(props.extensionName, extensionName.c_str(), VK_MAX_EXTENSION_NAME_SIZE);
         props.specVersion = specVersion;
         return props;
     }
