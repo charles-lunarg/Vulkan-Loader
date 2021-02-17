@@ -15,6 +15,8 @@
 # limitations under the License.
 # ~~~
 
+option(LOADER_TEST_ENABLE_ADDRESS_SANITIZER "Linux only: Advanced memory checking" ON)
+
 add_library(testing_framework_base_target INTERFACE)
 target_compile_options(testing_framework_base_target INTERFACE
     $<$<PLATFORM_ID:WIN32>:-DVK_USE_PLATFORM_WIN32_KHR>
@@ -30,10 +32,13 @@ if(UNIX AND NOT APPLE)
 endif()
 target_include_directories(testing_framework_base_target INTERFACE ${CMAKE_SOURCE_DIR}/tests/framework)
 
-if (UNIX)
+
+if (LOADER_TEST_ENABLE_ADDRESS_SANITIZER AND UNIX)
     target_compile_options(testing_framework_base_target INTERFACE -fsanitize=address)
     target_link_options(testing_framework_base_target INTERFACE -fsanitize=address)
-endif (UNIX)
+    target_compile_options(vulkan PUBLIC -fsanitize=address)
+    target_link_options(vulkan PUBLIC INTERFACE -fsanitize=address)
+endif (LOADER_TEST_ENABLE_ADDRESS_SANITIZER AND UNIX)
 
 add_subdirectory(util)
 add_subdirectory(shim)
@@ -45,7 +50,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/framework_config.h.in" "${CMAKE_CURR
 
 add_library(test-environment STATIC test_environment.cpp test_environment.h)
 target_link_libraries(test-environment
-    PUBLIC gtest gtest_main test_icd_definitions_generated_target layer_definitions_generated_target testing_framework_util shim_config_generated_target shim-library)
+    PUBLIC gtest test_icd_definitions_generated_target layer_definitions_generated_target testing_framework_util shim_config_generated_target shim-library)
 target_include_directories(test-environment PUBLIC ${CMAKE_BINARY_DIR}/tests/framework)
 target_compile_definitions(test-environment PUBLIC "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
@@ -59,25 +64,36 @@ target_compile_definitions(testing_dependencies INTERFACE
 target_compile_definitions(testing_dependencies INTERFACE "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 target_link_libraries(testing_dependencies INTERFACE Vulkan::Headers testing_framework_base_target test-environment)
 
-add_executable(loader_regression_tests loader_testing_framework.cpp)
+add_executable(loader_regression_tests loader_testing_main.cpp loader_regression_tests.cpp loader_version_tests.cpp)
 target_link_libraries(loader_regression_tests PRIVATE testing_dependencies)
 
-add_executable(loader_versions_tests loader_version_tests.cpp)
-target_link_libraries(loader_versions_tests PRIVATE testing_dependencies)
-
-add_executable(loader_wsi_tests loader_wsi_tests.cpp)
+add_executable(loader_wsi_tests loader_testing_main.cpp loader_wsi_tests.cpp)
 target_link_libraries(loader_wsi_tests PRIVATE testing_dependencies)
+
+if(UNIX AND NOT APPLE) # i.e. Linux
+    if(BUILD_WSI_XCB_SUPPORT)
+        target_include_directories(loader_wsi_tests PRIVATE ${XCB_INCLUDE_DIRS})
+        target_link_libraries(loader_wsi_tests PRIVATE ${XCB_LIBRARIES})
+    endif()
+
+    if(BUILD_WSI_XLIB_SUPPORT)
+        target_include_directories(loader_wsi_tests PRIVATE ${X11_INCLUDE_DIR})
+        target_link_libraries(loader_wsi_tests PRIVATE ${X11_LIBRARIES})
+    endif()
+
+    if(BUILD_WSI_WAYLAND_SUPPORT)
+        target_include_directories(loader_wsi_tests PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIR})
+        target_link_libraries(loader_wsi_tests PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+    endif()
+endif()
 
 # Copy loader and googletest (gtest) libs to test dir so the test executable can find them.
 if(WIN32)
     if(CMAKE_GENERATOR MATCHES "^Visual Studio.*")
-        file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/$<CONFIG>/gtest_main$<$<CONFIG:Debug>:d>.dll
-                            GTEST_COPY_SRC1)
         file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/$<CONFIG>/gtest$<$<CONFIG:Debug>:d>.dll
                             GTEST_COPY_SRC2)
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG> GTEST_COPY_DEST)
     else()
-        file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/gtest_main$<$<CONFIG:Debug>:d>.dll GTEST_COPY_SRC1)
         file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/gtest$<$<CONFIG:Debug>:d>.dll GTEST_COPY_SRC2)
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR} GTEST_COPY_DEST)
     endif()

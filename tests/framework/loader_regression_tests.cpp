@@ -344,11 +344,3 @@ TEST_F(RegressionTests, EnumerateInstanceLayerProperties_PropertyCountLessThanAv
     result = env->vulkan_functions.fp_vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
     ASSERT_EQ(result, VK_INCOMPLETE);
 }
-
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-
-    int result = RUN_ALL_TESTS();
-    return result;
-}

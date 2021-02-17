@@ -1,8 +1,9 @@
 #pragma once
 
+// Must be first to guard against GTest and Xlib colliding due to redefinitions of "None" and "Bool"
+#include "util/include_gtest.h"
 #include "util/common.h"
 #include "util/test_util.h"
-#include "util/include_gtest.h"
 
 #include "shim/shim.h"
 

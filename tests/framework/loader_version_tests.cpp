@@ -78,6 +78,7 @@ TEST(DriverICDGIPA, version_1) {
 // support vk_icdNegotiateLoaderICDInterfaceVersion but not vk_icdGetInstanceProcAddr
 // should assert that `interface_vers == 0` due to version mismatch, only checkable in Debug Mode
 TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_version) {
+    //needed to surpress debug assert popups on windows
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
     DriverSetup setup(TEST_ICD_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "test_icd_export_negotiate_interface_version.json");
 
@@ -248,22 +249,21 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 #endif  // defined(WIN32)
 
 TEST(MultipleDriverConfig, Basic) {
-    MultipleDriverShim env({TestICDDetails(TEST_ICD_PATH_VERSION_2),
-                        TestICDDetails(TEST_ICD_PATH_VERSION_2),
-                        TestICDDetails(TEST_ICD_PATH_VERSION_2)},
-                        DebugMode::none);
+    MultipleDriverShim env(
+        {TestICDDetails(TEST_ICD_PATH_VERSION_2), TestICDDetails(TEST_ICD_PATH_VERSION_2), TestICDDetails(TEST_ICD_PATH_VERSION_2)},
+        DebugMode::none);
 
     env.get_test_icd(0).physical_devices.emplace_back("physical_device_0");
-    strcpy(env.get_test_icd(0).physical_devices.at(0).properties.deviceName, "dev0");
-    env.get_test_icd(0).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-
     env.get_test_icd(1).physical_devices.emplace_back("physical_device_1");
-    strcpy(env.get_test_icd(1).physical_devices.at(0).properties.deviceName, "dev1");
-    env.get_test_icd(1).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
-
     env.get_test_icd(2).physical_devices.emplace_back("physical_device_2");
-    strcpy(env.get_test_icd(2).physical_devices.at(0).properties.deviceName, "dev2");
+
+    env.get_test_icd(0).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    env.get_test_icd(1).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
     env.get_test_icd(2).physical_devices.at(0).properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_CPU;
+
+    strcpy(env.get_test_icd(0).physical_devices.at(0).properties.deviceName, "dev0");
+    strcpy(env.get_test_icd(1).physical_devices.at(0).properties.deviceName, "dev1");
+    strcpy(env.get_test_icd(2).physical_devices.at(0).properties.deviceName, "dev2");
 
     InstWrapper inst{env.vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -278,10 +278,26 @@ TEST(MultipleDriverConfig, Basic) {
     ASSERT_EQ(env.get_test_icd(2).physical_devices.at(0).properties.deviceType, VK_PHYSICAL_DEVICE_TYPE_CPU);
 }
 
-int main(int argc, char** argv) {
-    int result;
+TEST(MultipleDriverConfig, DifferentICDInterfaceVersions) {
+    MultipleDriverShim env({TestICDDetails(TEST_ICD_PATH_EXPORT_ICD_GIPA), TestICDDetails(TEST_ICD_PATH_VERSION_2),
+                            TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA)},
+                           DebugMode::none);
 
-    ::testing::InitGoogleTest(&argc, argv);
-    result = RUN_ALL_TESTS();
-    return result;
+    TestICD& icd0 = env.get_test_icd(0);
+    icd0.physical_devices.emplace_back("physical_device_0");
+    icd0.max_icd_interface_version = 1;
+
+    TestICD& icd1 = env.get_test_icd(1);
+    icd1.physical_devices.emplace_back("physical_device_1");
+    icd1.min_icd_interface_version = 2;
+    icd1.max_icd_interface_version = 5;
+
+    InstWrapper inst{env.vulkan_functions};
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
+
+    std::array<VkPhysicalDevice, 2> phys_devs_array;
+    uint32_t phys_dev_count = 2;
+    ASSERT_EQ(env.vulkan_functions.fp_vkEnumeratePhysicalDevices(inst, &phys_dev_count, phys_devs_array.data()), VK_SUCCESS);
+    ASSERT_EQ(phys_dev_count, 2);
 }

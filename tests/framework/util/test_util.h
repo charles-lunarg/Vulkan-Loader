@@ -69,10 +69,10 @@ struct VulkanFunctions {
     PFN_vkCreateAndroidSurfaceKHR fp_vkCreateAndroidSurfaceKHR;
 #endif
 #ifdef VK_USE_PLATFORM_METAL_EXT
-    PFN_vkCreateMetalSurfaceEXT fp_vkCreateMetalSurfaceEXT
+    PFN_vkCreateMetalSurfaceEXT fp_vkCreateMetalSurfaceEXT;
 #endif
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
-        PFN_vkCreateWaylandSurfaceKHR fp_vkCreateWaylandSurfaceKHR;
+    PFN_vkCreateWaylandSurfaceKHR fp_vkCreateWaylandSurfaceKHR;
 #endif
 #ifdef VK_USE_PLATFORM_XCB_KHR
     PFN_vkCreateXcbSurfaceKHR fp_vkCreateXcbSurfaceKHR;
@@ -180,7 +180,7 @@ struct DeviceWrapper {
     VkDevice dev = VK_NULL_HANDLE;
 };
 
-inline bool operator==(const VkExtent3D & a, const VkExtent3D & b) {
+inline bool operator==(const VkExtent3D& a, const VkExtent3D& b) {
     return a.width == b.width && a.height == b.height && a.depth == b.depth;
 }
 

@@ -27,11 +27,19 @@
 
 #include "test_environment.h"
 
-void print_cmd_line_arg_help() { std::cout << ""; }
-
-
-
 int main(int argc, char** argv) {
+#if defined(_WIN32)
+#if !defined(NDEBUG)
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
+    // Avoid "Abort, Retry, Ignore" dialog boxes
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
+
     ::testing::InitGoogleTest(&argc, argv);
 
     int result = RUN_ALL_TESTS();

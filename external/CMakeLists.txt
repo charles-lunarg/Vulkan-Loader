@@ -25,7 +25,7 @@ if(BUILD_TESTS)
     set(gtest_force_shared_crt ON CACHE BOOL "Link gtest runtimes dynamically")
     set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries")
     # Attempt to enable if it is available.
-    if(TARGET gtest_main)
+    if(TARGET gtest)
         # Already enabled as a target (perhaps by a project enclosing this one)
         message(STATUS "Vulkan-Loader/external: " "googletest already configured - using it")
     elseif(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/googletest")
@@ -44,7 +44,7 @@ if(BUILD_TESTS)
                          BINARY_DIR          "${CMAKE_CURRENT_BINARY_DIR}/googletest"
                          UPDATE_DISCONNECTED 1
                          QUIET
-        )        
+        )
         # EXCLUDE_FROM_ALL keeps the install target from installing GTEST files.
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/googletest" EXCLUDE_FROM_ALL)
     endif()
@@ -67,9 +67,9 @@ if(BUILD_TESTS)
                                 BINARY_DIR          "${CMAKE_CURRENT_BINARY_DIR}/detours"
                                 UPDATE_DISCONNECTED 1
                                 QUIET
-                )        
+                )
             endif()
-            add_library(detours STATIC 
+            add_library(detours STATIC
                 ${CMAKE_CURRENT_SOURCE_DIR}/detours/src/creatwth.cpp
                 ${CMAKE_CURRENT_SOURCE_DIR}/detours/src/detours.cpp
                 ${CMAKE_CURRENT_SOURCE_DIR}/detours/src/detours.h
@@ -107,7 +107,7 @@ if(BUILD_TESTS)
             set(DETOURS_MINOR_VERSION "0")
             set(DETOURS_PATCH_VERSION "1")
             set(DETOURS_VERSION "${DETOURS_MAJOR_VERSION}.${DETOURS_MINOR_VERSION}.${DETOURS_PATCH_VERSION}")
-          
+
             include_directories("${CMAKE_CURRENT_SOURCE_DIR}/detours/src")
 
             if(MSVC_VERSION GREATER_EQUAL 1700)
@@ -118,7 +118,7 @@ if(BUILD_TESTS)
                 target_compile_definitions(detours PUBLIC _USING_V110_SDK71_ DETOURS_WIN_7)
             endif(ver EQUAL 0x0700)
             target_compile_definitions(detours PUBLIC "_WIN32_WINNT=${ver}")
-            
+
             if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
                 target_compile_definitions(detours PUBLIC "DETOURS_TARGET_PROCESSOR=X64" DETOURS_X64 DETOURS_64BIT _AMD64_)
             else("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
@@ -129,7 +129,7 @@ if(BUILD_TESTS)
 
             if(MSVC)
                 target_compile_definitions(detours PUBLIC  "_CRT_SECURE_NO_WARNINGS=1")
-                set_target_properties(detours PROPERTIES COMPILE_FLAGS /EHsc)            
+                set_target_properties(detours PROPERTIES COMPILE_FLAGS /EHsc)
             endif()
         endif()
     endif()
