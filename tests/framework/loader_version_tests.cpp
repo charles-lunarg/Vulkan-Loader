@@ -78,8 +78,8 @@ TEST(DriverICDGIPA, version_1) {
 // support vk_icdNegotiateLoaderICDInterfaceVersion but not vk_icdGetInstanceProcAddr
 // should assert that `interface_vers == 0` due to version mismatch, only checkable in Debug Mode
 TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_version) {
-    //needed to surpress debug assert popups on windows
-    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+    // may be needed to surpress debug assert popups on windows
+    //::testing::FLAGS_gtest_death_test_style = "threadsafe";
     DriverSetup setup(TEST_ICD_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "test_icd_export_negotiate_interface_version.json");
 
     InstWrapper inst{setup.vulkan_functions};
@@ -129,7 +129,7 @@ TEST_F(ICDInterfaceVersion2Plus, vk_icdNegotiateLoaderICDInterfaceVersion) {
     }
 }
 
-TEST_F(ICDInterfaceVersion2Plus, version3) {
+TEST_F(ICDInterfaceVersion2Plus, version_3) {
     auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_0");
     {
@@ -158,7 +158,7 @@ TEST_F(ICDInterfaceVersion2Plus, version3) {
     }
 }
 
-TEST_F(ICDInterfaceVersion2Plus, version4) {
+TEST_F(ICDInterfaceVersion2Plus, version_4) {
     auto& driver = env->get_test_icd();
     driver.physical_devices.emplace_back("physical_device_0");
     InstWrapper inst{env->vulkan_functions};
@@ -233,6 +233,23 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
 
     driver.min_icd_interface_version = 6;
+
+    
+    SHIM_D3DKMT_ADAPTERINFO d3dkmt_adapter_info{};
+    
+    DXGIDriver dxgi_driver(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GPUPreference::high_performance);
+    env->platform_shim->add_dxgi_manifest(dxgi_driver);
+    DXGI_ADAPTER_DESC1 desc1{};
+    desc1.VendorId = 10;
+    desc1.DeviceId = 20;
+    desc1.SubSysId = 30;
+    desc1.Revision = 40;
+    desc1.DedicatedVideoMemory = 123;
+    desc1.DedicatedSystemMemory = 234;
+    desc1.SharedSystemMemory = 101;
+    desc1.AdapterLuid;
+    desc1.Flags = DXGI_ADAPTER_FLAG_NONE;
+    env->platform_shim->add_dxgi_adapter_desc1(desc1);
 
     InstWrapper inst{env->vulkan_functions};
     InstanceCreateInfo inst_create_info;

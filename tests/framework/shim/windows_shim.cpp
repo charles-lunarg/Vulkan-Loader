@@ -33,19 +33,7 @@
 
 #include "shim.h"
 
-#include <cfgmgr32.h>
-#include <initguid.h>
-#include <devpkey.h>
-#include <winternl.h>
-#include <strsafe.h>
-
-#define CINTERFACE
-#include <dxgi1_6.h>
-#include "adapters.h"
-
 #include "detours.h"
-
-#include "util/common.h"
 
 static PlatformShim platform_shim;
 
@@ -61,17 +49,16 @@ static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_List_SizeW)(PULONG pulLen, PCWSTR
 static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_ListW)(PCWSTR pszFilter, PZZWSTR Buffer, ULONG BufferLen,
                                                       ULONG ulFlags) = CM_Get_Device_ID_ListW;
 long ShimEnumAdapters2(LoaderEnumAdapters2 *adapters) {
-    // std::cerr << "shim EnumAdapters2\n";
-
-    // NTSTATUS status = fpLoaderEnumAdapters2(adapters);
-
-    // if (status == STATUS_SUCCESS && adapters->adapter_count > 0) {
-    //     adapters->adapter_count = 0;
-    // }
-    // if (adapters == nullptr) {
-    //     adapters->adapter_count = 0;
-    // }
-
+    if (adapters == nullptr){
+        return STATUS_SUCCESS;
+    }
+    auto& new_adapters = platform_shim.d3dkmt_adapters.at(0).adapters;
+    if (adapters->adapters != nullptr){
+        adapters->adapters = reinterpret_cast<decltype(LoaderEnumAdapters2::adapters)>(new_adapters.data());
+        adapters->adapter_count = new_adapters.size();
+    } else {
+        adapters->adapter_count = new_adapters.size();
+    }
     return STATUS_SUCCESS;
 }
 NTSTATUS APIENTRY ShimQueryAdapterInfo(const LoaderQueryAdapterInfo *query_info) { return fpQueryAdapterInfo(query_info); }
@@ -123,6 +110,8 @@ HRESULT(STDMETHODCALLTYPE *RealGetDesc1)
  /* [annotation][out] */
  _Out_ DXGI_ADAPTER_DESC1 *pDesc);
 
+void create_IDXGIAdapter1(void **ppvAdapter);
+
 HRESULT STDMETHODCALLTYPE ShimEnumAdapters1(IDXGIFactory1 *This,
                                             /* [in] */ UINT Adapter,
                                             /* [annotation][out] */
@@ -142,21 +131,54 @@ HRESULT STDMETHODCALLTYPE ShimEnumAdapters1(IDXGIFactory1 *This,
 HRESULT STDMETHODCALLTYPE ShimEnumAdapterByGpuPreference(IDXGIFactory6 *This, _In_ UINT Adapter,
                                                          _In_ DXGI_GPU_PREFERENCE GpuPreference, _In_ REFIID riid,
                                                          _COM_Outptr_ void **ppvAdapter) {
-    // std::cerr << "Shim EnumAdapterByGpuPreference\n";
     if (Adapter < platform_shim.dxgi_drivers.size()) {
-        //std::cout << "calling into ByGpuPreference\n";
-        return RealEnumAdapterByGpuPreference(This, Adapter, GpuPreference, riid, ppvAdapter);
+        switch (GpuPreference) {
+            case (DXGI_GPU_PREFERENCE::DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE):
+                for (auto &driver : platform_shim.dxgi_drivers) {
+                    if (driver.gpu_preference == GPUPreference::high_performance) {
+                    }
+                }
+                break;
+            case (DXGI_GPU_PREFERENCE::DXGI_GPU_PREFERENCE_MINIMUM_POWER):
+                for (auto &driver : platform_shim.dxgi_drivers) {
+                    if (driver.gpu_preference == GPUPreference::minimum_power) {
+                    }
+                }
+                break;
+            case (DXGI_GPU_PREFERENCE::DXGI_GPU_PREFERENCE_UNSPECIFIED):
+
+                break;
+        }
+        create_IDXGIAdapter1(ppvAdapter);
+        return S_OK;
     } else {
-        //std::cout << "error on ByGpuPreference\n";
         return DXGI_ERROR_NOT_FOUND;
     }
+    return RealEnumAdapterByGpuPreference(This, Adapter, GpuPreference, riid, ppvAdapter);
 }
 
 HRESULT STDMETHODCALLTYPE ShimGetDesc1(IDXGIAdapter1 *This,
                                        /* [annotation][out] */
                                        _Out_ DXGI_ADAPTER_DESC1 *pDesc) {
-    // std::cout << "Intercepted GetDesc1\n";
-    return RealGetDesc1(This, pDesc);
+    if (pDesc != nullptr) {
+        DXGI_ADAPTER_DESC1();
+    }
+    return S_OK;
+}
+
+ULONG STDMETHODCALLTYPE ShimRelease(IDXGIAdapter1 *This) {
+    delete This->lpVtbl;
+    delete This;
+    return S_OK;
+}
+
+void create_IDXGIAdapter1(void **ppvAdapter) {
+    IDXGIAdapter1Vtbl *vtbl = new IDXGIAdapter1Vtbl();
+    vtbl->GetDesc1 = ShimGetDesc1;
+    vtbl->Release = ShimRelease;
+    IDXGIAdapter1 *adapter = new IDXGIAdapter1();
+    adapter->lpVtbl = vtbl;
+    *ppvAdapter = adapter;
 }
 
 // Initialization
@@ -210,10 +232,9 @@ void WINAPI DetourEnumAdapterFunctions() {
     if (dxgi_factory_6 != nullptr) {
         DetourAttach(&(PVOID &)RealEnumAdapterByGpuPreference, ShimEnumAdapterByGpuPreference);
     }
-    // Doesn't work currently
-    // if (!adapter) {
-    //     DetourAttach(&(PVOID &)RealGetDesc1, ShimGetDesc1);
-    // }
+    if (adapter != nullptr) {
+        DetourAttach(&(PVOID &)RealGetDesc1, ShimGetDesc1);
+    }
 
     LONG error = DetourTransactionCommit();
     if (error != NO_ERROR) {
@@ -228,59 +249,68 @@ void WINAPI DetourEnumAdapterFunctions() {
     }
 }
 
+void WINAPI DetourGDI32Functions() {
+    if (!gdi32_dll) {
+        gdi32_dll = LibraryWrapper("gdi32.dll");
+        fpEnumAdapters2 = gdi32_dll.get_symbol<PFN_LoaderEnumAdapters2>("D3DKMTEnumAdapters2");
+        if (fpEnumAdapters2 == nullptr) {
+            std::cerr << "Failed to load D3DKMTEnumAdapters2\n";
+            return;
+        }
+        fpQueryAdapterInfo = gdi32_dll.get_symbol<PFN_LoaderQueryAdapterInfo>("D3DKMTQueryAdapterInfo");
+        if (fpQueryAdapterInfo == nullptr) {
+            std::cerr << "Failed to load D3DKMTQueryAdapterInfo\n";
+            return;
+        }
+    }
+
+    DetourRestoreAfterWith();
+
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+    DetourAttach(&(PVOID &)fpEnumAdapters2, ShimEnumAdapters2);
+    DetourAttach(&(PVOID &)fpQueryAdapterInfo, ShimQueryAdapterInfo);
+    DetourAttach(&(PVOID &)REAL_CM_Get_Device_ID_List_SizeW, SHIM_CM_Get_Device_ID_List_SizeW);
+    DetourAttach(&(PVOID &)REAL_CM_Get_Device_ID_ListW, SHIM_CM_Get_Device_ID_ListW);
+    LONG error = DetourTransactionCommit();
+
+    if (error != NO_ERROR) {
+        std::cerr << "simple" << DETOURS_STRINGIFY(DETOURS_BITS) << ".dll:"
+                  << " Error detouring function(): " << error << "\n";
+    }
+}
+
+void DetachFunctions() {
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+    DetourDetach(&(PVOID &)fpEnumAdapters2, ShimEnumAdapters2);
+    DetourDetach(&(PVOID &)fpQueryAdapterInfo, ShimQueryAdapterInfo);
+    DetourDetach(&(PVOID &)REAL_CM_Get_Device_ID_List_SizeW, SHIM_CM_Get_Device_ID_List_SizeW);
+    DetourDetach(&(PVOID &)REAL_CM_Get_Device_ID_ListW, SHIM_CM_Get_Device_ID_ListW);
+    if (RealEnumAdapters1 != nullptr) {
+        DetourDetach(&(PVOID &)RealEnumAdapters1, (PVOID)ShimEnumAdapters1);
+    }
+    if (RealEnumAdapterByGpuPreference != nullptr) {
+        DetourDetach(&(PVOID &)RealEnumAdapterByGpuPreference, (PVOID)ShimEnumAdapterByGpuPreference);
+    }
+    DetourTransactionCommit();
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
     if (DetourIsHelperProcess()) {
         return TRUE;
     }
 
     if (dwReason == DLL_PROCESS_ATTACH) {
-        if (!gdi32_dll) {
-            gdi32_dll = LibraryWrapper("gdi32.dll");
-            fpEnumAdapters2 = gdi32_dll.get_symbol<PFN_LoaderEnumAdapters2>("D3DKMTEnumAdapters2");
-            if (fpEnumAdapters2 == nullptr) {
-                std::cerr << "Failed to load D3DKMTEnumAdapters2\n";
-                return TRUE;
-            }
-            fpQueryAdapterInfo = gdi32_dll.get_symbol<PFN_LoaderQueryAdapterInfo>("D3DKMTQueryAdapterInfo");
-            if (fpQueryAdapterInfo == nullptr) {
-                std::cerr << "Failed to load D3DKMTQueryAdapterInfo\n";
-                return TRUE;
-            }
-        }
-
-        DetourRestoreAfterWith();
-
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourAttach(&(PVOID &)fpEnumAdapters2, ShimEnumAdapters2);
-        DetourAttach(&(PVOID &)fpQueryAdapterInfo, ShimQueryAdapterInfo);
-        DetourAttach(&(PVOID &)REAL_CM_Get_Device_ID_List_SizeW, SHIM_CM_Get_Device_ID_List_SizeW);
-        DetourAttach(&(PVOID &)REAL_CM_Get_Device_ID_ListW, SHIM_CM_Get_Device_ID_ListW);
-        LONG error = DetourTransactionCommit();
-
-        if (error != NO_ERROR) {
-            std::cerr << "simple" << DETOURS_STRINGIFY(DETOURS_BITS) << ".dll:"
-                      << " Error detouring function(): " << error << "\n";
-        }
+        DetourGDI32Functions();
     } else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach(&(PVOID &)fpEnumAdapters2, ShimEnumAdapters2);
-        DetourDetach(&(PVOID &)fpQueryAdapterInfo, ShimQueryAdapterInfo);
-        DetourDetach(&(PVOID &)REAL_CM_Get_Device_ID_List_SizeW, SHIM_CM_Get_Device_ID_List_SizeW);
-        DetourDetach(&(PVOID &)REAL_CM_Get_Device_ID_ListW, SHIM_CM_Get_Device_ID_ListW);
-        if (RealEnumAdapters1 != nullptr) {
-            DetourDetach(&(PVOID &)RealEnumAdapters1, (PVOID)ShimEnumAdapters1);
-        }
-        if (RealEnumAdapterByGpuPreference != nullptr) {
-            DetourDetach(&(PVOID &)RealEnumAdapterByGpuPreference, (PVOID)ShimEnumAdapterByGpuPreference);
-        }
-        DetourTransactionCommit();
+        DetachFunctions();
     }
     return TRUE;
 }
 FRAMEWORK_EXPORT PlatformShim &get_platform_shim() {
     platform_shim = PlatformShim();
+    //DetourGDI32Functions();
     DetourEnumAdapterFunctions();
     return platform_shim;
 }

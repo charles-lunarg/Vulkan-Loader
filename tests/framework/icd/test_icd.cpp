@@ -276,7 +276,6 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateXlibSurfaceKHR(VkInstance instance, 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo,
                                                             const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface) {
-    std::cout << "Hit create win32 surf\n";
     if (nullptr != pSurface) {
         *pSurface = reinterpret_cast<VkSurfaceKHR>(++driver.created_surface_count);
     }

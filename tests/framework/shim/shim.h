@@ -31,21 +31,36 @@
 
 #if defined(WIN32)
 #include <strsafe.h>
+#include <cfgmgr32.h>
+#include <initguid.h>
+#include <devpkey.h>
+#include <winternl.h>
+
+#define CINTERFACE
+#include <dxgi1_6.h>
+#include <adapters.h>
 #endif
 
 enum class ManifestCategory { Implicit, Explicit, Driver };
+enum class GPUPreference { unspecified, minimum_power, high_performance };
 
 #if defined(WIN32)
 struct DXGIDriver {
-    DXGIDriver(fs::path const& manifest_path, int priority = 0) : manifest_path(manifest_path.str()), priority(priority) {}
+    DXGIDriver(fs::path const& manifest_path, GPUPreference gpu_preference)
+        : manifest_path(manifest_path.str()), gpu_preference(gpu_preference) {}
     std::string manifest_path;
-    int priority = 0;  // 0 is highest
+    GPUPreference gpu_preference = GPUPreference::unspecified;
 };
+
 struct SHIM_D3DKMT_ADAPTERINFO {
     UINT hAdapter;
     LUID AdapterLuid;
     ULONG NumOfSources;
     BOOL bPresentMoveRegionsPreferred;
+};
+struct D3DKMT_Adapter {
+    std::vector<SHIM_D3DKMT_ADAPTERINFO> adapters;
+    std::vector<LoaderQueryRegistryInfo> registry_info;
 };
 
 #endif
@@ -67,11 +82,13 @@ struct PlatformShim {
 // platform specific shim interface
 #if defined(WIN32)
     void add_dxgi_manifest(DXGIDriver const& driver);
-    void add_D3DKMT_ADAPTERINFO(SHIM_D3DKMT_ADAPTERINFO adapter_info);
+    void add_dxgi_adapter_desc1(DXGI_ADAPTER_DESC1 desc1);
+    void add_D3DKMT_ADAPTERINFO(D3DKMT_Adapter adapter);
 
     std::vector<std::string> drivers;
     std::vector<DXGIDriver> dxgi_drivers;
-    std::vector<SHIM_D3DKMT_ADAPTERINFO> D3DKMT_adapters;
+    std::vector<DXGI_ADAPTER_DESC1> dxgi_adapter_desc1s;
+    std::vector<D3DKMT_Adapter> d3dkmt_adapters;
 
     uint32_t random_base_path = 0;
 
@@ -280,7 +297,8 @@ inline void PlatformShim::clear_override(DebugMode debug_mode) {
         revert_override(HKEY_LOCAL_MACHINE, random_base_path);
 
         LSTATUS out = RegDeleteKeyA(HKEY_CURRENT_USER, override_base_path(random_base_path).c_str());
-        if (out != ERROR_SUCCESS) print_error_message(out, "RegDeleteKeyA", std::string("Key") + override_base_path(random_base_path).c_str());
+        if (out != ERROR_SUCCESS)
+            print_error_message(out, "RegDeleteKeyA", std::string("Key") + override_base_path(random_base_path).c_str());
     }
 }
 inline void PlatformShim::reset(DebugMode debug_mode) {
@@ -306,8 +324,9 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
 }
 
 inline void PlatformShim::add_dxgi_manifest(DXGIDriver const& driver) { dxgi_drivers.push_back(driver); }
+inline void PlatformShim::add_dxgi_adapter_desc1(DXGI_ADAPTER_DESC1 desc1) { dxgi_adapter_desc1s.push_back(desc1); }
 
-inline void PlatformShim::add_D3DKMT_ADAPTERINFO(SHIM_D3DKMT_ADAPTERINFO adapter_info) { D3DKMT_adapters.push_back(adapter_info); }
+inline void PlatformShim::add_D3DKMT_ADAPTERINFO(D3DKMT_Adapter adapter) { d3dkmt_adapters.push_back(adapter); }
 
 inline HKEY GetRegistryKey() { return HKEY{}; }
 
