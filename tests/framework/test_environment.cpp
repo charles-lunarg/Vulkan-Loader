@@ -35,9 +35,6 @@
 
 namespace detail {
 PlatformShimWrapper::PlatformShimWrapper(DebugMode debug_mode) : debug_mode(debug_mode) {
-#if defined(__linux__) || defined(__APPLE__)
-    set_env_var("LD_PRELOAD", SHIM_LIBRARY_NAME);
-#endif
     shim_library = LibraryWrapper(SHIM_LIBRARY_NAME);
     auto get_platform_shim_func = shim_library.get_symbol<PFN_get_platform_shim>(GET_PLATFORM_SHIM_STR);
     assert(get_platform_shim_func != NULL && "Must be able to get \"platform_shim\"");

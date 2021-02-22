@@ -15,7 +15,7 @@
 # limitations under the License.
 # ~~~
 
-option(LOADER_TEST_ENABLE_ADDRESS_SANITIZER "Linux only: Advanced memory checking" ON)
+option(TEST_USE_ADDRESS_SANITIZER "Linux only: Advanced memory checking" OFF)
 
 add_library(testing_framework_base_target INTERFACE)
 target_compile_options(testing_framework_base_target INTERFACE
@@ -33,12 +33,12 @@ endif()
 target_include_directories(testing_framework_base_target INTERFACE ${CMAKE_SOURCE_DIR}/tests/framework)
 
 
-if (LOADER_TEST_ENABLE_ADDRESS_SANITIZER AND UNIX)
+if (TEST_USE_ADDRESS_SANITIZER AND UNIX)
     target_compile_options(testing_framework_base_target INTERFACE -fsanitize=address)
     target_link_options(testing_framework_base_target INTERFACE -fsanitize=address)
     target_compile_options(vulkan PUBLIC -fsanitize=address)
-    target_link_options(vulkan PUBLIC INTERFACE -fsanitize=address)
-endif (LOADER_TEST_ENABLE_ADDRESS_SANITIZER AND UNIX)
+    target_link_options(vulkan PUBLIC -fsanitize=address)
+endif()
 
 add_subdirectory(util)
 add_subdirectory(shim)
