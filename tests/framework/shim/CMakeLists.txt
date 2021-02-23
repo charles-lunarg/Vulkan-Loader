@@ -22,7 +22,7 @@ target_link_libraries(shim-library PRIVATE detours cfgmgr32 testing_framework_co
 target_include_directories(shim-library PUBLIC ${CMAKE_SOURCE_DIR}/loader ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 elseif(UNIX)
-add_library(shim-library SHARED shim.h linux_shim.cpp)
+add_library(shim-library STATIC shim.h linux_shim.cpp)
 target_link_libraries(shim-library PRIVATE testing_framework_common)
 target_include_directories(shim-library PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 

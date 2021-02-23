@@ -24,17 +24,8 @@ Because the test ICDs and layers are loaded by the loader, the framework loads t
 Because the loader makes many calls to various OS functionality, the framework intercepts certain calls and makes a few of its own calls to OS functionality to allow proper isolation of the loader from the system it is running on.
 This allows multiple tests to be run in isolation.
 
-### Running (WIP)
+### Running
 
 CMake Build options: set `BUILD_TESTS` to enable tests, and `TEST_USE_ADDRESS_SANITIZER` to enable Address Sanitizer inside the testing framework
 
-Windows - Run the test executable as normal
-
-Linux (Address Sanitizer disabled) - Run the test executable as normal
-
-Linux (Address Sanitizer enabled):
-```bash
-LD_PRELOAD=/path/to/build/tests/framework/shim/libshim-library.so ASAN_OPTIONS=verify_asan_link_order=false ./the_test_executable
-```
-
-Reason: Address Sanitizer (ASAN) uses the LD_PRELOAD mechanism in order to intercept various system functions like dlopen and allocating memory. But by enabling ASAN, it disabled linking to the libshim-library.so which is used to catch calls to opendir, access, and fopen. To make libshim-library.so work again, once must make the linker link to the shim library first by using LD_PRELOAD, and manually tell ASAN to not require being first in the linking order.
+Run the executables as normal

@@ -29,6 +29,11 @@
 
 static PlatformShim platform_shim;
 
+PlatformShim& get_platform_shim() {
+    platform_shim = PlatformShim();
+    return platform_shim;
+}
+
 extern "C" {
 
 using PFN_OPENDIR = DIR* (*)(const char* path_name);
@@ -95,10 +100,5 @@ FRAMEWORK_EXPORT FILE* fopen(const char* in_filename, const char* mode) {
     }
 
     return f_ptr;
-}
-
-FRAMEWORK_EXPORT PlatformShim& get_platform_shim() {
-    platform_shim = PlatformShim();
-    return platform_shim;
 }
 }  // extern "C"

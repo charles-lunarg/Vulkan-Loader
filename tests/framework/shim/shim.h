@@ -109,8 +109,15 @@ struct PlatformShim {
 
 std::vector<std::string> parse_env_var_list(std::string const& var);
 
+// dynamically link on windows
+#if defined(WIN32)
 using PFN_get_platform_shim = PlatformShim& (*)();
 #define GET_PLATFORM_SHIM_STR "get_platform_shim"
+
+#elif defined(__linux__) || defined(__APPLE__)
+// statically link on linux
+PlatformShim& get_platform_shim();
+#endif
 
 // Functions which are called by the Test Framework need a definition, but since the shim is a DLL, this
 // would require loading the functions before using. To get around this, most PlatformShim functions are member

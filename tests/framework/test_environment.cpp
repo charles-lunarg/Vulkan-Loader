@@ -35,10 +35,14 @@
 
 namespace detail {
 PlatformShimWrapper::PlatformShimWrapper(DebugMode debug_mode) : debug_mode(debug_mode) {
+#if defined(WIN32)
     shim_library = LibraryWrapper(SHIM_LIBRARY_NAME);
     auto get_platform_shim_func = shim_library.get_symbol<PFN_get_platform_shim>(GET_PLATFORM_SHIM_STR);
     assert(get_platform_shim_func != NULL && "Must be able to get \"platform_shim\"");
     platform_shim = &get_platform_shim_func();
+#elif defined(__linux__) || defined(__APPLE__)
+    platform_shim = &get_platform_shim();
+#endif
     platform_shim->setup_override(debug_mode);
     platform_shim->reset(debug_mode);
 }
