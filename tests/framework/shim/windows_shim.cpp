@@ -49,7 +49,9 @@ static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_List_SizeW)(PULONG pulLen, PCWSTR
 static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_ListW)(PCWSTR pszFilter, PZZWSTR Buffer, ULONG BufferLen,
                                                       ULONG ulFlags) = CM_Get_Device_ID_ListW;
 long ShimEnumAdapters2(LoaderEnumAdapters2 *adapters) {
-    if (adapters == nullptr){
+    if (adapters == nullptr || platform_shim.d3dkmt_adapters.size() == 0){
+        if (adapters->adapters != nullptr)
+            adapters->adapter_count = 0;
         return STATUS_SUCCESS;
     }
     auto& new_adapters = platform_shim.d3dkmt_adapters.at(0).adapters;
