@@ -61,7 +61,6 @@ target_compile_definitions(testing_dependencies INTERFACE
 # Workaround for TR1 deprecation in Visual Studio 15.5 until Google Test is updated
     $<$<PLATFORM_ID:WIN32>:-DWIN32_LEAN_AND_MEAN,-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING>)
 
-target_compile_definitions(testing_dependencies INTERFACE "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 target_link_libraries(testing_dependencies INTERFACE Vulkan::Headers testing_framework_base_target test-environment)
 
 add_executable(loader_regression_tests loader_testing_main.cpp loader_regression_tests.cpp loader_version_tests.cpp)
