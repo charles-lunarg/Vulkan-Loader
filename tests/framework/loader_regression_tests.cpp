@@ -431,19 +431,57 @@ TEST_F(RegressionTests, EnumerateInstanceLayerProperties_TwoPass) {
 }
 
 TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_PropertyCountLessThanAvailable) {
-    Extension first_ext{"FirstTestExtension"};
-    Extension second_ext{"SecondTestExtension"};
-    env->get_new_test_icd().AddInstanceExtensions({first_ext, second_ext});
-
     uint32_t extension_count = 0;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
-    ASSERT_EQ(extension_count, 2);
+    ASSERT_EQ(extension_count, 2); //return debug report & debug utils
     extension_count = 1;  // artificially remove one extension
 
     std::array<VkExtensionProperties, 2> extensions;
     ASSERT_EQ(VK_INCOMPLETE,
               env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
     ASSERT_EQ(extension_count, 1);
+    // loader always adds the debug report & debug utils extensions
+    ASSERT_EQ(strcmp(extensions[0].extensionName, "VK_EXT_debug_report"), 0);
+}
+
+
+TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_FilterUnkownInstanceExtensions) {
+    Extension first_ext{"FirstTestExtension"};
+    Extension second_ext{"SecondTestExtension"};
+    env->get_new_test_icd().AddInstanceExtensions({first_ext, second_ext});
+
+    uint32_t extension_count = 0;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
+    ASSERT_EQ(extension_count, 2); //return debug report & debug utils
+    
+    std::array<VkExtensionProperties, 2> extensions;
+    ASSERT_EQ(VK_SUCCESS,
+              env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
+    ASSERT_EQ(extension_count, 2);
+    // loader always adds the debug report & debug utils extensions
+    ASSERT_EQ(strcmp(extensions[0].extensionName, "VK_EXT_debug_report"), 0);
+    ASSERT_EQ(strcmp(extensions[1].extensionName, "VK_EXT_debug_utils"), 0);
+}
+
+TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_DisableUnknownInstanceExtensionFiltering) {
+    Extension first_ext{"FirstTestExtension"};
+    Extension second_ext{"SecondTestExtension"};
+    env->get_new_test_icd().AddInstanceExtensions({first_ext, second_ext});
+
+    set_env_var("VK_LOADER_DISABLE_INST_EXT_FILTER","1");
+
+    uint32_t extension_count = 0;
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
+    ASSERT_EQ(extension_count, 4);
+    
+    std::array<VkExtensionProperties, 4> extensions;
+    ASSERT_EQ(VK_SUCCESS,
+              env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
+    ASSERT_EQ(extension_count, 4);
 
     ASSERT_EQ(extensions[0], first_ext.get());
+    ASSERT_EQ(extensions[1], second_ext.get());
+    //Loader always adds these two extensions
+    ASSERT_EQ(strcmp(extensions[2].extensionName, "VK_EXT_debug_report"), 0);
+    ASSERT_EQ(strcmp(extensions[3].extensionName, "VK_EXT_debug_utils"), 0);
 }
