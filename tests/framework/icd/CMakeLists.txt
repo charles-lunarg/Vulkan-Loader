@@ -30,7 +30,7 @@ target_compile_definitions(test_icd_deps INTERFACE
 target_link_libraries(test_icd_deps INTERFACE testing_framework_util)
 
 loader_framework_config_helper(driver_defs test_icd_definitions_generated_target)
-target_link_libraries(test_icd_deps INTERFACE layer_definitions_generated_target)
+target_link_libraries(test_icd_deps INTERFACE test_icd_definitions_generated_target)
 
 set(TEST_ICD_SOURCES test_icd.cpp test_icd.h)
 
