@@ -27,20 +27,20 @@
 
 #include "test_environment.h"
 
-struct DriverSetup {
-    DriverSetup(const char* driver_path, const char* manifest_name)
+struct ICDSetup {
+    ICDSetup(const char* icd_path, const char* manifest_name)
         : driver_store(FRAMEWORK_BUILD_DIRECTORY, "version_test_manifests") {
         ManifestICD icd_manifest;
-        icd_manifest.lib_path = driver_path;
+        icd_manifest.lib_path = icd_path;
         icd_manifest.api_version = VK_MAKE_VERSION(1, 0, 0);
         driver_store.write(manifest_name, icd_manifest);
 
         set_env_var("VK_ICD_FILENAMES", (driver_store.location() / manifest_name).str());
 
-        driver_wrapper = LibraryWrapper(fs::path(driver_path));
+        driver_wrapper = LibraryWrapper(fs::path(icd_path));
         get_new_test_icd = driver_wrapper.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
     }
-    ~DriverSetup() { remove_env_var("VK_ICD_FILENAMES"); }
+    ~ICDSetup() { remove_env_var("VK_ICD_FILENAMES"); }
     fs::FolderManager driver_store;
     LibraryWrapper driver_wrapper;
     GetNewTestICDFunc get_new_test_icd;
@@ -52,7 +52,7 @@ struct DriverSetup {
 // does not support vk_icdGetInstanceProcAddr
 // must export vkGetInstanceProcAddr, vkCreateInstance, vkEnumerateInstanceExtensionProperties
 TEST(DriverNone, version_0) {
-    DriverSetup setup(TEST_ICD_PATH_EXPORT_NONE, "test_icd_export_none.json");
+    ICDSetup setup(TEST_ICD_PATH_EXPORT_NONE, "test_icd_export_none.json");
     auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
@@ -65,7 +65,7 @@ TEST(DriverNone, version_0) {
 // Don't support vk_icdNegotiateLoaderICDInterfaceVersion
 // the loader calls vk_icdGetInstanceProcAddr first
 TEST(DriverICDGIPA, version_1) {
-    DriverSetup setup(TEST_ICD_PATH_EXPORT_ICD_GIPA, "test_icd_export_icd_gipa.json");
+    ICDSetup setup(TEST_ICD_PATH_EXPORT_ICD_GIPA, "test_icd_export_icd_gipa.json");
     auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
@@ -80,7 +80,7 @@ TEST(DriverICDGIPA, version_1) {
 TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_version) {
     // may be needed to surpress debug assert popups on windows
     //::testing::FLAGS_gtest_death_test_style = "threadsafe";
-    DriverSetup setup(TEST_ICD_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "test_icd_export_negotiate_interface_version.json");
+    ICDSetup setup(TEST_ICD_PATH_EXPORT_NEGOTIATE_INTERFACE_VERSION, "test_icd_export_negotiate_interface_version.json");
 
     InstWrapper inst{setup.vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -97,7 +97,7 @@ TEST(DriverNegotiateInterfaceVersionDeathTest, version_negotiate_interface_versi
 
 // export vk_icdNegotiateLoaderICDInterfaceVersion and vk_icdGetInstanceProcAddr
 TEST(DriverNegotiateInterfaceVersionAndICDGIPA, version_2) {
-    DriverSetup setup(TEST_ICD_PATH_VERSION_2, "test_icd_version_2.json");
+    ICDSetup setup(TEST_ICD_PATH_VERSION_2, "test_icd_version_2.json");
     auto& driver = setup.get_new_test_icd();
 
     InstWrapper inst{setup.vulkan_functions};
@@ -109,10 +109,10 @@ TEST(DriverNegotiateInterfaceVersionAndICDGIPA, version_2) {
 
 class ICDInterfaceVersion2Plus : public ::testing::Test {
    protected:
-    virtual void SetUp() { env = std::unique_ptr<SingleDriverShim>(new SingleDriverShim(TEST_ICD_PATH_VERSION_2)); }
+    virtual void SetUp() { env = std::unique_ptr<SingleICDShim>(new SingleICDShim(TEST_ICD_PATH_VERSION_2)); }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverShim> env;
+    std::unique_ptr<SingleICDShim> env;
 };
 
 TEST_F(ICDInterfaceVersion2Plus, vk_icdNegotiateLoaderICDInterfaceVersion) {
@@ -188,12 +188,12 @@ TEST_F(ICDInterfaceVersion2Plus, l5_icd5) {
 class ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverShim>(
-            new SingleDriverShim(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES));
+        env = std::unique_ptr<SingleICDShim>(
+            new SingleICDShim(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES));
     }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverShim> env;
+    std::unique_ptr<SingleICDShim> env;
 };
 
 // Need more work to shim dxgi for this test to work
@@ -233,21 +233,15 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 
     driver.min_icd_interface_version = 6;
 
-    SHIM_D3DKMT_ADAPTERINFO d3dkmt_adapter_info{};
-
-    DXGIDriver dxgi_driver(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GPUPreference::high_performance);
-    env->platform_shim->add_dxgi_manifest(dxgi_driver);
+    uint32_t driver_index = 2; //which drive this test pretends to be
+    auto& known_driver = known_driver_list.at(2);
     DXGI_ADAPTER_DESC1 desc1{};
-    desc1.VendorId = 10;
-    desc1.DeviceId = 20;
-    desc1.SubSysId = 30;
-    desc1.Revision = 40;
-    desc1.DedicatedVideoMemory = 123;
-    desc1.DedicatedSystemMemory = 234;
-    desc1.SharedSystemMemory = 101;
+    wcsncpy(&desc1.Description[0], L"TestDriver1", 128);
+    desc1.VendorId = known_driver.vendor_id;
     desc1.AdapterLuid;
     desc1.Flags = DXGI_ADAPTER_FLAG_NONE;
-    env->platform_shim->add_dxgi_adapter_desc1(desc1);
+    env->platform_shim->add_dxgi_adapter(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GpuType::discrete, driver_index, desc1);
+
 
     InstWrapper inst{env->vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -260,10 +254,38 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     ASSERT_EQ(physical_count, returned_physical_count);
     ASSERT_EQ(driver.called_enumerate_adapter_physical_devices, CalledEnumerateAdapterPhysicalDevices::called);
 }
+
+TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, EnumAdapters2) {
+
+InstWrapper inst{env->vulkan_functions};
+    auto& driver = env->get_test_icd();
+    driver.physical_devices.emplace_back("physical_device_1");
+    driver.physical_devices.emplace_back("physical_device_0");
+    uint32_t physical_count = driver.physical_devices.size();
+    uint32_t returned_physical_count = driver.physical_devices.size();
+    std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
+
+    SHIM_D3DKMT_ADAPTERINFO d3dkmt_adapter_info{};
+    d3dkmt_adapter_info.hAdapter = 0; //
+    d3dkmt_adapter_info.AdapterLuid = _LUID{10, 1000};
+    d3dkmt_adapter_info.NumOfSources = 1;
+    d3dkmt_adapter_info.bPresentMoveRegionsPreferred = true;
+
+    env->platform_shim->add_d3dkmt_adapter(d3dkmt_adapter_info, env->get_test_icd_path());
+
+    InstanceCreateInfo inst_create_info;
+    ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
+
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr));
+    ASSERT_EQ(physical_count, returned_physical_count);
+    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
+                                                                              physical_device_handles.data()));
+    ASSERT_EQ(physical_count, returned_physical_count);
+}
 #endif  // defined(WIN32)
 
-TEST(MultipleDriverConfig, Basic) {
-    MultipleDriverShim env(
+TEST(MultipleICDConfig, Basic) {
+    MultipleICDShim env(
         {TestICDDetails(TEST_ICD_PATH_VERSION_2), TestICDDetails(TEST_ICD_PATH_VERSION_2), TestICDDetails(TEST_ICD_PATH_VERSION_2)},
         DebugMode::none);
 
@@ -293,7 +315,7 @@ TEST(MultipleDriverConfig, Basic) {
 }
 
 TEST(MultipleDriverConfig, DifferentICDInterfaceVersions) {
-    MultipleDriverShim env({TestICDDetails(TEST_ICD_PATH_EXPORT_ICD_GIPA), TestICDDetails(TEST_ICD_PATH_VERSION_2),
+    MultipleICDShim env({TestICDDetails(TEST_ICD_PATH_EXPORT_ICD_GIPA), TestICDDetails(TEST_ICD_PATH_VERSION_2),
                             TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA)},
                            DebugMode::none);
 

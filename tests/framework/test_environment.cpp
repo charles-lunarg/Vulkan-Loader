@@ -27,7 +27,7 @@
 
 #include "test_environment.h"
 
-#include "driver_defs.h"
+#include "icd_defs.h"
 #include "layer_defs.h"
 
 #include "shim_config.h"
@@ -52,10 +52,10 @@ PlatformShimWrapper::~PlatformShimWrapper() {
 }
 
 TestICDHandle::TestICDHandle() {}
-TestICDHandle::TestICDHandle(fs::path const& driver_name) {
-    driver_library = LibraryWrapper(driver_name);
-    proc_addr_get_test_icd = driver_library.get_symbol<GetNewTestICDFunc>(GET_TEST_ICD_FUNC_STR);
-    proc_addr_get_new_test_icd = driver_library.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
+TestICDHandle::TestICDHandle(fs::path const& icd_path) {
+    icd_library = LibraryWrapper(icd_path);
+    proc_addr_get_test_icd = icd_library.get_symbol<GetNewTestICDFunc>(GET_TEST_ICD_FUNC_STR);
+    proc_addr_get_new_test_icd = icd_library.get_symbol<GetNewTestICDFunc>(GET_NEW_TEST_ICD_FUNC_STR);
 }
 TestICD& TestICDHandle::get_test_icd() {
     assert(proc_addr_get_test_icd != NULL && "symbol must be loaded before use");
@@ -65,79 +65,63 @@ TestICD& TestICDHandle::get_new_test_icd() {
     assert(proc_addr_get_new_test_icd != NULL && "symbol must be loaded before use");
     return proc_addr_get_new_test_icd();
 }
+fs::path TestICDHandle::get_icd_full_path() { return icd_library.lib_path; }
 }  // namespace detail
 
 FrameworkEnvironment::FrameworkEnvironment(DebugMode debug_mode)
     : platform_shim(debug_mode),
       null_folder(FRAMEWORK_BUILD_DIRECTORY, "null_dir", debug_mode),
-      drivers_folder(FRAMEWORK_BUILD_DIRECTORY, "driver_manifests", debug_mode),
-      explicit_layers_folder(FRAMEWORK_BUILD_DIRECTORY, "explicit_layer_manifests", debug_mode),
-      implicit_layers_folder(FRAMEWORK_BUILD_DIRECTORY, "implicit_layer_manifests", debug_mode),
+      icd_folder(FRAMEWORK_BUILD_DIRECTORY, "icd_manifests", debug_mode),
+      explicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "explicit_layer_manifests", debug_mode),
+      implicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "implicit_layer_manifests", debug_mode),
       vulkan_functions() {
     platform_shim->redirect_all_paths(null_folder.location());
 
-    platform_shim->set_path(ManifestCategory::Driver, drivers_folder.location());
-    platform_shim->set_path(ManifestCategory::Explicit, explicit_layers_folder.location());
-    platform_shim->set_path(ManifestCategory::Implicit, implicit_layers_folder.location());
+    platform_shim->set_path(ManifestCategory::icd, icd_folder.location());
+    platform_shim->set_path(ManifestCategory::explicit_layer, explicit_layer_folder.location());
+    platform_shim->set_path(ManifestCategory::implicit_layer, implicit_layer_folder.location());
 }
 
-void FrameworkEnvironment::AddDriver(TestICDDetails driver_details, const std::string& json_name) {
+void FrameworkEnvironment::AddICD(TestICDDetails icd_details, const std::string& json_name) {
     ManifestICD icd_manifest;
-    icd_manifest.lib_path = fs::fixup_backslashes_in_path(driver_details.macro_name);
-    icd_manifest.api_version = driver_details.api_version;
-    auto driver_loc = drivers_folder.write(json_name, icd_manifest);
-    platform_shim->add_manifest(ManifestCategory::Driver, driver_loc);
+    icd_manifest.lib_path = fs::fixup_backslashes_in_path(icd_details.icd_path);
+    icd_manifest.api_version = icd_details.api_version;
+    auto driver_loc = icd_folder.write(json_name, icd_manifest);
+    platform_shim->add_manifest(ManifestCategory::icd, driver_loc);
 }
 void FrameworkEnvironment::AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
-    auto layer_loc = implicit_layers_folder.write(json_name, layer_manifest);
-    platform_shim->add_manifest(ManifestCategory::Implicit, layer_loc);
+    auto layer_loc = implicit_layer_folder.write(json_name, layer_manifest);
+    platform_shim->add_manifest(ManifestCategory::implicit_layer, layer_loc);
 }
 void FrameworkEnvironment::AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
-    auto layer_loc = explicit_layers_folder.write(json_name, layer_manifest);
-    platform_shim->add_manifest(ManifestCategory::Explicit, layer_loc);
+    auto layer_loc = explicit_layer_folder.write(json_name, layer_manifest);
+    platform_shim->add_manifest(ManifestCategory::explicit_layer, layer_loc);
 }
 
-SingleDriverShim::SingleDriverShim(TestICDDetails driver_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
-    driver_handle = detail::TestICDHandle(driver_details.macro_name);
+SingleICDShim::SingleICDShim(TestICDDetails icd_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
+    icd_handle = detail::TestICDHandle(icd_details.icd_path);
 
-    AddDriver(driver_details, "test_icd.json");
+    AddICD(icd_details, "test_icd.json");
 }
-TestICD& SingleDriverShim::get_test_icd() { return driver_handle.get_test_icd(); }
-TestICD& SingleDriverShim::get_new_test_icd() { return driver_handle.get_new_test_icd(); }
+TestICD& SingleICDShim::get_test_icd() { return icd_handle.get_test_icd(); }
+TestICD& SingleICDShim::get_new_test_icd() { return icd_handle.get_new_test_icd(); }
+fs::path SingleICDShim::get_test_icd_path() { return icd_handle.get_icd_full_path(); }
 
-MultipleDriverShim::MultipleDriverShim(std::vector<TestICDDetails> test_icd_details, DebugMode debug_mode)
+MultipleICDShim::MultipleICDShim(std::vector<TestICDDetails> icd_details_vector, DebugMode debug_mode)
     : FrameworkEnvironment(debug_mode) {
     uint32_t i = 0;
-    for (auto& test_icd_detail : test_icd_details) {
-        fs::path new_driver_location = drivers_folder.location() / fs::path(test_icd_detail.macro_name).stem() + "_" +
-                                       std::to_string(i) + fs::path(test_icd_detail.macro_name).extension();
+    for (auto& test_icd_detail : icd_details_vector) {
+        fs::path new_driver_location = icd_folder.location() / fs::path(test_icd_detail.icd_path).stem() + "_" +
+                                       std::to_string(i) + fs::path(test_icd_detail.icd_path).extension();
 
-        fs::copy_file(test_icd_detail.macro_name, new_driver_location);
+        fs::copy_file(test_icd_detail.icd_path, new_driver_location);
 
-        drivers.push_back(detail::TestICDHandle(new_driver_location));
-        test_icd_detail.macro_name = new_driver_location.c_str();
-        AddDriver(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
+        icds.push_back(detail::TestICDHandle(new_driver_location));
+        test_icd_detail.icd_path = new_driver_location.c_str();
+        AddICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
         i++;
     }
 }
-TestICD& MultipleDriverShim::get_test_icd(int i) { return drivers[i].get_test_icd(); }
-TestICD& MultipleDriverShim::get_test_icd(std::string const& driver_name) {
-    for (auto& driver : drivers) {
-        if (driver.driver_name == driver_name) {
-            return driver.get_test_icd();
-        }
-    }
-    assert(false);
-    return drivers[0].get_test_icd();
-}
-
-TestICD& MultipleDriverShim::get_new_test_icd(int i) { return drivers[i].get_new_test_icd(); }
-TestICD& MultipleDriverShim::get_new_test_icd(std::string const& driver_name) {
-    for (auto& driver : drivers) {
-        if (driver.driver_name == driver_name) {
-            return driver.get_new_test_icd();
-        }
-    }
-    assert(false);
-    return drivers[0].get_new_test_icd();
-}
+TestICD& MultipleICDShim::get_test_icd(int index) { return icds[index].get_test_icd(); }
+TestICD& MultipleICDShim::get_new_test_icd(int index) { return icds[index].get_new_test_icd(); }
+fs::path MultipleICDShim::get_test_icd_path(int index) { return icds[index].get_icd_full_path(); }

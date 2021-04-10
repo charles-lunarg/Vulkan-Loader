@@ -43,14 +43,14 @@ conditionally export vk_icdEnumerateAdapterPhysicalDevices
 TEST_ICD_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES
 */
 
-TestICD driver;
+TestICD icd;
 extern "C" {
 FRAMEWORK_EXPORT TestICD& get_test_icd_func() {
-    return driver;
+    return icd;
 }
 FRAMEWORK_EXPORT TestICD& get_new_test_icd_func() {
-    driver.~TestICD();
-    return *(new (&driver) TestICD());
+    icd.~TestICD();
+    return *(new (&icd) TestICD());
 }
 }
 
@@ -129,17 +129,17 @@ VkResult FillCountPtr(std::vector<T> const& data_vec, uint32_t* pCount, T* pData
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateInstanceExtensionProperties(const char* pLayerName, uint32_t* pPropertyCount,
                                                                            VkExtensionProperties* pProperties) {
     if (pLayerName != nullptr) {
-        auto& layer = detail::FindLayer(driver.instance_layers, std::string(pLayerName));
+        auto& layer = detail::FindLayer(icd.instance_layers, std::string(pLayerName));
         return detail::FillCountPtr(layer.extensions, pPropertyCount, pProperties);
     } else {  // instance extensions
-        detail::FillCountPtr(driver.instance_extensions, pPropertyCount, pProperties);
+        detail::FillCountPtr(icd.instance_extensions, pPropertyCount, pProperties);
     }
 
     return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateInstanceLayerProperties(uint32_t* pPropertyCount, VkLayerProperties* pProperties) {
-    return detail::FillCountPtr(driver.instance_layers, pPropertyCount, pProperties);
+    return detail::FillCountPtr(icd.instance_layers, pPropertyCount, pProperties);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateInstanceVersion(uint32_t* pApiVersion) {
@@ -155,13 +155,13 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateInstance(const VkInstanceCreateInfo*
         return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
 
-    if (driver.icd_api_version < VK_MAKE_VERSION(1, 1, 0)) {
+    if (icd.icd_api_version < VK_MAKE_VERSION(1, 1, 0)) {
         if (pCreateInfo->pApplicationInfo->apiVersion > VK_MAKE_VERSION(1, 0, 0)) {
             return VK_ERROR_INCOMPATIBLE_DRIVER;
         }
     }
     // VK_SUCCESS
-    *pInstance = driver.instance_handle.handle;
+    *pInstance = icd.instance_handle.handle;
 
     return VK_SUCCESS;
 }
@@ -172,13 +172,13 @@ VKAPI_ATTR void VKAPI_CALL test_vkDestroyInstance(VkInstance instance, const VkA
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumeratePhysicalDevices(VkInstance instance, uint32_t* pPhysicalDeviceCount,
                                                                VkPhysicalDevice* pPhysicalDevices) {
     if (pPhysicalDevices == nullptr) {
-        *pPhysicalDeviceCount = driver.physical_devices.size();
+        *pPhysicalDeviceCount = icd.physical_devices.size();
     } else {
         uint32_t handles_written = 0;
-        for (size_t i = 0; i < driver.physical_devices.size(); i++) {
+        for (size_t i = 0; i < icd.physical_devices.size(); i++) {
             if (i < *pPhysicalDeviceCount) {
                 handles_written++;
-                pPhysicalDevices[i] = driver.physical_devices[i].vk_physical_device.handle;
+                pPhysicalDevices[i] = icd.physical_devices[i].vk_physical_device.handle;
             } else {
                 *pPhysicalDeviceCount = handles_written;
                 return VK_INCOMPLETE;
@@ -194,8 +194,8 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumeratePhysicalDevices(VkInstance instan
 // VK_SUCCESS,VK_INCOMPLETE
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t* pPropertyCount,
                                                                      VkLayerProperties* pProperties) {
-    assert(false && "Drivers don't contain layers???");
-    // auto phys_dev = driver.GetPhysDevice(physicalDevice);
+    assert(false && "ICD's don't contain layers???");
+    // auto phys_dev = icd.GetPhysDevice(physicalDevice);
     // if (pProperties == nullptr) {
     //     *pPropertyCount = phys_dev.layers.size();
     // } else {
@@ -208,7 +208,7 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateDeviceLayerProperties(VkPhysicalD
 VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char* pLayerName,
                                                                          uint32_t* pPropertyCount,
                                                                          VkExtensionProperties* pProperties) {
-    auto& phys_dev = driver.GetPhysDevice(physicalDevice);
+    auto& phys_dev = icd.GetPhysDevice(physicalDevice);
     if (pLayerName != nullptr) {
         assert(false && "Drivers don't contain layers???");
         // bool is_present = detail::CheckLayer(phys_dev.layers, pLayerName);
@@ -224,7 +224,7 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateDeviceExtensionProperties(VkPhysi
 VKAPI_ATTR void VKAPI_CALL test_vkGetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice,
                                                                          uint32_t* pQueueFamilyPropertyCount,
                                                                          VkQueueFamilyProperties* pQueueFamilyProperties) {
-    auto& phys_dev = driver.GetPhysDevice(physicalDevice);
+    auto& phys_dev = icd.GetPhysDevice(physicalDevice);
     detail::FillCountPtr(phys_dev.queue_family_properties, pQueueFamilyPropertyCount, pQueueFamilyProperties);
 }
 
@@ -233,13 +233,13 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateDevice(VkPhysicalDevice physicalDevi
     // VK_SUCCESS
     auto device_handle = DispatchableHandle<VkDevice>();
     *pDevice = device_handle.handle;
-    driver.device_handles.emplace_back(std::move(device_handle));
+    icd.device_handles.emplace_back(std::move(device_handle));
     return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL test_vkDestroyDevice(VkDevice device, const VkAllocationCallbacks* pAllocator) {
-    auto found = std::find(driver.device_handles.begin(), driver.device_handles.end(), device);
-    if (found != driver.device_handles.end()) driver.device_handles.erase(found);
+    auto found = std::find(icd.device_handles.begin(), icd.device_handles.end(), device);
+    if (found != icd.device_handles.end()) icd.device_handles.erase(found);
 }
 
 //// WSI
@@ -277,7 +277,7 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateXlibSurfaceKHR(VkInstance instance, 
 VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo,
                                                             const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface) {
     if (nullptr != pSurface) {
-        *pSurface = reinterpret_cast<VkSurfaceKHR>(++driver.created_surface_count);
+        *pSurface = reinterpret_cast<VkSurfaceKHR>(++icd.created_surface_count);
     }
     return VK_SUCCESS;
 }
@@ -290,34 +290,34 @@ VKAPI_ATTR void VKAPI_CALL test_vkDestroySurfaceKHR(VkInstance instance, VkSurfa
 VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo,
                                                          const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain) {
     if (nullptr != pSwapchain) {
-        *pSwapchain = reinterpret_cast<VkSwapchainKHR>(++driver.created_swapchain_count);
+        *pSwapchain = reinterpret_cast<VkSwapchainKHR>(++icd.created_swapchain_count);
     }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice physicalDevice, uint32_t queueFamilyIndex,
                                                                          VkSurfaceKHR surface, VkBool32* pSupported) {
     if (nullptr != pSupported) {
-        *pSupported = driver.GetPhysDevice(physicalDevice).queue_family_properties.at(queueFamilyIndex).support_present;
+        *pSupported = icd.GetPhysDevice(physicalDevice).queue_family_properties.at(queueFamilyIndex).support_present;
     }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                               VkSurfaceCapabilitiesKHR* pSurfaceCapabilities) {
     if (nullptr != pSurfaceCapabilities) {
-        *pSurfaceCapabilities = driver.GetPhysDevice(physicalDevice).surface_capabilities;
+        *pSurfaceCapabilities = icd.GetPhysDevice(physicalDevice).surface_capabilities;
     }
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                          uint32_t* pSurfaceFormatCount,
                                                                          VkSurfaceFormatKHR* pSurfaceFormats) {
-    detail::FillCountPtr(driver.GetPhysDevice(physicalDevice).surface_formats, pSurfaceFormatCount, pSurfaceFormats);
+    detail::FillCountPtr(icd.GetPhysDevice(physicalDevice).surface_formats, pSurfaceFormatCount, pSurfaceFormats);
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                               uint32_t* pPresentModeCount,
                                                                               VkPresentModeKHR* pPresentModes) {
-    detail::FillCountPtr(driver.GetPhysDevice(physicalDevice).surface_present_modes, pPresentModeCount, pPresentModes);
+    detail::FillCountPtr(icd.GetPhysDevice(physicalDevice).surface_present_modes, pPresentModeCount, pPresentModes);
     return VK_SUCCESS;
 }
 
@@ -331,7 +331,7 @@ VKAPI_ATTR void VKAPI_CALL test_stub_func_no_return() {}
 #define TO_VOID_PFN(func) reinterpret_cast<PFN_vkVoidFunction>(func)
 
 PFN_vkVoidFunction get_instance_func_ver_1_1(VkInstance instance, const char* pName) {
-    if (driver.icd_api_version < VK_MAKE_VERSION(1, 1, 0)) {
+    if (icd.icd_api_version < VK_MAKE_VERSION(1, 1, 0)) {
         if (strcmp(pName, "test_vkEnumerateInstanceVersion") == 0) {
             return TO_VOID_PFN(test_vkEnumerateInstanceVersion);
         }
@@ -339,17 +339,17 @@ PFN_vkVoidFunction get_instance_func_ver_1_1(VkInstance instance, const char* pN
     return nullptr;
 }
 PFN_vkVoidFunction get_instance_func_ver_1_2(VkInstance instance, const char* pName) {
-    if (driver.icd_api_version < VK_MAKE_VERSION(1, 2, 0)) {
+    if (icd.icd_api_version < VK_MAKE_VERSION(1, 2, 0)) {
         return nullptr;
     }
     return nullptr;
 }
 
 PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName) {
-    if (driver.min_icd_interface_version >= 3 && driver.enable_icd_wsi  == true) {
+    if (icd.min_icd_interface_version >= 3 && icd.enable_icd_wsi  == true) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
         if (strcmp(pName, "vkCreateAndroidSurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
+            icd.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(test_vkCreateAndroidSurfaceKHR);
         }
 #endif
@@ -379,7 +379,7 @@ PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName)
         }
 #endif
         if (strcmp(pName, "vkDestroySurfaceKHR") == 0) {
-            driver.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
+            icd.is_using_icd_wsi = UsingICDProvidedWSI::is_using;
             return TO_VOID_PFN(test_vkDestroySurfaceKHR);
         }
     }
@@ -463,32 +463,32 @@ PFN_vkVoidFunction base_get_instance_proc_addr(VkInstance instance, const char* 
 extern "C" {
 #if defined(TEST_ICD_EXPORT_NEGOTIATE_INTERFACE_VERSION)
 extern FRAMEWORK_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vk_icdNegotiateLoaderICDInterfaceVersion(uint32_t* pSupportedVersion) {
-    if (driver.called_vk_icd_gipa == CalledICDGIPA::not_called &&
-        driver.called_negotiate_interface == CalledNegotiateInterface::not_called)
-        driver.called_negotiate_interface = CalledNegotiateInterface::vk_icd_negotiate;
-    else if (driver.called_vk_icd_gipa != CalledICDGIPA::not_called)
-        driver.called_negotiate_interface = CalledNegotiateInterface::vk_icd_gipa_first;
+    if (icd.called_vk_icd_gipa == CalledICDGIPA::not_called &&
+        icd.called_negotiate_interface == CalledNegotiateInterface::not_called)
+        icd.called_negotiate_interface = CalledNegotiateInterface::vk_icd_negotiate;
+    else if (icd.called_vk_icd_gipa != CalledICDGIPA::not_called)
+        icd.called_negotiate_interface = CalledNegotiateInterface::vk_icd_gipa_first;
 
     // loader puts the minimum it supports in pSupportedVersion, if that is lower than our minimum
     // If the ICD doesn't supports the interface version provided by the loader, report VK_ERROR_INCOMPATIBLE_DRIVER
-    if (driver.min_icd_interface_version > *pSupportedVersion) {
-        driver.interface_version_check = InterfaceVersionCheck::loader_version_too_old;
-        *pSupportedVersion = driver.min_icd_interface_version;
+    if (icd.min_icd_interface_version > *pSupportedVersion) {
+        icd.interface_version_check = InterfaceVersionCheck::loader_version_too_old;
+        *pSupportedVersion = icd.min_icd_interface_version;
         return VK_ERROR_INCOMPATIBLE_DRIVER;
     }
 
     // the loader-provided interface version is newer than that supported by the ICD
-    if (driver.max_icd_interface_version < *pSupportedVersion) {
-        driver.interface_version_check = InterfaceVersionCheck::loader_version_too_new;
-        *pSupportedVersion = driver.max_icd_interface_version;
+    if (icd.max_icd_interface_version < *pSupportedVersion) {
+        icd.interface_version_check = InterfaceVersionCheck::loader_version_too_new;
+        *pSupportedVersion = icd.max_icd_interface_version;
     }
     // ICD interface version is greater than the loader's,  return the loader's version
-    else if (driver.max_icd_interface_version > *pSupportedVersion) {
-        driver.interface_version_check = InterfaceVersionCheck::icd_version_too_new;
+    else if (icd.max_icd_interface_version > *pSupportedVersion) {
+        icd.interface_version_check = InterfaceVersionCheck::icd_version_too_new;
         // don't change *pSupportedVersion
     } else {
-        driver.interface_version_check = InterfaceVersionCheck::version_is_supported;
-        *pSupportedVersion = driver.max_icd_interface_version;
+        icd.interface_version_check = InterfaceVersionCheck::version_is_supported;
+        *pSupportedVersion = icd.max_icd_interface_version;
     }
 
     return VK_SUCCESS;
@@ -505,7 +505,7 @@ FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetPhysicalDevic
 FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetInstanceProcAddr(VkInstance instance, const char* pName) {
     // std::cout << "icdGetInstanceProcAddr: " << pName << "\n";
 
-    if (driver.called_vk_icd_gipa == CalledICDGIPA::not_called) driver.called_vk_icd_gipa = CalledICDGIPA::vk_icd_gipa;
+    if (icd.called_vk_icd_gipa == CalledICDGIPA::not_called) icd.called_vk_icd_gipa = CalledICDGIPA::vk_icd_gipa;
 
     return base_get_instance_proc_addr(instance, pName);
     return nullptr;
@@ -514,7 +514,7 @@ FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetInstanceProcA
 FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char* pName) {
     // std::cout << "icdGetInstanceProcAddr: " << pName << "\n";
 
-    if (driver.called_vk_icd_gipa == CalledICDGIPA::not_called) driver.called_vk_icd_gipa = CalledICDGIPA::vk_gipa;
+    if (icd.called_vk_icd_gipa == CalledICDGIPA::not_called) icd.called_vk_icd_gipa = CalledICDGIPA::vk_gipa;
     return base_get_instance_proc_addr(instance, pName);
 }
 FRAMEWORK_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo,
@@ -533,7 +533,7 @@ FRAMEWORK_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProp
 FRAMEWORK_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vk_icdEnumerateAdapterPhysicalDevices(VkInstance instance, LUID adapterLUID,
                                                                                       uint32_t* pPhysicalDeviceCount,
                                                                                       VkPhysicalDevice* pPhysicalDevices) {
-    driver.called_enumerate_adapter_physical_devices = CalledEnumerateAdapterPhysicalDevices::called;
+    icd.called_enumerate_adapter_physical_devices = CalledEnumerateAdapterPhysicalDevices::called;
     return test_vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
 
     return VK_SUCCESS;

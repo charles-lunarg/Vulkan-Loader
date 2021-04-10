@@ -63,45 +63,36 @@ target_compile_definitions(testing_dependencies INTERFACE
 
 target_link_libraries(testing_dependencies INTERFACE Vulkan::Headers testing_framework_base_target test-environment)
 
-add_executable(loader_regression_tests loader_testing_main.cpp loader_regression_tests.cpp loader_version_tests.cpp)
-target_link_libraries(loader_regression_tests PRIVATE testing_dependencies)
+add_executable(test_regression loader_testing_main.cpp loader_regression_tests.cpp loader_version_tests.cpp)
+target_link_libraries(test_regression PRIVATE testing_dependencies)
 
-add_executable(loader_wsi_tests loader_testing_main.cpp loader_wsi_tests.cpp)
-target_link_libraries(loader_wsi_tests PRIVATE testing_dependencies)
+add_executable(test_wsi loader_testing_main.cpp loader_wsi_tests.cpp)
+target_link_libraries(test_wsi PRIVATE testing_dependencies)
 
 if(UNIX AND NOT APPLE) # i.e. Linux
     if(BUILD_WSI_XCB_SUPPORT)
-        target_include_directories(loader_wsi_tests PRIVATE ${XCB_INCLUDE_DIRS})
-        target_link_libraries(loader_wsi_tests PRIVATE ${XCB_LIBRARIES})
+        target_include_directories(test_wsi PRIVATE ${XCB_INCLUDE_DIRS})
+        target_link_libraries(test_wsi PRIVATE ${XCB_LIBRARIES})
     endif()
 
     if(BUILD_WSI_XLIB_SUPPORT)
-        target_include_directories(loader_wsi_tests PRIVATE ${X11_INCLUDE_DIR})
-        target_link_libraries(loader_wsi_tests PRIVATE ${X11_LIBRARIES})
+        target_include_directories(test_wsi PRIVATE ${X11_INCLUDE_DIR})
+        target_link_libraries(test_wsi PRIVATE ${X11_LIBRARIES})
     endif()
 
     if(BUILD_WSI_WAYLAND_SUPPORT)
-        target_include_directories(loader_wsi_tests PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIR})
-        target_link_libraries(loader_wsi_tests PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+        target_include_directories(test_wsi PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIR})
+        target_link_libraries(test_wsi PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
     endif()
 endif()
 
-# Copy loader and googletest (gtest) libs to test dir so the test executable can find them.
 if(WIN32)
-    if(CMAKE_GENERATOR MATCHES "^Visual Studio.*")
-        file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/$<CONFIG>/gtest$<$<CONFIG:Debug>:d>.dll
-                            GTEST_COPY_SRC2)
-        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG> GTEST_COPY_DEST)
-    else()
-        file(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/external/googletest/googletest/gtest$<$<CONFIG:Debug>:d>.dll GTEST_COPY_SRC2)
-        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR} GTEST_COPY_DEST)
-    endif()
-    add_custom_command(TARGET loader_regression_tests POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy ${GTEST_COPY_SRC1} ${GTEST_COPY_DEST}
-                       COMMAND ${CMAKE_COMMAND} -E copy ${GTEST_COPY_SRC2} ${GTEST_COPY_DEST})
+    # Copy loader and googletest (gtest) libs to test dir so the test executable can find them.
+    add_custom_command(TARGET test_regression POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gtest> $<TARGET_FILE_DIR:test_regression>)
     # Copy the loader shared lib (if built) to the test application directory so the test app finds it.
     if(TARGET vulkan)
-        add_custom_command(TARGET loader_regression_tests POST_BUILD
-                           COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:vulkan> $<TARGET_FILE_DIR:loader_regression_tests>)
+        add_custom_command(TARGET test_regression POST_BUILD
+                           COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:vulkan> $<TARGET_FILE_DIR:test_regression>)
     endif()
 endif()

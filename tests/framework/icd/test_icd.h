@@ -80,7 +80,7 @@ struct TestICD {
         this->min_icd_interface_version = icd_interface_version;
         return *this;
     }
-    TestICD& SetDriverAPIVersion(uint32_t api_version) {
+    TestICD& SetICDAPIVersion(uint32_t api_version) {
         this->icd_api_version = api_version;
         return *this;
     }

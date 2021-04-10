@@ -30,17 +30,17 @@
 class RegressionTests : public ::testing::Test {
    protected:
     virtual void SetUp() {
-        env = std::unique_ptr<SingleDriverShim>(
-            new SingleDriverShim(TestICDDetails(TEST_ICD_PATH_VERSION_2, VK_MAKE_VERSION(1, 0, 0))));
+        env = std::unique_ptr<SingleICDShim>(
+            new SingleICDShim(TestICDDetails(TEST_ICD_PATH_VERSION_2, VK_MAKE_VERSION(1, 0, 0))));
     }
 
     virtual void TearDown() { env.reset(); }
-    std::unique_ptr<SingleDriverShim> env;
+    std::unique_ptr<SingleICDShim> env;
 };
 
 TEST_F(RegressionTests, CreateInstance_BasicRun) {
     auto& driver = env->get_test_icd();
-    driver.SetDriverAPIVersion(VK_MAKE_VERSION(1, 0, 0));
+    driver.SetICDAPIVersion(VK_MAKE_VERSION(1, 0, 0));
     driver.SetMinICDInterfaceVersion(5);
 
     InstWrapper inst{env->vulkan_functions};

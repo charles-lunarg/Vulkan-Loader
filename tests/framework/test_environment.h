@@ -11,7 +11,7 @@
 #include "icd/test_icd.h"
 
 #include "framework_config.h"
-#include "driver_defs.h"
+#include "icd_defs.h"
 #include "layer_defs.h"
 
 namespace detail {
@@ -31,59 +31,56 @@ struct PlatformShimWrapper {
 
 struct TestICDHandle {
     TestICDHandle();
-    TestICDHandle(fs::path const& driver_name);
+    TestICDHandle(fs::path const& icd_path);
     TestICD& get_new_test_icd();
     TestICD& get_test_icd();
+    fs::path get_icd_full_path();
 
     // Must use statically
-    std::string driver_name;
-    LibraryWrapper driver_library;
+    LibraryWrapper icd_library;
     GetTestICDFunc proc_addr_get_test_icd;
     GetNewTestICDFunc proc_addr_get_new_test_icd;
-
 };
 }  // namespace detail
 
 struct TestICDDetails {
-    TestICDDetails(const char* macro_name, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
-        : macro_name(macro_name), api_version(api_version) {}
-    const char* macro_name = nullptr;
+    TestICDDetails(const char* icd_path, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
+        : icd_path(icd_path), api_version(api_version) {}
+    const char* icd_path = nullptr;
     uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
 };
 struct FrameworkEnvironment {
     FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
 
-    void AddDriver(TestICDDetails driver_details, const std::string & json_name);
-    void AddImplicitLayer(ManifestLayer layer_manifest, const std::string & json_name);
-    void AddExplicitLayer(ManifestLayer layer_manifest, const std::string & json_name);
+    void AddICD(TestICDDetails icd_details, const std::string& json_name);
+    void AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
+    void AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
 
     detail::PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;
-    fs::FolderManager drivers_folder;
-    fs::FolderManager explicit_layers_folder;
-    fs::FolderManager implicit_layers_folder;
+    fs::FolderManager icd_folder;
+    fs::FolderManager explicit_layer_folder;
+    fs::FolderManager implicit_layer_folder;
     VulkanFunctions vulkan_functions;
 };
 
-struct SingleDriverShim : FrameworkEnvironment {
-    SingleDriverShim(TestICDDetails driver_details, DebugMode debug_mode = DebugMode::none);
+struct SingleICDShim : FrameworkEnvironment {
+    SingleICDShim(TestICDDetails icd_details, DebugMode debug_mode = DebugMode::none);
 
     TestICD& get_test_icd();
     TestICD& get_new_test_icd();
 
-    // FrameworkEnvironment env;
+    fs::path get_test_icd_path();
 
-    detail::TestICDHandle driver_handle;
+    detail::TestICDHandle icd_handle;
 };
 
-struct MultipleDriverShim : FrameworkEnvironment {
-    MultipleDriverShim(std::vector<TestICDDetails> driver_macro_names, DebugMode debug_mode = DebugMode::none);
+struct MultipleICDShim : FrameworkEnvironment {
+    MultipleICDShim(std::vector<TestICDDetails> icd_details_vector, DebugMode debug_mode = DebugMode::none);
 
-    TestICD& get_test_icd(int driver);
-    TestICD& get_test_icd(std::string const& driver_name);
+    TestICD& get_test_icd(int index);
+    TestICD& get_new_test_icd(int index);
+    fs::path get_test_icd_path(int index);
 
-    TestICD& get_new_test_icd(int driver);
-    TestICD& get_new_test_icd(std::string const& driver_name);
-
-    std::vector<detail::TestICDHandle> drivers;
+    std::vector<detail::TestICDHandle> icds;
 };

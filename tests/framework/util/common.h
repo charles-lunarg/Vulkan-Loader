@@ -44,6 +44,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <ctime>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -223,6 +224,7 @@ struct path {
     // get C++ style string
     std::string const& str() const { return contents; }
     std::string& str() { return contents; }
+    size_t size() const { return contents.size();};
 
    private:
     std::string contents;
@@ -304,11 +306,11 @@ static inline const char* loader_platform_get_proc_address_error(const char* nam
 
 struct LibraryWrapper {
     explicit LibraryWrapper() noexcept {}
-    explicit LibraryWrapper(fs::path const& lib_name) noexcept {
-        lib_handle = loader_platform_open_library(lib_name.c_str());
+    explicit LibraryWrapper(fs::path const& lib_path) noexcept : lib_path(lib_path) {
+        lib_handle = loader_platform_open_library(lib_path.c_str());
         if (lib_handle == NULL) {
-            fprintf(stderr, "Unable to open library %s: %s\n", lib_name.c_str(),
-                    loader_platform_open_library_error(lib_name.c_str()));
+            fprintf(stderr, "Unable to open library %s: %s\n", lib_path.c_str(),
+                    loader_platform_open_library_error(lib_path.c_str()));
             assert(lib_handle != NULL && "Must be able to open library");
         }
     }
@@ -320,13 +322,14 @@ struct LibraryWrapper {
     }
     LibraryWrapper(LibraryWrapper const& wrapper) = delete;
     LibraryWrapper& operator=(LibraryWrapper const& wrapper) = delete;
-    LibraryWrapper(LibraryWrapper&& wrapper) noexcept : lib_handle(wrapper.lib_handle) { wrapper.lib_handle = nullptr; }
+    LibraryWrapper(LibraryWrapper&& wrapper) noexcept : lib_handle(wrapper.lib_handle), lib_path(wrapper.lib_path) { wrapper.lib_handle = nullptr; }
     LibraryWrapper& operator=(LibraryWrapper&& wrapper) noexcept {
         if (this != &wrapper) {
             if (lib_handle != nullptr) {
                 loader_platform_close_library(lib_handle);
             }
             lib_handle = wrapper.lib_handle;
+            lib_path = wrapper.lib_path;
             wrapper.lib_handle = nullptr;
         }
         return *this;
@@ -345,6 +348,7 @@ struct LibraryWrapper {
     explicit operator bool() const noexcept { return lib_handle != nullptr; }
 
     loader_platform_dl_handle lib_handle = nullptr;
+    fs::path lib_path;
 };
 
 template <typename T>

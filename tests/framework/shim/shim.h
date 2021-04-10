@@ -41,15 +41,43 @@
 #include <adapters.h>
 #endif
 
-enum class ManifestCategory { Implicit, Explicit, Driver };
-enum class GPUPreference { unspecified, minimum_power, high_performance };
+enum class ManifestCategory { implicit_layer, explicit_layer, icd };
+enum class GpuType { unspecified, integrated, discrete, external };
 
 #if defined(WIN32)
-struct DXGIDriver {
-    DXGIDriver(fs::path const& manifest_path, GPUPreference gpu_preference)
-        : manifest_path(manifest_path.str()), gpu_preference(gpu_preference) {}
-    std::string manifest_path;
-    GPUPreference gpu_preference = GPUPreference::unspecified;
+
+struct KeyWrapper;
+
+static const char* pnp_registry_path = "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";
+
+// Needed for DXGI mocking
+struct KnownDriverData {
+    const char* filename;
+    int vendor_id;
+};
+static std::array<KnownDriverData, 4> known_driver_list = {
+#if defined(_WIN64)
+    KnownDriverData{"igvk64.json", 0x8086}, KnownDriverData{"nv-vk64.json", 0x10de}, KnownDriverData{"amd-vulkan64.json", 0x1002},
+    KnownDriverData{"amdvlk64.json", 0x1002}
+#else
+    KnownDriverData{"igvk32.json", 0x8086}, KnownDriverData{"nv-vk32.json", 0x10de}, KnownDriverData{"amd-vulkan32.json", 0x1002},
+    KnownDriverData{"amdvlk32.json", 0x1002}
+#endif
+};
+
+struct DXGIAdapter {
+    DXGIAdapter(fs::path const& manifest_path, GpuType gpu_preference, uint32_t known_driver_index, DXGI_ADAPTER_DESC1 desc1,
+                uint32_t adapter_index)
+        : manifest_path(manifest_path),
+          gpu_preference(gpu_preference),
+          known_driver_index(known_driver_index),
+          desc1(desc1),
+          adapter_index(adapter_index) {}
+    fs::path manifest_path;
+    GpuType gpu_preference = GpuType::unspecified;
+    uint32_t known_driver_index = UINT_MAX;  // index into the known_driver_list, UINT_MAX if it shouldn't index at all.
+    DXGI_ADAPTER_DESC1 desc1{};
+    uint32_t adapter_index = 0;
 };
 
 struct SHIM_D3DKMT_ADAPTERINFO {
@@ -58,14 +86,15 @@ struct SHIM_D3DKMT_ADAPTERINFO {
     ULONG NumOfSources;
     BOOL bPresentMoveRegionsPreferred;
 };
+
 struct D3DKMT_Adapter {
-    std::vector<SHIM_D3DKMT_ADAPTERINFO> adapters;
-    std::vector<LoaderQueryRegistryInfo> registry_info;
+    SHIM_D3DKMT_ADAPTERINFO info;
+    fs::path path;
 };
 
 #endif
-// Necessary to have inline definitions as shim is a dll and thus functions defined in the .cpp
-// wont be found by the rest of the application
+// Necessary to have inline definitions as shim is a dll and thus functions
+// defined in the .cpp wont be found by the rest of the application
 struct PlatformShim {
     // Test Framework interface
     void setup_override(DebugMode debug_mode = DebugMode::none);
@@ -81,16 +110,23 @@ struct PlatformShim {
 
 // platform specific shim interface
 #if defined(WIN32)
-    void add_dxgi_manifest(DXGIDriver const& driver);
-    void add_dxgi_adapter_desc1(DXGI_ADAPTER_DESC1 desc1);
-    void add_D3DKMT_ADAPTERINFO(D3DKMT_Adapter adapter);
+    void add_dxgi_adapter(fs::path const& manifest_path, GpuType gpu_preference, uint32_t known_driver_index,
+                          DXGI_ADAPTER_DESC1 desc1);
+    void add_d3dkmt_adapter(SHIM_D3DKMT_ADAPTERINFO adapter, fs::path const& path);
+    void add_CM_Device_ID(std::wstring const& id, fs::path const& icd_path, fs::path const& layer_path);
 
-    std::vector<std::string> drivers;
-    std::vector<DXGIDriver> dxgi_drivers;
-    std::vector<DXGI_ADAPTER_DESC1> dxgi_adapter_desc1s;
+    uint32_t next_adapter_handle = 1;  // increment everytime add_dxgi_adapter is called
+    std::vector<DXGIAdapter> dxgi_adapters;
+    std::unordered_map<IDXGIAdapter1*, uint32_t> dxgi_adapter_map;
+    // next two are a pair
     std::vector<D3DKMT_Adapter> d3dkmt_adapters;
 
+    std::wstring CM_device_ID_list = {L'\0'};
+    std::vector<KeyWrapper> CM_device_ID_registry_keys;
+
     uint32_t random_base_path = 0;
+
+    std::vector<fs::path> icd_paths;
 
 #elif defined(__linux__) || defined(__APPLE__)
     bool is_fake_path(fs::path const& path);
@@ -125,9 +161,9 @@ PlatformShim& get_platform_shim();
 // need to be defined inline, so that both framework code and shim dlls can use them.
 
 inline void PlatformShim::redirect_all_paths(fs::path const& path) {
-    redirect_category(path, ManifestCategory::Implicit);
-    redirect_category(path, ManifestCategory::Explicit);
-    redirect_category(path, ManifestCategory::Driver);
+    redirect_category(path, ManifestCategory::implicit_layer);
+    redirect_category(path, ManifestCategory::explicit_layer);
+    redirect_category(path, ManifestCategory::icd);
 }
 
 inline std::vector<std::string> parse_env_var_list(std::string const& var) {
@@ -154,9 +190,9 @@ inline std::vector<std::string> parse_env_var_list(std::string const& var) {
 
 #if defined(WIN32)
 
-inline std::string to_str(ManifestCategory category) {
-    if (category == ManifestCategory::Implicit) return "ImplicitLayers";
-    if (category == ManifestCategory::Explicit)
+inline std::string category_path_name(ManifestCategory category) {
+    if (category == ManifestCategory::implicit_layer) return "ImplicitLayers";
+    if (category == ManifestCategory::explicit_layer)
         return "ExplicitLayers";
     else
         return "Drivers";
@@ -217,7 +253,7 @@ inline void close_key(HKEY& key) {
     if (out != ERROR_SUCCESS) std::cerr << win_api_error_str(out) << " failed to close key " << key << "\n";
 }
 
-inline void override_key(HKEY root_key, uint32_t random_base_path) {
+inline void setup_override_key(HKEY root_key, uint32_t random_base_path) {
     DWORD dDisposition{};
     LSTATUS out;
 
@@ -245,9 +281,20 @@ inline void revert_override(HKEY root_key, uint32_t random_base_path) {
 struct KeyWrapper {
     explicit KeyWrapper(HKEY key) noexcept : key(key) {}
     explicit KeyWrapper(HKEY key_root, const char* key_path) noexcept { key = create_key(key_root, key_path); }
-    ~KeyWrapper() noexcept { close_key(key); }
+    ~KeyWrapper() noexcept {
+        if (key != nullptr) close_key(key);
+    }
     explicit KeyWrapper(KeyWrapper const&) = delete;
     KeyWrapper& operator=(KeyWrapper const&) = delete;
+    explicit KeyWrapper(KeyWrapper&& other) : key(other.key) { other.key = nullptr; };
+    KeyWrapper& operator=(KeyWrapper&& other) {
+        if (this != &other) {
+            if (other.key != nullptr) close_key(other.key);
+            key = other.key;
+            other.key = nullptr;
+        }
+        return *this;
+    };
 
     HKEY get() const noexcept { return key; }
     operator HKEY() { return key; }
@@ -262,6 +309,12 @@ inline void add_key_value(HKEY const& key, fs::path const& manifest_path, bool e
     DWORD value = enabled ? 0 : 1;
     LSTATUS out = RegSetValueEx(key, manifest_path.c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(value));
     if (out != ERROR_SUCCESS) std::cerr << win_api_error_str(out) << " failed to set key value for " << manifest_path.str() << "\n";
+}
+
+inline void add_key_value_string(HKEY const& key, const char* name, const char* str) {
+    LSTATUS out = RegSetValueExA(key, name, 0, REG_SZ, reinterpret_cast<const BYTE*>(str), strlen(str));
+    if (out != ERROR_SUCCESS)
+        std::cerr << win_api_error_str(out) << " failed to set string value for " << name << ":" << str << "\n";
 }
 
 inline void remove_key_value(HKEY const& key, fs::path const& manifest_path) {
@@ -294,9 +347,28 @@ inline void PlatformShim::setup_override(DebugMode debug_mode) {
     std::random_device rd;
     std::ranlux48 gen(rd());
     std::uniform_int_distribution<uint32_t> dist(0, 2000000);
-    random_base_path = dist(gen);
-    override_key(HKEY_LOCAL_MACHINE, random_base_path);
-    override_key(HKEY_CURRENT_USER, random_base_path);
+    while (random_base_path == 0) {
+        uint32_t random_num = dist(gen);
+        auto override_path = get_override_path(HKEY_CURRENT_USER, random_num);
+        HKEY temp_key = nullptr;
+        auto result = RegOpenKeyEx(HKEY_CURRENT_USER, override_path.c_str(), 0, KEY_READ, &temp_key);
+        if (result != ERROR_SUCCESS) {
+            // Didn't find it, use the random number
+            random_base_path = random_num;
+        } else {
+            // try a different random number that isn't being used
+            std::cout << "INFO: Encountered existing registry key, is the registry full of old LoaderRegressionTest keys?\n";
+        }
+    }
+    auto reg_base = override_base_path(random_base_path);
+    HKEY timestamp_key = create_key(HKEY_CURRENT_USER, reg_base.c_str());
+
+    std::time_t cur_time = std::time(nullptr);
+    auto* cur_time_text = std::ctime(&cur_time);
+    add_key_value_string(timestamp_key, "Timestamp", cur_time_text);
+
+    setup_override_key(HKEY_LOCAL_MACHINE, random_base_path);
+    setup_override_key(HKEY_CURRENT_USER, random_base_path);
 }
 inline void PlatformShim::clear_override(DebugMode debug_mode) {
     if (debug_mode != DebugMode::no_delete) {
@@ -311,29 +383,51 @@ inline void PlatformShim::clear_override(DebugMode debug_mode) {
 inline void PlatformShim::reset(DebugMode debug_mode) {
     KeyWrapper implicit_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers"};
     KeyWrapper explicit_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers"};
-    KeyWrapper driver_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\Drivers"};
+    KeyWrapper icd_key{HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\Drivers"};
     if (debug_mode != DebugMode::no_delete) {
         clear_key_values(implicit_key);
         clear_key_values(explicit_key);
-        clear_key_values(driver_key);
+        clear_key_values(icd_key);
     }
 }
 
 inline void PlatformShim::set_path(ManifestCategory category, fs::path const& path) {}
 
 inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const& path) {
-    std::string reg_path = std::string("SOFTWARE\\Khronos\\Vulkan\\") + to_str(category);
+    std::string reg_path = std::string("SOFTWARE\\Khronos\\Vulkan\\") + category_path_name(category);
     KeyWrapper key{HKEY_LOCAL_MACHINE, reg_path.c_str()};
     add_key_value(key, path);
-    if (category == ManifestCategory::Driver) {
-        drivers.push_back(path.str());
+    if (category == ManifestCategory::icd) {
+        icd_paths.push_back(path);
     }
 }
+inline void PlatformShim::add_dxgi_adapter(fs::path const& manifest_path, GpuType gpu_preference, uint32_t known_driver_index,
+                                           DXGI_ADAPTER_DESC1 desc1) {
+    dxgi_adapters.push_back(DXGIAdapter(manifest_path, gpu_preference, known_driver_index, desc1, next_adapter_handle++));
+}
 
-inline void PlatformShim::add_dxgi_manifest(DXGIDriver const& driver) { dxgi_drivers.push_back(driver); }
-inline void PlatformShim::add_dxgi_adapter_desc1(DXGI_ADAPTER_DESC1 desc1) { dxgi_adapter_desc1s.push_back(desc1); }
+inline void PlatformShim::add_d3dkmt_adapter(SHIM_D3DKMT_ADAPTERINFO adapter, fs::path const& path) {
+    d3dkmt_adapters.push_back({adapter, path});
+}
 
-inline void PlatformShim::add_D3DKMT_ADAPTERINFO(D3DKMT_Adapter adapter) { d3dkmt_adapters.push_back(adapter); }
+inline void PlatformShim::add_CM_Device_ID(std::wstring const& id, fs::path const& icd_path, fs::path const& layer_path) {
+    // append a null byte as separator if there is already id's in the list
+    if (CM_device_ID_list.size() != 0) {
+        CM_device_ID_list += L'\0';  // I'm sure this wont cause issues with std::string down the line... /s
+    }
+    CM_device_ID_list += id;
+    std::string id_str(id.length(), '\0');
+    std::wcstombs(&id_str[0], id.c_str(), id_str.length());
+
+    std::string device_path = std::string(pnp_registry_path) + "\\" + id_str;
+    CM_device_ID_registry_keys.emplace_back(HKEY_LOCAL_MACHINE, device_path.c_str());
+    HKEY id_key = CM_device_ID_registry_keys.back().key;
+    add_key_value_string(id_key, "VulkanDriverName", icd_path.c_str());
+    add_key_value_string(id_key, "VulkanLayerName", layer_path.c_str());
+    // TODO: decide how to handle 32 bit
+    // add_key_value_string(id_key, "VulkanDriverNameWoW", icd_path.c_str());
+    // add_key_value_string(id_key, "VulkanLayerName", layer_path.c_str());
+}
 
 inline HKEY GetRegistryKey() { return HKEY{}; }
 
@@ -341,17 +435,17 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
     // create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0001");
     // create_key(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0002");
     switch (search_category) {
-        case (ManifestCategory::Implicit):
+        case (ManifestCategory::implicit_layer):
             create_key(HKEY_CURRENT_USER, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\ImplicitLayers");
             break;
-        case (ManifestCategory::Explicit):
+        case (ManifestCategory::explicit_layer):
             create_key(HKEY_CURRENT_USER, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\ExplicitLayers");
             break;
-        case (ManifestCategory::Driver):
+        case (ManifestCategory::icd):
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\Drivers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\Drivers");
             break;
@@ -364,9 +458,9 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
 #include <dirent.h>
 #include <unistd.h>
 
-inline std::string to_str(ManifestCategory category) {
-    if (category == ManifestCategory::Implicit) return "implicit_layer.d";
-    if (category == ManifestCategory::Explicit)
+inline std::string category_path_name(ManifestCategory category) {
+    if (category == ManifestCategory::implicit_layer) return "implicit_layer.d";
+    if (category == ManifestCategory::explicit_layer)
         return "explicit_layer.d";
     else
         return "icd.d";
@@ -392,10 +486,10 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
 
 inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCategory category) {
     // default paths
-    add(fs::path("/usr/local/etc/vulkan") / to_str(category), new_path);
-    add(fs::path("/usr/local/share/vulkan") / to_str(category), new_path);
-    add(fs::path("/etc/vulkan") / to_str(category), new_path);
-    add(fs::path("/usr/share/vulkan") / to_str(category), new_path);
+    add(fs::path("/usr/local/etc/vulkan") / category_path_name(category), new_path);
+    add(fs::path("/usr/local/share/vulkan") / category_path_name(category), new_path);
+    add(fs::path("/etc/vulkan") / category_path_name(category), new_path);
+    add(fs::path("/usr/share/vulkan") / category_path_name(category), new_path);
 
     std::vector<std::string> xdg_paths;
     std::string xdg_data_dirs_var = get_env_var("XDG_DATA_DIRS");
@@ -408,18 +502,18 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
         xdg_paths.insert(xdg_paths.begin(), paths.begin(), paths.end());
     }
     for (auto& path : xdg_paths) {
-        add(fs::path(path) / "vulkan" / to_str(category), new_path);
+        add(fs::path(path) / "vulkan" / category_path_name(category), new_path);
     }
 
     std::string home = get_env_var("HOME");
     if (home.size() == 0) return;
-    add(fs::path(home) / ".local/share/vulkan" / to_str(category), new_path);
+    add(fs::path(home) / ".local/share/vulkan" / category_path_name(category), new_path);
 }
 
 inline void PlatformShim::set_path(ManifestCategory category, fs::path const& path) {
-    if (category == ManifestCategory::Implicit) add(fs::path("/usr/local/etc/vulkan/implicit_layer.d"), path);
-    if (category == ManifestCategory::Explicit) add(fs::path("/usr/local/etc/vulkan/explicit_layer.d"), path);
-    if (category == ManifestCategory::Driver) add(fs::path("/usr/local/etc/vulkan/icd.d"), path);
+    if (category == ManifestCategory::implicit_layer) add(fs::path("/usr/local/etc/vulkan/implicit_layer.d"), path);
+    if (category == ManifestCategory::explicit_layer) add(fs::path("/usr/local/etc/vulkan/explicit_layer.d"), path);
+    if (category == ManifestCategory::icd) add(fs::path("/usr/local/etc/vulkan/icd.d"), path);
 }
 
 #endif
