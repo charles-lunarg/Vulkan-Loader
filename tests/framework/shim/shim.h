@@ -282,16 +282,16 @@ struct KeyWrapper {
     explicit KeyWrapper(HKEY key) noexcept : key(key) {}
     explicit KeyWrapper(HKEY key_root, const char* key_path) noexcept { key = create_key(key_root, key_path); }
     ~KeyWrapper() noexcept {
-        if (key != nullptr) close_key(key);
+        if (key != NULL) close_key(key);
     }
     explicit KeyWrapper(KeyWrapper const&) = delete;
     KeyWrapper& operator=(KeyWrapper const&) = delete;
-    explicit KeyWrapper(KeyWrapper&& other) : key(other.key) { other.key = nullptr; };
+    explicit KeyWrapper(KeyWrapper&& other) : key(other.key) { other.key = NULL; };
     KeyWrapper& operator=(KeyWrapper&& other) {
         if (this != &other) {
-            if (other.key != nullptr) close_key(other.key);
+            if (other.key != NULL) close_key(other.key);
             key = other.key;
-            other.key = nullptr;
+            other.key = NULL;
         }
         return *this;
     };

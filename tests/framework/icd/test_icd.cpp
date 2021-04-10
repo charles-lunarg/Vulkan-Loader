@@ -45,9 +45,7 @@ TEST_ICD_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES
 
 TestICD icd;
 extern "C" {
-FRAMEWORK_EXPORT TestICD& get_test_icd_func() {
-    return icd;
-}
+FRAMEWORK_EXPORT TestICD& get_test_icd_func() { return icd; }
 FRAMEWORK_EXPORT TestICD& get_new_test_icd_func() {
     icd.~TestICD();
     return *(new (&icd) TestICD());
@@ -277,7 +275,11 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateXlibSurfaceKHR(VkInstance instance, 
 VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo,
                                                             const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface) {
     if (nullptr != pSurface) {
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__) ) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
         *pSurface = reinterpret_cast<VkSurfaceKHR>(++icd.created_surface_count);
+#else
+        *pSurface = ++icd.created_surface_count;
+#endif
     }
     return VK_SUCCESS;
 }
@@ -290,7 +292,11 @@ VKAPI_ATTR void VKAPI_CALL test_vkDestroySurfaceKHR(VkInstance instance, VkSurfa
 VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo,
                                                          const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain) {
     if (nullptr != pSwapchain) {
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__) ) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
         *pSwapchain = reinterpret_cast<VkSwapchainKHR>(++icd.created_swapchain_count);
+#else
+        *pSwapchain = ++icd.created_swapchain_count;
+#endif
     }
     return VK_SUCCESS;
 }
@@ -346,7 +352,7 @@ PFN_vkVoidFunction get_instance_func_ver_1_2(VkInstance instance, const char* pN
 }
 
 PFN_vkVoidFunction get_instance_func_wsi(VkInstance instance, const char* pName) {
-    if (icd.min_icd_interface_version >= 3 && icd.enable_icd_wsi  == true) {
+    if (icd.min_icd_interface_version >= 3 && icd.enable_icd_wsi == true) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
         if (strcmp(pName, "vkCreateAndroidSurfaceKHR") == 0) {
             icd.is_using_icd_wsi = UsingICDProvidedWSI::is_using;

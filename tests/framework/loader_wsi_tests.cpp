@@ -104,7 +104,7 @@ TEST_F(RegressionTests, CreateSurfaceWin32) {
     surf_create_info.hwnd = h_wnd;
     surf_create_info.hinstance = h_instance;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateWin32SurfaceKHR(inst, &surf_create_info, nullptr, &surface));
-    ASSERT_TRUE(surface != nullptr);
+    ASSERT_TRUE(surface != VK_NULL_HANDLE);
     //    ASSERT_EQ(driver.is_using_icd_wsi, UsingICDProvidedWSI::not_using);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
@@ -165,7 +165,7 @@ TEST_F(RegressionTests, CreateSurfaceXCB) {
 
     VkSurfaceKHR surface{};
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateXcbSurfaceKHR(inst, &xcb_createInfo, nullptr, &surface));
-    ASSERT_TRUE(surface != nullptr);
+    ASSERT_TRUE(surface != VK_NULL_HANDLE);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
 
@@ -214,7 +214,7 @@ TEST_F(RegressionTests, CreateSurfaceXLIB) {
 
     VkSurfaceKHR surface;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateXlibSurfaceKHR(inst, &createInfo, nullptr, &surface));
-    ASSERT_TRUE(surface != nullptr);
+    ASSERT_TRUE(surface != VK_NULL_HANDLE);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
 
@@ -273,7 +273,7 @@ TEST_F(RegressionTests, CreateSurfaceWayland) {
 
     VkSurfaceKHR surface;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkCreateWaylandSurfaceKHR(inst, &createInfo, nullptr, &surface));
-    ASSERT_TRUE(surface != nullptr);
+    ASSERT_TRUE(surface != VK_NULL_HANDLE);
 
     env->vulkan_functions.fp_vkDestroySurfaceKHR(inst, surface, nullptr);
 
