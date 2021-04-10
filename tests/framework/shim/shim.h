@@ -289,7 +289,7 @@ struct KeyWrapper {
     explicit KeyWrapper(KeyWrapper&& other) : key(other.key) { other.key = NULL; };
     KeyWrapper& operator=(KeyWrapper&& other) {
         if (this != &other) {
-            if (other.key != NULL) close_key(other.key);
+            if (key != NULL) close_key(key);
             key = other.key;
             other.key = NULL;
         }
@@ -350,7 +350,7 @@ inline void PlatformShim::setup_override(DebugMode debug_mode) {
     while (random_base_path == 0) {
         uint32_t random_num = dist(gen);
         auto override_path = get_override_path(HKEY_CURRENT_USER, random_num);
-        HKEY temp_key = nullptr;
+        HKEY temp_key = NULL;
         auto result = RegOpenKeyEx(HKEY_CURRENT_USER, override_path.c_str(), 0, KEY_READ, &temp_key);
         if (result != ERROR_SUCCESS) {
             // Didn't find it, use the random number
