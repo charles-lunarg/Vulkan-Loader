@@ -61,6 +61,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_icd.h>
+#include <vulkan/vk_layer.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define FRAMEWORK_EXPORT __attribute__((visibility("default")))
@@ -87,7 +88,7 @@ std::string get_env_var(std::string const& name);
 enum class DebugMode {
     none,
     log,       // log all folder and file creation & deletion
-    no_delete  // Will not delete create folders & files, but will report 'deleting them' to show when something *should* of been
+    no_delete  // Will not delete created folders & files, but will report 'deleting them' to show when something *should* of been
                // deleted
 };
 

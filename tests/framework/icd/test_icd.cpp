@@ -53,14 +53,14 @@ FRAMEWORK_EXPORT TestICD& get_new_test_icd_func() {
 }
 
 namespace detail {
-Layer& FindLayer(std::vector<Layer>& layers, std::string layerName) {
+LayerDefinition& FindLayer(std::vector<LayerDefinition>& layers, std::string layerName) {
     for (auto& layer : layers) {
         if (layer.layerName == layerName) return layer;
     }
     assert(false && "Layer name not found!");
     return layers[0];
 }
-bool CheckLayer(std::vector<Layer>& layers, std::string layerName) {
+bool CheckLayer(std::vector<LayerDefinition>& layers, std::string layerName) {
     for (auto& layer : layers) {
         if (layer.layerName == layerName) return true;
     }

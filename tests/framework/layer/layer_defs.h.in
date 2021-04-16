@@ -29,3 +29,31 @@
 #define LAYER_BUILD_LOCATION "$<TARGET_FILE_DIR:test_layer_existence>"
 
 #define TEST_LAYER_PATH_EXISTENCE "$<TARGET_FILE:test_layer_existence>"
+
+// 
+/*
+Version 0
+
+must export:
+<layerName>GetInstanceProcAddr(instance, pName)
+    or if there is only one layer
+    vkGetInstanceProcAddr
+<layerName>GetDeviceProcAddr(device, pName)
+    or if there is only one layer
+    vkGetDeviceProcAddr
+
+must export the following:
+vkEnumerateInstanceLayerProperties 
+vkEnumerateInstanceExtensionProperties 
+
+Must export the following but nothing.
+vkEnumerateDeviceLayerProperties 
+vkEnumerateDeviceExtensionProperties 
+*/
+
+#define LAYER_EXPORT_LAYER_NAME_PREFIX_GIPA 1
+#define LAYER_EXPORT_NO_PREFIX_GIPA 0
+
+#define LAYER_EXPORT_LAYER_NAME_PREFIX_DEVICE_GPA 1
+#define LAYER_EXPORT_NO_PREFIX_DEVICE_GPA 0
+

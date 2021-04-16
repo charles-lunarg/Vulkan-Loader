@@ -29,16 +29,16 @@
 
 #include "util/common.h"
 
-struct Layer {
+struct LayerDefinition {
     std::string layerName;
     uint32_t specVersion = VK_MAKE_VERSION(1, 0, 0);
     uint32_t implementationVersion = VK_MAKE_VERSION(1, 0, 0);
     std::string description;
     std::vector<Extension> extensions;
 
-    Layer(std::string layerName, uint32_t specVersion = VK_MAKE_VERSION(1, 0, 0),
-          uint32_t implementationVersion = VK_MAKE_VERSION(1, 0, 0), std::string description = "",
-          std::vector<Extension> extensions = {})
+    LayerDefinition(std::string layerName, uint32_t specVersion = VK_MAKE_VERSION(1, 0, 0),
+                    uint32_t implementationVersion = VK_MAKE_VERSION(1, 0, 0), std::string description = "",
+                    std::vector<Extension> extensions = {})
         : layerName(layerName),
           specVersion(specVersion),
           implementationVersion(implementationVersion),
@@ -54,3 +54,20 @@ struct Layer {
         return props;
     }
 };
+
+// Useless because this value doesn't change the layer behavior.
+// global and instance should have identical behavior, device should make the layer be ignored
+// NOTE: The uselessness is due to the deprecation of device layers, this field was used to
+// distinguish the different layer types.
+enum class UselessLayerType { global, instance, device };
+inline const char* UselessLayerTypeString(UselessLayerType type) {
+    switch (type) {
+        case (UselessLayerType::global):
+            return "GLOBAL";
+        case (UselessLayerType::instance):
+            return "INSTANCE";
+        case (UselessLayerType::device):
+            return "DEVICE";
+    }
+    return "INVALID_LAYER_TYPE";
+}

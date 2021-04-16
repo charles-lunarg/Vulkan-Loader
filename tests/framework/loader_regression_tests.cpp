@@ -97,7 +97,7 @@ TEST_F(RegressionTests, CreateInstance_LayerPresent) {
     env->AddExplicitLayer(layer_manifest, "ExistenceLayer.json");
 
     auto& driver = env->get_test_icd();
-    Layer layer{layer_name, VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), layer_name, {}};
+    LayerDefinitionlayer{layer_name, VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0), layer_name, {}};
     driver.AddInstanceLayer(layer);
 
     InstWrapper inst{env->vulkan_functions};
