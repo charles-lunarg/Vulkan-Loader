@@ -38,6 +38,20 @@
 #include "vk_layer_dispatch_table.h"
 #include "vk_loader_extensions.h"
 
+/*
+ -- BEGIN TEMPORARY --
+ only used for initial implementation. TODO: Delete this code before using actual portability extension definition.
+ */
+typedef enum VkInstanceCreateFlagBits {
+    VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR = 0x00000001
+} VkInstanceCreateFlagBits;
+#define VK_KHR_portability_enumeration 1
+#define VK_KHR_PORTABILITY_ENUMERATION_SPEC_VERSION 1
+#define VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME "VK_KHR_portability_enumeration"
+/*
+ -- END TEMPORARY --
+ */
+
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LOADER_EXPORT __attribute__((visibility("default")))
 #elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
