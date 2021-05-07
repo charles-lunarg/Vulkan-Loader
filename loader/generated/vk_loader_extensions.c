@@ -6560,5 +6560,6 @@ const char *const LOADER_INSTANCE_EXTENSIONS[] = {
 #ifdef VK_USE_PLATFORM_SCREEN_QNX
                                                   VK_QNX_SCREEN_SURFACE_EXTENSION_NAME,
 #endif // VK_USE_PLATFORM_SCREEN_QNX
+                                                  VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
                                                   NULL };
 

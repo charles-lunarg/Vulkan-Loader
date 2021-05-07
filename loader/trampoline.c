@@ -423,6 +423,20 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(const VkInstanceCr
         ptr_instance->app_api_minor_version = VK_VERSION_MINOR(pCreateInfo->pApplicationInfo->apiVersion);
     }
 
+    // Check the VkInstanceCreateInfoFlags wether to allow the portability subset
+    if (NULL != pCreateInfo) {
+        if (VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR == pCreateInfo->flags) {
+            // Make sure the extension has been enabled
+            for(uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++){
+                if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0){
+                    ptr_instance->portability_subset_enabled = true;
+                    loader_log(ptr_instance, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, 0,
+                        "Portability enumeration bit was set, enumerating only portability ICDs.");
+                }
+            }
+        }
+    }
+
     // Look for one or more VK_EXT_debug_report or VK_EXT_debug_utils create info structures
     // and setup a callback(s) for each one found.
     ptr_instance->num_tmp_report_callbacks = 0;
@@ -2289,7 +2303,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceImageFormatPrope
     VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp = loader_get_instance_layer_dispatch(physicalDevice);
     const struct loader_instance *inst = ((struct loader_physical_device_tramp*) physicalDevice)->this_instance;
-    
+
     if (inst != NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
         return disp->GetPhysicalDeviceImageFormatProperties2KHR(unwrapped_phys_dev, pImageFormatInfo, pImageFormatProperties);
     } else {

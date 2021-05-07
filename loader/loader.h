@@ -327,6 +327,8 @@ struct loader_instance {
 
     VkAllocationCallbacks alloc_callbacks;
 
+    bool portability_subset_enabled;
+
     bool wsi_surface_enabled;
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     bool wsi_win32_surface_enabled;

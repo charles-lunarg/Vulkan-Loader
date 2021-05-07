@@ -58,18 +58,19 @@
 
 #define VULKAN_DIR "vulkan/"
 #define VULKAN_ICDCONF_DIR "icd.d"
-#define VULKAN_ICD_DIR "icd"
+#define VULKAN_PORTABILITY_ICDCONF_DIR "portability_icd.d"
 #define VULKAN_SETTINGSCONF_DIR "settings.d"
 #define VULKAN_ELAYERCONF_DIR "explicit_layer.d"
 #define VULKAN_ILAYERCONF_DIR "implicit_layer.d"
-#define VULKAN_LAYER_DIR "layer"
 
 #define VK_DRIVERS_INFO_RELATIVE_DIR VULKAN_DIR VULKAN_ICDCONF_DIR
+#define VK_PORTABILITY_DRIVERS_INFO_RELATIVE_DIR VULKAN_DIR VULKAN_PORTABILITY_ICDCONF_DIR
 #define VK_SETTINGS_INFO_RELATIVE_DIR VULKAN_DIR VULKAN_SETTINGSCONF_DIR
 #define VK_ELAYERS_INFO_RELATIVE_DIR VULKAN_DIR VULKAN_ELAYERCONF_DIR
 #define VK_ILAYERS_INFO_RELATIVE_DIR VULKAN_DIR VULKAN_ILAYERCONF_DIR
 
 #define VK_DRIVERS_INFO_REGISTRY_LOC ""
+#define VK_PORTABILITY_DRIVERS_INFO_REGISTRY_LOC ""
 #define VK_SETTINGS_INFO_REGISTRY_LOC ""
 #define VK_ELAYERS_INFO_REGISTRY_LOC ""
 #define VK_ILAYERS_INFO_REGISTRY_LOC ""
@@ -254,6 +255,7 @@ static inline void loader_platform_thread_cond_broadcast(loader_platform_thread_
 #define SECONDARY_VK_REGISTRY_HIVE_STR "HKEY_CURRENT_USER"
 
 #define VK_DRIVERS_INFO_RELATIVE_DIR ""
+#define VK_PORTABILITY_DRIVERS_INFO_RELATIVE_DIR ""
 #define VK_SETTINGS_INFO_RELATIVE_DIR ""
 #define VK_ELAYERS_INFO_RELATIVE_DIR ""
 #define VK_ILAYERS_INFO_RELATIVE_DIR ""
@@ -264,6 +266,7 @@ static inline void loader_platform_thread_cond_broadcast(loader_platform_thread_
 #define HKR_VK_DRIVER_NAME API_NAME "DriverNameWow"
 #endif
 #define VK_DRIVERS_INFO_REGISTRY_LOC "SOFTWARE\\Khronos\\" API_NAME "\\Drivers"
+#define VK_PORTABILITY_DRIVERS_INFO_REGISTRY_LOC "SOFTWARE\\Khronos\\" API_NAME "\\PortabilityDrivers"
 #define VK_SETTINGS_INFO_REGISTRY_LOC "SOFTWARE\\Khronos\\" API_NAME "\\Settings"
 #define VK_ELAYERS_INFO_REGISTRY_LOC "SOFTWARE\\Khronos\\" API_NAME "\\ExplicitLayers"
 #define VK_ILAYERS_INFO_REGISTRY_LOC "SOFTWARE\\Khronos\\" API_NAME "\\ImplicitLayers"
@@ -291,6 +294,19 @@ static inline const wchar_t *LoaderPnpDriverRegistryWide() {
     BOOL is_wow;
     IsWow64Process(GetCurrentProcess(), &is_wow);
     return is_wow ? L"VulkanDriverNameWow" : L"VulkanDriverName";
+}
+
+// Get the key for the plug n play driver registry
+// The string returned by this function should NOT be freed
+static inline const char *LoaderPnpPortabilityDriverRegistry() {
+    BOOL is_wow;
+    IsWow64Process(GetCurrentProcess(), &is_wow);
+    return is_wow ? "VulkanPortabilityDriverNameWow" : "VulkanPortabilityDriverName";
+}
+static inline const wchar_t *LoaderPnpPortabilityDriverRegistryWide() {
+    BOOL is_wow;
+    IsWow64Process(GetCurrentProcess(), &is_wow);
+    return is_wow ? L"VulkanPortabilityDriverNameWow" : L"VulkanPortabilityDriverName";
 }
 
 // Get the key for the plug 'n play explicit layer registry
