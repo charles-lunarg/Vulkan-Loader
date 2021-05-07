@@ -2090,6 +2090,13 @@ VkResult loader_get_icd_loader_instance_extensions(const struct loader_instance 
     // Traverse loader's extensions, adding non-duplicate extensions to the list
     debug_utils_AddInstanceExtensions(inst, inst_exts);
 
+    static const VkExtensionProperties portability_enumeration_extension_info[] = {
+        {VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, VK_KHR_PORTABILITY_ENUMERATION_SPEC_VERSION}};
+
+    // Add VK_KHR_portabiliyt_subset
+    loader_add_to_ext_list(inst, inst_exts, sizeof(portability_enumeration_extension_info) / sizeof(VkExtensionProperties),
+                           portability_enumeration_extension_info);
+
 out:
     return res;
 }
@@ -4322,6 +4329,15 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
         if (regHKR_result == VK_INCOMPLETE) {
             regHKR_result = loaderGetDeviceRegistryFiles(inst, &search_path, &reg_size, LoaderPnpDriverRegistry());
         }
+    } else if (!strncmp(registry_location, VK_PORTABILITY_DRIVERS_INFO_REGISTRY_LOC,
+                        sizeof(VK_PORTABILITY_DRIVERS_INFO_REGISTRY_LOC))) {
+        // only use Portability ICD search paths if portability enumeration was enabled
+        if (NULL != inst && inst->portability_subset_enabled) {
+            regHKR_result = ReadManifestsFromD3DAdapters(inst, &search_path, &reg_size, LoaderPnpPortabilityDriverRegistryWide());
+            if (regHKR_result == VK_INCOMPLETE) {
+                regHKR_result = loaderGetDeviceRegistryFiles(inst, &search_path, &reg_size, LoaderPnpPortabilityDriverRegistry());
+            }
+        }
     } else if (!strncmp(registry_location, VK_ELAYERS_INFO_REGISTRY_LOC, sizeof(VK_ELAYERS_INFO_REGISTRY_LOC))) {
         regHKR_result = ReadManifestsFromD3DAdapters(inst, &search_path, &reg_size, LoaderPnpELayerRegistryWide());
         if (regHKR_result == VK_INCOMPLETE) {
@@ -4480,23 +4496,48 @@ VkResult loader_icd_scan(const struct loader_instance *inst, struct loader_icd_t
     uint16_t file_patch_vers = 0;
     char *vers_tok;
     struct loader_data_files manifest_files;
+    struct loader_data_files portability_manifest_files;
     VkResult res = VK_SUCCESS;
     bool lockedMutex = false;
     cJSON *json = NULL;
     uint32_t num_good_icds = 0;
 
     memset(&manifest_files, 0, sizeof(struct loader_data_files));
+    memset(&portability_manifest_files, 0, sizeof(struct loader_data_files));
 
     res = loader_scanned_icd_init(inst, icd_tramp_list);
     if (VK_SUCCESS != res) {
         goto out;
     }
+
     // Get a list of manifest files for ICDs
     res = loaderGetDataFiles(inst, LOADER_DATA_FILE_MANIFEST_ICD, true, VK_ICD_FILENAMES_ENV_VAR, NULL,
                              VK_DRIVERS_INFO_REGISTRY_LOC, VK_DRIVERS_INFO_RELATIVE_DIR, &manifest_files);
-    if (VK_SUCCESS != res || manifest_files.count == 0) {
+    if (VK_SUCCESS != res && (NULL != inst && !inst->portability_subset_enabled)) {
         goto out;
     }
+
+    // If portability enumeration was enabled, find portability ICD's and append them to the manifest list
+    if (NULL != inst && inst->portability_subset_enabled) {
+        res = loaderGetDataFiles(inst, LOADER_DATA_FILE_MANIFEST_ICD, false, VK_ICD_FILENAMES_ENV_VAR, NULL,
+                                 VK_PORTABILITY_DRIVERS_INFO_REGISTRY_LOC, VK_PORTABILITY_DRIVERS_INFO_RELATIVE_DIR,
+                                 &portability_manifest_files);
+        if (VK_SUCCESS != res) {
+            goto out;
+        }
+
+        // Add found portability ICD's to the main list of ICD's
+        for (uint32_t i = 0; i < portability_manifest_files.count; i++) {
+            res = AddIfManifestFile(inst, portability_manifest_files.filename_list[i], &manifest_files);
+            if (VK_SUCCESS != res) {
+                goto out;
+            }
+        }
+    }
+    if (manifest_files.count == 0) {
+        goto out;
+    }
+
     loader_platform_thread_lock_mutex(&loader_json_lock);
     lockedMutex = true;
     for (uint32_t i = 0; i < manifest_files.count; i++) {
@@ -4711,6 +4752,14 @@ out:
             }
         }
         loader_instance_heap_free(inst, manifest_files.filename_list);
+    }
+    if (NULL != portability_manifest_files.filename_list) {
+        for (uint32_t i = 0; i < portability_manifest_files.count; i++) {
+            if (NULL != portability_manifest_files.filename_list[i]) {
+                loader_instance_heap_free(inst, portability_manifest_files.filename_list[i]);
+            }
+        }
+        loader_instance_heap_free(inst, portability_manifest_files.filename_list);
     }
     if (lockedMutex) {
         loader_platform_thread_unlock_mutex(&loader_json_lock);
