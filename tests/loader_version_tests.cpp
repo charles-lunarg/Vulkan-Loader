@@ -33,10 +33,10 @@ class EnvVarICDOverrideSetup : public ::testing::Test {
 
     virtual void TearDown() {
         remove_env_var("VK_ICD_FILENAMES");
-        env.reset(); }
+        env.reset();
+    }
     std::unique_ptr<EnvVarICDOverrideShim> env;
 };
-
 
 // Don't support vk_icdNegotiateLoaderICDInterfaceVersion
 // Loader calls vk_icdGetInstanceProcAddr second
@@ -222,15 +222,15 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
 
     driver.min_icd_interface_version = 6;
 
-    uint32_t driver_index = 2; //which drive this test pretends to be
+    uint32_t driver_index = 2;  // which drive this test pretends to be
     auto& known_driver = known_driver_list.at(2);
     DXGI_ADAPTER_DESC1 desc1{};
     wcsncpy(&desc1.Description[0], L"TestDriver1", 128);
     desc1.VendorId = known_driver.vendor_id;
     desc1.AdapterLuid;
     desc1.Flags = DXGI_ADAPTER_FLAG_NONE;
-    env->platform_shim->add_dxgi_adapter(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GpuType::discrete, driver_index, desc1);
-
+    env->platform_shim->add_dxgi_adapter(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_ENUMERATE_ADAPTER_PHYSICAL_DEVICES, GpuType::discrete,
+                                         driver_index, desc1);
 
     InstWrapper inst{env->vulkan_functions};
     InstanceCreateInfo inst_create_info;
@@ -244,10 +244,12 @@ TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     ASSERT_EQ(driver.called_enumerate_adapter_physical_devices, CalledEnumerateAdapterPhysicalDevices::called);
 }
 
-TEST_F(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, EnumAdapters2) {
+TEST(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevicesAAA, EnumAdapters2) {
+    SingleICDShim env(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA, VK_MAKE_VERSION(1, 0, 0), false, false),
+                      DebugMode::none);
+    InstWrapper inst{env.vulkan_functions};
 
-InstWrapper inst{env->vulkan_functions};
-    auto& driver = env->get_test_icd();
+    auto& driver = env.get_test_icd();
     driver.physical_devices.emplace_back("physical_device_1");
     driver.physical_devices.emplace_back("physical_device_0");
     uint32_t physical_count = driver.physical_devices.size();
@@ -255,20 +257,23 @@ InstWrapper inst{env->vulkan_functions};
     std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
 
     SHIM_D3DKMT_ADAPTERINFO d3dkmt_adapter_info{};
-    d3dkmt_adapter_info.hAdapter = 0; //
+    d3dkmt_adapter_info.hAdapter = 0;  //
     d3dkmt_adapter_info.AdapterLuid = _LUID{10, 1000};
     d3dkmt_adapter_info.NumOfSources = 1;
     d3dkmt_adapter_info.bPresentMoveRegionsPreferred = true;
 
-    env->platform_shim->add_d3dkmt_adapter(d3dkmt_adapter_info, env->get_test_icd_path());
+    D3DKMT_Adapter adapter;
+    adapter.info = d3dkmt_adapter_info;
+    adapter.icds = {env.get_test_icd_manifest_path()};
+    env.platform_shim->add_d3dkmt_adapter(adapter);
 
     InstanceCreateInfo inst_create_info;
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
-    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr));
+    ASSERT_EQ(VK_SUCCESS, env.vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count, nullptr));
     ASSERT_EQ(physical_count, returned_physical_count);
-    ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
-                                                                              physical_device_handles.data()));
+    ASSERT_EQ(VK_SUCCESS, env.vulkan_functions.fp_vkEnumeratePhysicalDevices(inst.inst, &returned_physical_count,
+                                                                             physical_device_handles.data()));
     ASSERT_EQ(physical_count, returned_physical_count);
 }
 #endif  // defined(WIN32)
@@ -305,8 +310,8 @@ TEST(MultipleICDConfig, Basic) {
 
 TEST(MultipleDriverConfig, DifferentICDInterfaceVersions) {
     MultipleICDShim env({TestICDDetails(TEST_ICD_PATH_EXPORT_ICD_GIPA), TestICDDetails(TEST_ICD_PATH_VERSION_2),
-                            TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA)},
-                           DebugMode::none);
+                         TestICDDetails(TEST_ICD_PATH_VERSION_2)},
+                        DebugMode::none);
 
     TestICD& icd0 = env.get_test_icd(0);
     icd0.physical_devices.emplace_back("physical_device_0");
@@ -317,12 +322,17 @@ TEST(MultipleDriverConfig, DifferentICDInterfaceVersions) {
     icd1.min_icd_interface_version = 2;
     icd1.max_icd_interface_version = 5;
 
+    TestICD& icd2 = env.get_test_icd(2);
+    icd2.physical_devices.emplace_back("physical_device_2");
+    icd2.min_icd_interface_version = 2;
+    icd2.max_icd_interface_version = 5;
+
     InstWrapper inst{env.vulkan_functions};
     InstanceCreateInfo inst_create_info;
     ASSERT_EQ(CreateInst(inst, inst_create_info), VK_SUCCESS);
 
-    std::array<VkPhysicalDevice, 2> phys_devs_array;
-    uint32_t phys_dev_count = 2;
+    std::array<VkPhysicalDevice, 3> phys_devs_array;
+    uint32_t phys_dev_count = 3;
     ASSERT_EQ(env.vulkan_functions.fp_vkEnumeratePhysicalDevices(inst, &phys_dev_count, phys_devs_array.data()), VK_SUCCESS);
-    ASSERT_EQ(phys_dev_count, 2);
+    ASSERT_EQ(phys_dev_count, 3);
 }

@@ -95,21 +95,33 @@ struct TestICDHandle {
 }  // namespace detail
 
 struct TestICDDetails {
-    TestICDDetails(const char* icd_path, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
-        : icd_path(icd_path), api_version(api_version) {}
+    TestICDDetails(const char* icd_path, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0), bool portability_icd = false,
+                   bool add_to_default_driver_location = true)
+        : icd_path(icd_path),
+          api_version(api_version),
+          portability_icd(portability_icd),
+          add_to_default_driver_location(add_to_default_driver_location) {}
     const char* icd_path = nullptr;
     uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
+    bool portability_icd = false;
+    // Primarily useful for windows, prevents adding drivers to HKLM/SOFTWARE/Khronos/Vulkan/Drivers
+    bool add_to_default_driver_location = true;
 };
 struct FrameworkEnvironment {
     FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
 
-    void AddICD(TestICDDetails icd_details, const std::string& json_name);
-    void AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
-    void AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
+    // all Add functions returns the path to the manifest
+
+    fs::path AddICD(TestICDDetails icd_details, const std::string& json_name);
+    fs::path AddPortabilityICD(TestICDDetails icd_details, const std::string& json_name);
+
+    fs::path AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
+    fs::path AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
 
     detail::PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;
     fs::FolderManager icd_folder;
+    fs::FolderManager portability_icd_folder;
     fs::FolderManager explicit_layer_folder;
     fs::FolderManager implicit_layer_folder;
     VulkanFunctions vulkan_functions;
@@ -132,8 +144,12 @@ struct SingleICDShim : FrameworkEnvironment {
     TestICD& get_new_test_icd();
 
     fs::path get_test_icd_path();
+    fs::path get_test_icd_manifest_path();
+
+    void ResetCalledState();
 
     detail::TestICDHandle icd_handle;
+    fs::path icd_manifest_path;
 };
 
 struct MultipleICDShim : FrameworkEnvironment {
@@ -141,7 +157,12 @@ struct MultipleICDShim : FrameworkEnvironment {
 
     TestICD& get_test_icd(int index);
     TestICD& get_new_test_icd(int index);
+
     fs::path get_test_icd_path(int index);
+    fs::path get_test_icd_manifest_path(int index);
+
+    void ResetCalledState();
 
     std::vector<detail::TestICDHandle> icds;
+    std::vector<fs::path> icd_manifest_paths;
 };

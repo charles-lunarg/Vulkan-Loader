@@ -37,6 +37,39 @@
 
 static PlatformShim platform_shim;
 
+static inline const char *PnpRegistryGetName(ManifestCategory category) {
+    BOOL is_wow;
+    IsWow64Process(GetCurrentProcess(), &is_wow);
+    switch (category) {
+        case (ManifestCategory::icd):
+            return is_wow ? "VulkanDriverNameWow" : "VulkanDriverName";
+        case (ManifestCategory::portability_icd):
+            return is_wow ? "VulkanPortabilityDriverNameWow" : "VulkanPortabilityDriverName";
+        case (ManifestCategory::explicit_layer):
+            return is_wow ? "VulkanExplicitLayersWow" : "VulkanExplicitLayers";
+        case (ManifestCategory::implicit_layer):
+            return is_wow ? "VulkanImplicitLayersWow" : "VulkanImplicitLayers";
+    }
+    assert(false && "Should never reach here");
+    return "";
+}
+static inline const wchar_t *PnpRegistryGetNameWide(ManifestCategory category) {
+    BOOL is_wow;
+    IsWow64Process(GetCurrentProcess(), &is_wow);
+    switch (category) {
+        case (ManifestCategory::icd):
+            return is_wow ? L"VulkanDriverNameWow" : L"VulkanDriverName";
+        case (ManifestCategory::portability_icd):
+            return is_wow ? L"VulkanPortabilityDriverNameWow" : L"VulkanPortabilityDriverName";
+        case (ManifestCategory::explicit_layer):
+            return is_wow ? L"VulkanExplicitLayersWow" : L"VulkanExplicitLayers";
+        case (ManifestCategory::implicit_layer):
+            return is_wow ? L"VulkanImplicitLayersWow" : L"VulkanImplicitLayers";
+    }
+    assert(false && "Should never reach here");
+    return L"";
+}
+
 extern "C" {
 
 static LibraryWrapper gdi32_dll;
@@ -75,24 +108,61 @@ NTSTATUS APIENTRY ShimQueryAdapterInfo(const LoaderQueryAdapterInfo *query_info)
     if (query_info == nullptr || query_info->private_data == nullptr) {
         return STATUS_INVALID_PARAMETER;
     }
+    auto *reg_info = reinterpret_cast<LoaderQueryRegistryInfo *>(query_info->private_data);
+
     auto handle = query_info->handle;
     auto it = std::find_if(platform_shim.d3dkmt_adapters.begin(), platform_shim.d3dkmt_adapters.end(),
                            [handle](const D3DKMT_Adapter &adapter) { return handle == adapter.info.hAdapter; });
     if (it == platform_shim.d3dkmt_adapters.end()) {
         return STATUS_INVALID_PARAMETER;
     }
-    auto &adapter = *it;
+    std::vector<fs::path> *source_paths;
+    if (wcscmp(reg_info->value_name, PnpRegistryGetNameWide(ManifestCategory::icd)) == 0) {
+        source_paths = &it->icds;
+    } else if (wcscmp(reg_info->value_name, PnpRegistryGetNameWide(ManifestCategory::portability_icd)) == 0) {
+        source_paths = &it->portability_icds;
+    } else if (wcscmp(reg_info->value_name, PnpRegistryGetNameWide(ManifestCategory::implicit_layer)) == 0) {
+        source_paths = &it->implicit_layers;
+    } else if (wcscmp(reg_info->value_name, PnpRegistryGetNameWide(ManifestCategory::explicit_layer)) == 0) {
+        source_paths = &it->explicit_layers;
+    }
 
-    auto *reg_info = reinterpret_cast<LoaderQueryRegistryInfo *>(query_info->private_data);
-    reg_info->status = LOADER_QUERY_REGISTRY_STATUS_SUCCESS;
+    if ((reg_info->value_type == REG_MULTI_SZ && source_paths->size() >= 1) ||
+        (reg_info->value_type == REG_SZ && source_paths->size() != 1)) {
+        return STATUS_INVALID_PARAMETER;
+    }
+    std::vector<fs::path> &strs = *source_paths;
+
+    if (strs.size() == 0) {
+        return STATUS_INVALID_PARAMETER;
+    }
+    uint32_t combined_char_length = 0;
+    for (auto &str : strs) {
+        combined_char_length += str.size() + 1;
+    }
+
     if (reg_info->output_value_size == 0) {
-        reg_info->output_value_size = it->path.size();
-    } else if (reg_info->output_value_size == it->path.size()) {
-        std::wstring path_wstr(1, L'\0');
-        path_wstr.assign(it->path.str().begin(), it->path.str().end());
-        wcscpy(&reg_info->output_string[0], path_wstr.c_str());
-    } else if (reg_info->output_value_size == it->path.size()) {
+        reg_info->output_value_size = combined_char_length * 2 + 2;  // byte length needed?
         reg_info->status = LOADER_QUERY_REGISTRY_STATUS_BUFFER_OVERFLOW;
+    } else if (reg_info->output_value_size == combined_char_length * 2 + 2) {
+        if (reg_info->output_string == nullptr) {
+            return STATUS_INVALID_PARAMETER;
+        }
+        uint32_t cur_index = 0;
+        bool is_first = true;
+        for (auto &str : strs) {
+            for (uint32_t i = 0; i < str.size(); i++) {
+                reg_info->output_string[cur_index++] = str.str()[i];
+            }
+            if (!is_first) {
+                reg_info->output_string[cur_index++] = L';';
+                is_first = true;
+            }
+        }
+        reg_info->output_string[cur_index++] = L'\0';
+        reg_info->status = LOADER_QUERY_REGISTRY_STATUS_SUCCESS;
+    } else {
+        return STATUS_INVALID_PARAMETER;
     }
 
     return STATUS_SUCCESS;
@@ -102,11 +172,15 @@ NTSTATUS APIENTRY ShimQueryAdapterInfo(const LoaderQueryAdapterInfo *query_info)
 static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_List_SizeW)(PULONG pulLen, PCWSTR pszFilter, ULONG ulFlags) = CM_Get_Device_ID_List_SizeW;
 static CONFIGRET(WINAPI *REAL_CM_Get_Device_ID_ListW)(PCWSTR pszFilter, PZZWSTR Buffer, ULONG BufferLen, ULONG ulFlags) = CM_Get_Device_ID_ListW;
 static CONFIGRET(WINAPI *REAL_CM_Locate_DevNodeW)(PDEVINST pdnDevInst, DEVINSTID_W pDeviceID, ULONG ulFlags) =  CM_Locate_DevNodeW;
-static CONFIGRET(WINAPI *REAL_CM_Get_DevNode_Status)(PULONG pulStatus, PULONG pulProblemNumber, DEVINST dnDevInst, ULONG ulFlags) =  CM_Get_DevNode_Status;
+static CONFIGRET(WINAPI *REAL_CM_Get_DevNode_Status)(
+    PULONG pulStatus, PULONG pulProblemNumber, DEVINST dnDevInst, ULONG ulFlags) =  CM_Get_DevNode_Status;
 static CONFIGRET(WINAPI *REAL_CM_Get_Device_IDW)(DEVINST dnDevInst, PWSTR Buffer, ULONG BufferLen, ULONG ulFlags) =  CM_Get_Device_IDW;
 static CONFIGRET(WINAPI *REAL_CM_Get_Child)(PDEVINST pdnDevInst, DEVINST dnDevInst, ULONG ulFlags) =  CM_Get_Child;
-static CONFIGRET(WINAPI *REAL_CM_Get_DevNode_Registry_PropertyW)(DEVINST dnDevInst, ULONG ulProperty, PULONG pulRegDataType, PVOID Buffer, PULONG pulLength, ULONG ulFlags) =  CM_Get_DevNode_Registry_PropertyW;
+static CONFIGRET(WINAPI *REAL_CM_Get_DevNode_Registry_PropertyW)(
+    DEVINST dnDevInst, ULONG ulProperty, PULONG pulRegDataType, PVOID Buffer, PULONG pulLength, ULONG ulFlags) =  CM_Get_DevNode_Registry_PropertyW;
 static CONFIGRET(WINAPI *REAL_CM_Get_Sibling)(PDEVINST pdnDevInst, DEVINST dnDevInst, ULONG ulFlags) = CM_Get_Sibling;
+static CONFIGRET(WINAPI *REAL_CM_Open_DevNode_Key)(
+    DEVINST dnDevNode, REGSAM samDesired, ULONG ulHardwareProfile, REGDISPOSITION Disposition, PHKEY phkDevice, ULONG ulFlags) = CM_Open_DevNode_Key;
 // clang-format on
 
 CONFIGRET WINAPI SHIM_CM_Get_Device_ID_List_SizeW(PULONG pulLen, PCWSTR pszFilter, ULONG ulFlags) {
@@ -142,6 +216,11 @@ CONFIGRET WINAPI SHIM_CM_Get_DevNode_Registry_PropertyW(DEVINST dnDevInst, ULONG
 }
 // TODO
 CONFIGRET WINAPI SHIM_CM_Get_Sibling(PDEVINST pdnDevInst, DEVINST dnDevInst, ULONG ulFlags) { return CR_FAILURE; }
+// TODO - also not being detoured either
+CONFIGRET WINAPI SHIM_CM_Open_DevNode_Key(DEVINST dnDevNode, REGSAM samDesired, ULONG ulHardwareProfile, REGDISPOSITION Disposition,
+                                          PHKEY phkDevice, ULONG ulFlags) {
+    return CR_FAILURE;
+}
 
 static LibraryWrapper dxgi_module;
 typedef HRESULT(APIENTRY *PFN_CreateDXGIFactory1)(REFIID riid, void **ppFactory);
@@ -230,13 +309,15 @@ HRESULT __stdcall ShimEnumAdapters1_6(IDXGIFactory6 *This,
 HRESULT __stdcall ShimEnumAdapterByGpuPreference(IDXGIFactory6 *This, _In_ UINT Adapter, _In_ DXGI_GPU_PREFERENCE GpuPreference,
                                                  _In_ REFIID riid, _COM_Outptr_ void **ppvAdapter) {
     if (Adapter >= platform_shim.dxgi_adapters.size()) {
-        return DXGI_ERROR_INVALID_CALL;
+        return DXGI_ERROR_NOT_FOUND;
     }
     // loader always uses DXGI_GPU_PREFERENCE_UNSPECIFIED
     // Update the shim if this isn't the case
     assert(GpuPreference == DXGI_GPU_PREFERENCE::DXGI_GPU_PREFERENCE_UNSPECIFIED &&
            "Test shim assumes the GpuPreference is unspecified.");
-
+    if (ppvAdapter == nullptr) {
+        return DXGI_ERROR_INVALID_CALL;
+    }
     auto *pAdapter = create_IDXGIAdapter1();
     *ppvAdapter = pAdapter;
     platform_shim.dxgi_adapter_map[pAdapter] = Adapter;

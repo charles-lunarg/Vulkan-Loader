@@ -41,7 +41,7 @@
 #include <adapters.h>
 #endif
 
-enum class ManifestCategory { implicit_layer, explicit_layer, icd };
+enum class ManifestCategory { implicit_layer, explicit_layer, icd, portability_icd };
 enum class GpuType { unspecified, integrated, discrete, external };
 
 #if defined(WIN32)
@@ -89,7 +89,11 @@ struct SHIM_D3DKMT_ADAPTERINFO {
 
 struct D3DKMT_Adapter {
     SHIM_D3DKMT_ADAPTERINFO info;
-    fs::path path;
+    std::vector<fs::path> icds;
+    std::vector<fs::path> portability_icds;
+    std::vector<fs::path> explicit_layers;
+    std::vector<fs::path> implicit_layers;
+
 };
 
 #endif
@@ -116,7 +120,7 @@ struct PlatformShim {
 
     void add_dxgi_adapter(fs::path const& manifest_path, GpuType gpu_preference, uint32_t known_driver_index,
                           DXGI_ADAPTER_DESC1 desc1);
-    void add_d3dkmt_adapter(SHIM_D3DKMT_ADAPTERINFO adapter, fs::path const& path);
+    void add_d3dkmt_adapter(D3DKMT_Adapter adapter);
     void add_CM_Device_ID(std::wstring const& id, fs::path const& icd_path, fs::path const& layer_path);
 
     uint32_t next_adapter_handle = 1;  // increment everytime add_dxgi_adapter is called
@@ -131,6 +135,7 @@ struct PlatformShim {
     uint32_t random_base_path = 0;
 
     std::vector<fs::path> icd_paths;
+    std::vector<fs::path> portability_icd_paths;
 
 #elif defined(__linux__) || defined(__APPLE__)
     bool is_fake_path(fs::path const& path);
@@ -168,6 +173,7 @@ inline void PlatformShim::redirect_all_paths(fs::path const& path) {
     redirect_category(path, ManifestCategory::implicit_layer);
     redirect_category(path, ManifestCategory::explicit_layer);
     redirect_category(path, ManifestCategory::icd);
+    redirect_category(path, ManifestCategory::portability_icd);
 }
 
 inline std::vector<std::string> parse_env_var_list(std::string const& var) {
@@ -196,10 +202,10 @@ inline std::vector<std::string> parse_env_var_list(std::string const& var) {
 
 inline std::string category_path_name(ManifestCategory category) {
     if (category == ManifestCategory::implicit_layer) return "ImplicitLayers";
-    if (category == ManifestCategory::explicit_layer)
-        return "ExplicitLayers";
-    else
-        return "Drivers";
+    if (category == ManifestCategory::explicit_layer) return "ExplicitLayers";
+    if (category == ManifestCategory::icd) return "Drivers";
+    if (category == ManifestCategory::portability_icd) return "PortabilityDrivers";
+    return "UNKNOWN ERROR";
 }
 
 inline std::string override_base_path(uint32_t random_base_path) {
@@ -378,16 +384,18 @@ inline void PlatformShim::add_manifest(ManifestCategory category, fs::path const
     if (category == ManifestCategory::icd) {
         icd_paths.push_back(path);
     }
+    if (category == ManifestCategory::portability_icd) {
+        portability_icd_paths.push_back(path);
+    }
 }
 inline void PlatformShim::add_dxgi_adapter(fs::path const& manifest_path, GpuType gpu_preference, uint32_t known_driver_index,
                                            DXGI_ADAPTER_DESC1 desc1) {
     dxgi_adapters.push_back(DXGIAdapter(manifest_path, gpu_preference, known_driver_index, desc1, next_adapter_handle++));
 }
 
-inline void PlatformShim::add_d3dkmt_adapter(SHIM_D3DKMT_ADAPTERINFO adapter, fs::path const& path) {
-    d3dkmt_adapters.push_back({adapter, path});
+inline void PlatformShim::add_d3dkmt_adapter(D3DKMT_Adapter adapter) {
+    d3dkmt_adapters.push_back(adapter);
 }
-
 inline void PlatformShim::add_CM_Device_ID(std::wstring const& id, fs::path const& icd_path, fs::path const& layer_path) {
     // append a null byte as separator if there is already id's in the list
     if (CM_device_ID_list.size() != 0) {
@@ -427,6 +435,12 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\Drivers");
             create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\Drivers");
             break;
+        case (ManifestCategory::portability_icd):
+            create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\PortabilityDrivers");
+            create_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Khronos\\Vulkan\\PortabilityDrivers");
+            break;
+        default:
+            assert(false);
     }
 }
 
@@ -438,10 +452,10 @@ inline void PlatformShim::redirect_category(fs::path const& new_path, ManifestCa
 
 inline std::string category_path_name(ManifestCategory category) {
     if (category == ManifestCategory::implicit_layer) return "implicit_layer.d";
-    if (category == ManifestCategory::explicit_layer)
-        return "explicit_layer.d";
-    else
-        return "icd.d";
+    if (category == ManifestCategory::explicit_layer) return "explicit_layer.d";
+    if (category == ManifestCategory::icd) return "icd.d";
+    if (category == ManifestCategory::portability_icd) return "portabiliyt_icd.d";
+    return "UNKNOWN ERROR";
 }
 
 inline void PlatformShim::setup_override(DebugMode debug_mode) {}
@@ -492,6 +506,7 @@ inline void PlatformShim::set_path(ManifestCategory category, fs::path const& pa
     if (category == ManifestCategory::implicit_layer) add(fs::path("/usr/local/etc/vulkan/implicit_layer.d"), path);
     if (category == ManifestCategory::explicit_layer) add(fs::path("/usr/local/etc/vulkan/explicit_layer.d"), path);
     if (category == ManifestCategory::icd) add(fs::path("/usr/local/etc/vulkan/icd.d"), path);
+    if (category == ManifestCategory::portability_icd) add(fs::path("/usr/local/etc/vulkan/portability_icd.d"), path);
 }
 
 #endif

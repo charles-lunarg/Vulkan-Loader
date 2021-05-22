@@ -75,6 +75,15 @@ struct TestICD {
     TestICD() {}
     ~TestICD() {}
 
+    TestICD& ResetCalledState() {
+        called_vk_icd_gipa = CalledICDGIPA::not_called;
+        called_negotiate_interface = CalledNegotiateInterface::not_called;
+        interface_version_check = InterfaceVersionCheck::not_called;
+        called_enumerate_adapter_physical_devices = CalledEnumerateAdapterPhysicalDevices::not_called;
+        is_using_icd_wsi = UsingICDProvidedWSI::not_using;
+        return *this;
+    }
+
     TestICD& SetMinICDInterfaceVersion(uint32_t icd_interface_version) {
         this->min_icd_interface_version = icd_interface_version;
         return *this;

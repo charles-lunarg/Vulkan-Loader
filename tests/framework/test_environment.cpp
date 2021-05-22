@@ -69,30 +69,47 @@ FrameworkEnvironment::FrameworkEnvironment(DebugMode debug_mode)
     : platform_shim(debug_mode),
       null_folder(FRAMEWORK_BUILD_DIRECTORY, "null_dir", debug_mode),
       icd_folder(FRAMEWORK_BUILD_DIRECTORY, "icd_manifests", debug_mode),
+      portability_icd_folder(FRAMEWORK_BUILD_DIRECTORY, "portability_icd_manifests", debug_mode),
       explicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "explicit_layer_manifests", debug_mode),
       implicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "implicit_layer_manifests", debug_mode),
       vulkan_functions() {
     platform_shim->redirect_all_paths(null_folder.location());
 
     platform_shim->set_path(ManifestCategory::icd, icd_folder.location());
+    platform_shim->set_path(ManifestCategory::portability_icd, portability_icd_folder.location());
     platform_shim->set_path(ManifestCategory::explicit_layer, explicit_layer_folder.location());
     platform_shim->set_path(ManifestCategory::implicit_layer, implicit_layer_folder.location());
 }
 
-void FrameworkEnvironment::AddICD(TestICDDetails icd_details, const std::string& json_name) {
+fs::path FrameworkEnvironment::AddICD(TestICDDetails icd_details, const std::string& json_name) {
     ManifestICD icd_manifest;
     icd_manifest.lib_path = fs::fixup_backslashes_in_path(icd_details.icd_path);
     icd_manifest.api_version = icd_details.api_version;
     auto driver_loc = icd_folder.write(json_name, icd_manifest);
-    platform_shim->add_manifest(ManifestCategory::icd, driver_loc);
+    if (icd_details.add_to_default_driver_location) {
+        platform_shim->add_manifest(ManifestCategory::icd, driver_loc);
+    }
+    return driver_loc;
 }
-void FrameworkEnvironment::AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
+fs::path FrameworkEnvironment::AddPortabilityICD(TestICDDetails icd_details, const std::string& json_name) {
+    ManifestICD icd_manifest;
+    icd_manifest.lib_path = fs::fixup_backslashes_in_path(icd_details.icd_path);
+    icd_manifest.api_version = icd_details.api_version;
+    auto driver_loc = portability_icd_folder.write(json_name, icd_manifest);
+    if (icd_details.add_to_default_driver_location) {
+        platform_shim->add_manifest(ManifestCategory::portability_icd, driver_loc);
+    }
+    return driver_loc;
+}
+fs::path FrameworkEnvironment::AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
     auto layer_loc = implicit_layer_folder.write(json_name, layer_manifest);
     platform_shim->add_manifest(ManifestCategory::implicit_layer, layer_loc);
+    return layer_loc;
 }
-void FrameworkEnvironment::AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
+fs::path FrameworkEnvironment::AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
     auto layer_loc = explicit_layer_folder.write(json_name, layer_manifest);
     platform_shim->add_manifest(ManifestCategory::explicit_layer, layer_loc);
+    return layer_loc;
 }
 
 EnvVarICDOverrideShim::EnvVarICDOverrideShim(DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {}
@@ -113,28 +130,47 @@ void EnvVarICDOverrideShim::SetEnvOverrideICD(const char* icd_path, const char* 
 
 SingleICDShim::SingleICDShim(TestICDDetails icd_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
     icd_handle = detail::TestICDHandle(icd_details.icd_path);
-
-    AddICD(icd_details, "test_icd.json");
+    if (icd_details.portability_icd) {
+        icd_manifest_path = AddPortabilityICD(icd_details, "test_icd.json");
+    } else {
+        icd_manifest_path = AddICD(icd_details, "test_icd.json");
+    }
 }
 TestICD& SingleICDShim::get_test_icd() { return icd_handle.get_test_icd(); }
 TestICD& SingleICDShim::get_new_test_icd() { return icd_handle.get_new_test_icd(); }
 fs::path SingleICDShim::get_test_icd_path() { return icd_handle.get_icd_full_path(); }
+fs::path SingleICDShim::get_test_icd_manifest_path() { return icd_manifest_path; }
+void SingleICDShim::ResetCalledState() { icd_handle.get_test_icd().ResetCalledState(); }
 
 MultipleICDShim::MultipleICDShim(std::vector<TestICDDetails> icd_details_vector, DebugMode debug_mode)
     : FrameworkEnvironment(debug_mode) {
     uint32_t i = 0;
     for (auto& test_icd_detail : icd_details_vector) {
-        fs::path new_driver_name = fs::path(test_icd_detail.icd_path).stem() + "_" +
-                                       std::to_string(i) + fs::path(test_icd_detail.icd_path).extension();
-
-        auto new_driver_location = icd_folder.copy_file(test_icd_detail.icd_path, new_driver_name.str());
-
+        fs::path new_driver_name = fs::path(test_icd_detail.icd_path).stem() + "_" + std::to_string(i) + fs::path(test_icd_detail.icd_path).extension();
+        fs::path new_driver_location;
+        if (test_icd_detail.portability_icd) {
+            new_driver_location = portability_icd_folder.copy_file(test_icd_detail.icd_path, new_driver_name.str());
+        } else {
+            new_driver_location = icd_folder.copy_file(test_icd_detail.icd_path, new_driver_name.str());
+        }
         icds.push_back(detail::TestICDHandle(new_driver_location));
         test_icd_detail.icd_path = new_driver_location.c_str();
-        AddICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
+        if (test_icd_detail.portability_icd) {
+            icd_manifest_paths.push_back(
+                AddPortabilityICD(test_icd_detail, std::string("portability_test_icd_") + std::to_string(i) + ".json"));
+        } else {
+            icd_manifest_paths.push_back(AddICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json"));
+        }
         i++;
     }
 }
 TestICD& MultipleICDShim::get_test_icd(int index) { return icds[index].get_test_icd(); }
 TestICD& MultipleICDShim::get_new_test_icd(int index) { return icds[index].get_new_test_icd(); }
 fs::path MultipleICDShim::get_test_icd_path(int index) { return icds[index].get_icd_full_path(); }
+fs::path MultipleICDShim::get_test_icd_manifest_path(int index) { return icd_manifest_paths[index]; }
+
+void MultipleICDShim::ResetCalledState() {
+    for (auto& icd : icds) {
+        icd.get_test_icd().ResetCalledState();
+    }
+}
