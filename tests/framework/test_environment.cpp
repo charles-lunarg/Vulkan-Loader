@@ -66,12 +66,14 @@ FrameworkEnvironment::FrameworkEnvironment(DebugMode debug_mode)
     : platform_shim(debug_mode),
       null_folder(FRAMEWORK_BUILD_DIRECTORY, "null_dir", debug_mode),
       icd_folder(FRAMEWORK_BUILD_DIRECTORY, "icd_manifests", debug_mode),
+      portability_icd_folder(FRAMEWORK_BUILD_DIRECTORY, "portability_icd_manifests", debug_mode),
       explicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "explicit_layer_manifests", debug_mode),
       implicit_layer_folder(FRAMEWORK_BUILD_DIRECTORY, "implicit_layer_manifests", debug_mode),
       vulkan_functions() {
     platform_shim->redirect_all_paths(null_folder.location());
 
     platform_shim->set_path(ManifestCategory::icd, icd_folder.location());
+    platform_shim->set_path(ManifestCategory::portability_icd, portability_icd_folder.location());
     platform_shim->set_path(ManifestCategory::explicit_layer, explicit_layer_folder.location());
     platform_shim->set_path(ManifestCategory::implicit_layer, implicit_layer_folder.location());
 }
@@ -82,6 +84,13 @@ void FrameworkEnvironment::AddICD(TestICDDetails icd_details, const std::string&
     icd_manifest.api_version = icd_details.api_version;
     auto driver_loc = icd_folder.write(json_name, icd_manifest);
     platform_shim->add_manifest(ManifestCategory::icd, driver_loc);
+}
+void FrameworkEnvironment::AddPortabilityICD(TestICDDetails icd_details, const std::string& json_name) {
+    ManifestICD icd_manifest;
+    icd_manifest.lib_path = fs::fixup_backslashes_in_path(icd_details.icd_path);
+    icd_manifest.api_version = icd_details.api_version;
+    auto driver_loc = portability_icd_folder.write(json_name, icd_manifest);
+    platform_shim->add_manifest(ManifestCategory::portability_icd, driver_loc);
 }
 void FrameworkEnvironment::AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name) {
     auto layer_loc = implicit_layer_folder.write(json_name, layer_manifest);
@@ -94,8 +103,11 @@ void FrameworkEnvironment::AddExplicitLayer(ManifestLayer layer_manifest, const 
 
 SingleICDShim::SingleICDShim(TestICDDetails icd_details, DebugMode debug_mode) : FrameworkEnvironment(debug_mode) {
     icd_handle = detail::TestICDHandle(icd_details.icd_path);
-
-    AddICD(icd_details, "test_icd.json");
+    if (icd_details.portability_icd) {
+        AddPortabilityICD(icd_details, "test_icd.json");
+    } else {
+        AddICD(icd_details, "test_icd.json");
+    }
 }
 TestICD& SingleICDShim::get_test_icd() { return icd_handle.get_test_icd(); }
 TestICD& SingleICDShim::get_new_test_icd() { return icd_handle.get_new_test_icd(); }
@@ -112,7 +124,11 @@ MultipleICDShim::MultipleICDShim(std::vector<TestICDDetails> icd_details_vector,
 
         icds.push_back(detail::TestICDHandle(new_driver_location));
         test_icd_detail.icd_path = new_driver_location.c_str();
-        AddICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
+        if (test_icd_detail.portability_icd) {
+            AddPortabilityICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
+        } else {
+            AddICD(test_icd_detail, std::string("test_icd_") + std::to_string(i) + ".json");
+        }
         i++;
     }
 }

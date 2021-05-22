@@ -95,21 +95,25 @@ struct TestICDHandle {
 }  // namespace detail
 
 struct TestICDDetails {
-    TestICDDetails(const char* icd_path, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0))
-        : icd_path(icd_path), api_version(api_version) {}
+    TestICDDetails(const char* icd_path, uint32_t api_version = VK_MAKE_VERSION(1, 0, 0), bool portability_icd = false)
+        : icd_path(icd_path), api_version(api_version), portability_icd(portability_icd) {}
     const char* icd_path = nullptr;
     uint32_t api_version = VK_MAKE_VERSION(1, 0, 0);
+    bool portability_icd = false;
 };
 struct FrameworkEnvironment {
     FrameworkEnvironment(DebugMode debug_mode = DebugMode::none);
 
     void AddICD(TestICDDetails icd_details, const std::string& json_name);
+    void AddPortabilityICD(TestICDDetails icd_details, const std::string& json_name);
+
     void AddImplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
     void AddExplicitLayer(ManifestLayer layer_manifest, const std::string& json_name);
 
     detail::PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;
     fs::FolderManager icd_folder;
+    fs::FolderManager portability_icd_folder;
     fs::FolderManager explicit_layer_folder;
     fs::FolderManager implicit_layer_folder;
     VulkanFunctions vulkan_functions;

@@ -245,10 +245,10 @@ TEST_F(RegressionTests, CreateDevice_LayersNotPresent) {
 TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_PropertyCountLessThanAvailable) {
     uint32_t extension_count = 0;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
-    ASSERT_EQ(extension_count, 2); //return debug report & debug utils
+    ASSERT_EQ(extension_count, 3);  // return debug report, debug utils, and portability enumeration
     extension_count = 1;  // artificially remove one extension
 
-    std::array<VkExtensionProperties, 2> extensions;
+    std::array<VkExtensionProperties, 3> extensions;
     ASSERT_EQ(VK_INCOMPLETE,
               env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
     ASSERT_EQ(extension_count, 1);
@@ -264,12 +264,12 @@ TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_FilterUnkownInstanc
 
     uint32_t extension_count = 0;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
-    ASSERT_EQ(extension_count, 2); //return debug report & debug utils
+    ASSERT_EQ(extension_count, 3);  // return debug report, debug utils, and portability enumeration
 
-    std::array<VkExtensionProperties, 2> extensions;
+    std::array<VkExtensionProperties, 3> extensions;
     ASSERT_EQ(VK_SUCCESS,
               env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
-    ASSERT_EQ(extension_count, 2);
+    ASSERT_EQ(extension_count, 3);
     // loader always adds the debug report & debug utils extensions
     ASSERT_EQ(strcmp(extensions[0].extensionName, "VK_EXT_debug_report"), 0);
     ASSERT_EQ(strcmp(extensions[1].extensionName, "VK_EXT_debug_utils"), 0);
@@ -284,16 +284,17 @@ TEST_F(RegressionTests, EnumerateInstanceExtensionProperties_DisableUnknownInsta
 
     uint32_t extension_count = 0;
     ASSERT_EQ(VK_SUCCESS, env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, nullptr));
-    ASSERT_EQ(extension_count, 4);
+    ASSERT_EQ(extension_count, 5);
 
-    std::array<VkExtensionProperties, 4> extensions;
+    std::array<VkExtensionProperties, 5> extensions;
     ASSERT_EQ(VK_SUCCESS,
               env->vulkan_functions.fp_vkEnumerateInstanceExtensionProperties("", &extension_count, extensions.data()));
-    ASSERT_EQ(extension_count, 4);
+    ASSERT_EQ(extension_count, 5);
 
     ASSERT_EQ(extensions[0], first_ext.get());
     ASSERT_EQ(extensions[1], second_ext.get());
-    //Loader always adds these two extensions
+    // Loader always adds these three extensions
     ASSERT_EQ(strcmp(extensions[2].extensionName, "VK_EXT_debug_report"), 0);
     ASSERT_EQ(strcmp(extensions[3].extensionName, "VK_EXT_debug_utils"), 0);
+    ASSERT_EQ(strcmp(extensions[4].extensionName, "VK_KHR_portability_enumeration"), 0);
 }
