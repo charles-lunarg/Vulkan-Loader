@@ -4354,7 +4354,9 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
             loader_log(
                 inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                 "ReadDataFilesInRegistry: Registry lookup failed to get ICD manifest files.  Possibly missing Vulkan driver?");
-            if (VK_SUCCESS == reg_result || VK_ERROR_OUT_OF_HOST_MEMORY == reg_result) {
+            if (NULL == search_path) {
+                vk_result = VK_ERROR_INCOMPATIBLE_DRIVER;
+            } else if (VK_SUCCESS == reg_result || VK_ERROR_OUT_OF_HOST_MEMORY == reg_result) {
                 vk_result = reg_result;
             } else {
                 vk_result = regHKR_result;
