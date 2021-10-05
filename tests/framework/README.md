@@ -16,13 +16,10 @@ The framework consists of:
 
 By default the Vulkan-Loader repo doesn't enable testing.
 
-To turn on building of the tests, set `BUILD_TESTS=ON` in the CMake configuration.
+To turn on building of the tests, set `BUILD_TESTS=ON` and `UPDATE_DEPS=ON` in the CMake configuration.
+This ensures the necessary dependencies are automatically downloaded and built.
 
-Ensure that `googletest` is in the `external` directory.
-
-Windows only: Ensure that the `Detours` library is in the `external` directory.
-
-Linux only: Optionally enable the CMake Configuration `TEST_USE_ADDRESS_SANITIZER` to
+Optionally enable the CMake Configuration `TEST_USE_ADDRESS_SANITIZER` to
 enable Address Sanitizer inside the testing framework.
 
 Run the test executables as normal
