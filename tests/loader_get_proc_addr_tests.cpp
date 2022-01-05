@@ -122,3 +122,69 @@ TEST(GetProcAddr, GlobalFunctions) {
         handle_assert_null(EnumeratePhysicalDevices);
     }
 }
+
+TEST(GetProcAddr, PhysicalDeviceFunctions) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_6));
+    env.get_test_icd().physical_devices.emplace_back("physical_device_0");
+    env.get_test_icd().add_instance_extension(Extension{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME});
+
+    {
+        // Create a 1.0 instance
+        InstWrapper inst{env.vulkan_functions};
+        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+        inst.CheckCreate();
+
+        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+        handle_assert_null(props2KHR);
+
+        auto props2 =
+            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
+        handle_assert_null(props2);  // FAIL
+    }
+    {
+        // Create a 1.0 instance with VK_KHR_get_physical_device_properties2
+        InstWrapper inst{env.vulkan_functions};
+        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+        inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+        inst.CheckCreate();
+
+        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+        handle_assert_has_value(props2KHR);
+
+        auto props2 =
+            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
+        handle_assert_null(props2);  // FAIL
+    }
+    {
+        // Create a 1.1 instance
+        InstWrapper inst{env.vulkan_functions};
+        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+        inst.CheckCreate();
+
+        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+        handle_assert_null(props2KHR);
+
+        auto props2 =
+            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
+        handle_assert_has_value(props2);
+    }
+    {
+        // Create a 1.1 instance with VK_KHR_get_physical_device_properties2
+        InstWrapper inst{env.vulkan_functions};
+        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+        inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+        inst.CheckCreate();
+
+        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+        handle_assert_has_value(props2KHR);
+
+        auto props2 =
+            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
+        handle_assert_has_value(props2);
+    }
+}
