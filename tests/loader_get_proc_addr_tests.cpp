@@ -134,6 +134,10 @@ TEST(GetProcAddr, PhysicalDeviceFunctions) {
         InstWrapper inst{env.vulkan_functions};
         inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
         inst.CheckCreate();
+        auto phys_dev = inst.GetPhysDev();
+
+        VkPhysicalDeviceProperties2 props2_s{};
+        VkPhysicalDeviceProperties2KHR props2KHR_s{};
 
         auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
             inst, "vkGetPhysicalDeviceProperties2KHR");
@@ -142,6 +146,7 @@ TEST(GetProcAddr, PhysicalDeviceFunctions) {
         auto props2 =
             (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
         handle_assert_null(props2);  // FAIL
+        props2(phys_dev, &props2_s);
     }
     {
         // Create a 1.0 instance with VK_KHR_get_physical_device_properties2
@@ -150,19 +155,31 @@ TEST(GetProcAddr, PhysicalDeviceFunctions) {
         inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
         inst.CheckCreate();
 
+        auto phys_dev = inst.GetPhysDev();
+
+        VkPhysicalDeviceProperties2 props2_s{};
+        VkPhysicalDeviceProperties2KHR props2KHR_s{};
+
         auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
             inst, "vkGetPhysicalDeviceProperties2KHR");
         handle_assert_has_value(props2KHR);
+        props2KHR(phys_dev, &props2KHR_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
 
         auto props2 =
             (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
-        handle_assert_null(props2);  // FAIL
+        handle_assert_null(props2);   // FAIL
+        props2(phys_dev, &props2_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
     }
     {
         // Create a 1.1 instance
         InstWrapper inst{env.vulkan_functions};
         inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
         inst.CheckCreate();
+
+        auto phys_dev = inst.GetPhysDev();
+
+        VkPhysicalDeviceProperties2 props2_s{};
+        VkPhysicalDeviceProperties2KHR props2KHR_s{};
 
         auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
             inst, "vkGetPhysicalDeviceProperties2KHR");
@@ -171,6 +188,7 @@ TEST(GetProcAddr, PhysicalDeviceFunctions) {
         auto props2 =
             (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
         handle_assert_has_value(props2);
+        props2(phys_dev, &props2_s);
     }
     {
         // Create a 1.1 instance with VK_KHR_get_physical_device_properties2
@@ -179,12 +197,19 @@ TEST(GetProcAddr, PhysicalDeviceFunctions) {
         inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
         inst.CheckCreate();
 
+        auto phys_dev = inst.GetPhysDev();
+
+        VkPhysicalDeviceProperties2 props2_s{};
+        VkPhysicalDeviceProperties2KHR props2KHR_s{};
+
         auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
             inst, "vkGetPhysicalDeviceProperties2KHR");
         handle_assert_has_value(props2KHR);
+        props2KHR(phys_dev, &props2KHR_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
 
         auto props2 =
             (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
         handle_assert_has_value(props2);
+        props2(phys_dev, &props2_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
     }
 }
