@@ -123,93 +123,202 @@ TEST(GetProcAddr, GlobalFunctions) {
     }
 }
 
-TEST(GetProcAddr, PhysicalDeviceFunctions) {
+struct GetPhysicalDeviceProperties2ICDConfig {
+    uint32_t api_version;
+    bool supports_gpdp2KHR;
+};
+
+struct GetPhysicalDeviceProperties2Config {
+    std::vector<GetPhysicalDeviceProperties2ICDConfig> icds;
+
+    uint32_t inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    bool inst_supports_gpdp2KHR = false;
+
+    VkResult inst_creation_return = VK_SUCCESS;
+
+    bool has_func_props2KHR = false;
+    bool has_func_props2 = false;
+};
+
+void CheckGetPhysicalDeviceProperties2Config(GetPhysicalDeviceProperties2Config const& config) {
     FrameworkEnvironment env{};
-    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_6));
-    env.get_test_icd().physical_devices.emplace_back("physical_device_0");
-    env.get_test_icd().add_instance_extension(Extension{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME});
-
-    {
-        // Create a 1.0 instance
-        InstWrapper inst{env.vulkan_functions};
-        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
-        inst.CheckCreate();
-        auto phys_dev = inst.GetPhysDev();
-
-        VkPhysicalDeviceProperties2 props2_s{};
-        VkPhysicalDeviceProperties2KHR props2KHR_s{};
-
-        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
-            inst, "vkGetPhysicalDeviceProperties2KHR");
-        handle_assert_null(props2KHR);
-
-        auto props2 =
-            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
-        handle_assert_null(props2);  // FAIL
-        props2(phys_dev, &props2_s);
+    int icd_index = 0;
+    for (auto& icd : config.icds) {
+        env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_6));
+        env.get_test_icd().physical_devices.emplace_back(std::string("physical_device_") + std::to_string(icd_index++));
+        env.get_test_icd().set_icd_api_version(icd.api_version);
+        if (icd.supports_gpdp2KHR) {
+            env.get_test_icd().add_instance_extension(Extension{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME});
+        }
     }
-    {
-        // Create a 1.0 instance with VK_KHR_get_physical_device_properties2
-        InstWrapper inst{env.vulkan_functions};
-        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    InstWrapper inst{env.vulkan_functions};
+    inst.create_info.api_version = config.inst_version;
+    if (config.inst_supports_gpdp2KHR) {
         inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-        inst.CheckCreate();
-
-        auto phys_dev = inst.GetPhysDev();
-
-        VkPhysicalDeviceProperties2 props2_s{};
+    }
+    ASSERT_NO_FATAL_FAILURE(inst.CheckCreate(config.inst_creation_return));
+    if (config.inst_creation_return != VK_SUCCESS) {
+        return;
+    }
+    auto phys_devs = inst.GetPhysDevs(config.icds.size());
+    for (auto const& phys_dev : phys_devs) {
         VkPhysicalDeviceProperties2KHR props2KHR_s{};
-
         auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
             inst, "vkGetPhysicalDeviceProperties2KHR");
-        handle_assert_has_value(props2KHR);
-        props2KHR(phys_dev, &props2KHR_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
-
-        auto props2 =
-            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
-        handle_assert_null(props2);   // FAIL
-        props2(phys_dev, &props2_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
-    }
-    {
-        // Create a 1.1 instance
-        InstWrapper inst{env.vulkan_functions};
-        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
-        inst.CheckCreate();
-
-        auto phys_dev = inst.GetPhysDev();
+        if (config.has_func_props2KHR) {
+            ASSERT_NO_FATAL_FAILURE(handle_assert_has_value(props2KHR));
+            props2KHR(phys_dev, &props2KHR_s);
+        } else {
+            ASSERT_NO_FATAL_FAILURE(handle_assert_null(props2KHR));
+        }
 
         VkPhysicalDeviceProperties2 props2_s{};
-        VkPhysicalDeviceProperties2KHR props2KHR_s{};
-
-        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
-            inst, "vkGetPhysicalDeviceProperties2KHR");
-        handle_assert_null(props2KHR);
-
         auto props2 =
             (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
-        handle_assert_has_value(props2);
-        props2(phys_dev, &props2_s);
+        if (config.has_func_props2) {
+            ASSERT_NO_FATAL_FAILURE(handle_assert_has_value(props2));
+            props2(phys_dev, &props2_s);
+        } else {
+            ASSERT_NO_FATAL_FAILURE(handle_assert_null(props2));
+        }
     }
-    {
-        // Create a 1.1 instance with VK_KHR_get_physical_device_properties2
-        InstWrapper inst{env.vulkan_functions};
-        inst.create_info.api_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
-        inst.create_info.add_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-        inst.CheckCreate();
+}
 
-        auto phys_dev = inst.GetPhysDev();
+TEST(GetPhysicalDeviceProperties2, SupportMatrix) {
+    GetPhysicalDeviceProperties2Config a{};
+    // icd doesn't support ext
+    a.icds = {{VK_MAKE_API_VERSION(0, 1, 0, 0), false}};
 
-        VkPhysicalDeviceProperties2 props2_s{};
-        VkPhysicalDeviceProperties2KHR props2KHR_s{};
+    // Create a 1.0 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;                                             // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));  // CRASH on props2
 
-        auto props2KHR = (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(
-            inst, "vkGetPhysicalDeviceProperties2KHR");
-        handle_assert_has_value(props2KHR);
-        props2KHR(phys_dev, &props2KHR_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
+    // Create a 1.0 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_ERROR_EXTENSION_NOT_PRESENT;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
 
-        auto props2 =
-            (PFN_vkGetPhysicalDeviceProperties2)env.vulkan_functions.vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2");
-        handle_assert_has_value(props2);
-        props2(phys_dev, &props2_s);  // emulates vkGetPhysicalDeviceProperties, doesn't call down chain.
-    }
+    // Create a 1.1 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;
+    // ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));  // CRASH on props2
+
+    // Create a 1.1 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_ERROR_EXTENSION_NOT_PRESENT;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // icd now supports ext
+    a.icds = {{VK_MAKE_API_VERSION(0, 1, 0, 0), true}};
+
+    // Create a 1.0 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;  // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.0 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;  // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // now there are two icds, one that is 1.1 and one that is 1.0 without ext support
+    a.icds = {{VK_MAKE_API_VERSION(0, 1, 1, 0), true}, {VK_MAKE_API_VERSION(0, 1, 0, 0), false}};
+
+    // Create a 1.0 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;  // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.0 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;  // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // now there are two icds, one that is 1.0 with ext support and one that is 1.1 with ext support
+    a.icds = {{VK_MAKE_API_VERSION(0, 1, 0, 0), true}, {VK_MAKE_API_VERSION(0, 1, 1, 0), true}};
+
+    // Create a 1.0 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.0 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;  // not good...
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = false;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = false;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
+
+    // Create a 1.1 instance with ext support
+    a.inst_version = VK_MAKE_API_VERSION(0, 1, 1, 0);
+    a.inst_supports_gpdp2KHR = true;
+    a.inst_creation_return = VK_SUCCESS;
+    a.has_func_props2KHR = true;
+    a.has_func_props2 = true;
+    ASSERT_NO_FATAL_FAILURE(CheckGetPhysicalDeviceProperties2Config(a));
 }

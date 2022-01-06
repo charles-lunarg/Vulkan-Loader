@@ -758,6 +758,11 @@ PFN_vkVoidFunction get_physical_device_func(VkInstance instance, const char* pNa
             return TO_VOID_PFN(test_vkGetPhysicalDeviceImageFormatProperties2);
         }
     }
+    for (auto& ext : icd.instance_extensions) {
+        if (ext.extensionName == "VK_KHR_get_physical_device_properties2") {
+            if (string_eq(pName, "vkGetPhysicalDeviceProperties2KHR")) return TO_VOID_PFN(test_vkGetPhysicalDeviceProperties2);
+        }
+    }
     if (icd.supports_tooling_info_ext) {
         if (string_eq(pName, "vkGetPhysicalDeviceToolPropertiesEXT")) return TO_VOID_PFN(test_vkGetPhysicalDeviceToolPropertiesEXT);
     }
