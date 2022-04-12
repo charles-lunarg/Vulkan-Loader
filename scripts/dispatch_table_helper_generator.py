@@ -170,10 +170,10 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
                          'vkCreateDevice']
         # Get first param type
         params = cmdinfo.elem.findall('param')
-        info = self.getTypeNameTuple(params[0])
+        dispatch_type = params[0].find('type').text if params[0].find('type') is not None else ''
 
         if name not in avoid_entries:
-            self.AddCommandToDispatchList(name, info[0], self.featureExtraProtect, cmdinfo)
+            self.AddCommandToDispatchList(name, dispatch_type, self.featureExtraProtect, cmdinfo)
 
     #
     # Determine if this API should be ignored or added to the instance or device dispatch table
@@ -207,17 +207,7 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
         else:
             self.instance_dispatch_list.append((name, self.featureExtraProtect))
         return
-    #
-    # Retrieve the type and name for a parameter
-    def getTypeNameTuple(self, param):
-        type = ''
-        name = ''
-        for elem in param:
-            if elem.tag == 'type':
-                type = noneStr(elem.text)
-            elif elem.tag == 'name':
-                name = noneStr(elem.text)
-        return (type, name)
+
     #
     # Create a dispatch table from the appropriate list and return it as a string
     def OutputDispatchTableHelper(self, table_type):

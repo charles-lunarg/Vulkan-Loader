@@ -152,12 +152,12 @@ PlatformShimWrapper::PlatformShimWrapper() noexcept {
 }
 PlatformShimWrapper::~PlatformShimWrapper() noexcept { platform_shim->reset(); }
 
-TestICDHandle::TestICDHandle() noexcept {}
-TestICDHandle::TestICDHandle(fs::path const& icd_path) noexcept : icd_library(icd_path) {
-    proc_addr_get_test_icd = icd_library.get_symbol(GET_TEST_ICD_FUNC_STR);
-    proc_addr_reset_icd = icd_library.get_symbol(RESET_ICD_FUNC_STR);
-    proc_addr_get_ep_driver = icd_library.get_symbol(GET_EP_DRIVER_STR);
-    proc_addr_reset_ep_driver = icd_library.get_symbol(RESET_EP_DRIVER_STR);
+fs::path BaseHandle::get_library_path() noexcept { return library.lib_path; }
+fs::path BaseHandle::get_manifest_path() noexcept { return manifest_path; }
+
+TestICDHandle::TestICDHandle(fs::path const& icd_path) noexcept : BaseHandle(icd_path) {
+    proc_addr_get_test_icd = library.get_symbol(GET_TEST_ICD_FUNC_STR);
+    proc_addr_reset_icd = library.get_symbol(RESET_ICD_FUNC_STR);
 }
 TestICD& TestICDHandle::get_test_icd() noexcept {
     assert(proc_addr_get_test_icd != NULL && "symbol must be loaded before use");
@@ -167,22 +167,22 @@ TestICD& TestICDHandle::reset_test_icd() noexcept {
     assert(proc_addr_reset_icd != NULL && "symbol must be loaded before use");
     return *proc_addr_reset_icd();
 }
-EntrypointTestDriver& TestICDHandle::reset_ep_driver() noexcept {
+EntrypointDriverHandle::EntrypointDriverHandle(fs::path const& icd_path) noexcept : BaseHandle(icd_path) {
+    proc_addr_get_ep_driver = library.get_symbol(GET_EP_DRIVER_STR);
+    proc_addr_reset_ep_driver = library.get_symbol(RESET_EP_DRIVER_STR);
+}
+EntrypointTestDriver& EntrypointDriverHandle::reset_ep_driver() noexcept {
     assert(proc_addr_get_ep_driver != NULL && "symbol must be loaded before use");
     return *proc_addr_get_ep_driver();
 }
-EntrypointTestDriver& TestICDHandle::get_ep_driver() noexcept {
+EntrypointTestDriver& EntrypointDriverHandle::get_ep_driver() noexcept {
     assert(proc_addr_reset_ep_driver != NULL && "symbol must be loaded before use");
     return *proc_addr_reset_ep_driver();
 }
 
-fs::path TestICDHandle::get_icd_full_path() noexcept { return icd_library.lib_path; }
-fs::path TestICDHandle::get_icd_manifest_path() noexcept { return manifest_path; }
-
-TestLayerHandle::TestLayerHandle() noexcept {}
-TestLayerHandle::TestLayerHandle(fs::path const& layer_path) noexcept : layer_library(layer_path) {
-    proc_addr_get_test_layer = layer_library.get_symbol(GET_TEST_LAYER_FUNC_STR);
-    proc_addr_reset_layer = layer_library.get_symbol(RESET_LAYER_FUNC_STR);
+TestLayerHandle::TestLayerHandle(fs::path const& layer_path) noexcept : BaseHandle(layer_path) {
+    proc_addr_get_test_layer = library.get_symbol(GET_TEST_LAYER_FUNC_STR);
+    proc_addr_reset_layer = library.get_symbol(RESET_LAYER_FUNC_STR);
 }
 TestLayer& TestLayerHandle::get_test_layer() noexcept {
     assert(proc_addr_get_test_layer != NULL && "symbol must be loaded before use");
@@ -192,8 +192,6 @@ TestLayer& TestLayerHandle::reset_layer() noexcept {
     assert(proc_addr_reset_layer != NULL && "symbol must be loaded before use");
     return *proc_addr_reset_layer();
 }
-fs::path TestLayerHandle::get_layer_full_path() noexcept { return layer_library.lib_path; }
-fs::path TestLayerHandle::get_layer_manifest_path() noexcept { return manifest_path; }
 
 FrameworkEnvironment::FrameworkEnvironment() noexcept
     : platform_shim(),
@@ -213,33 +211,43 @@ FrameworkEnvironment::FrameworkEnvironment() noexcept
 }
 
 void FrameworkEnvironment::add_icd(TestICDDetails icd_details) noexcept {
-    size_t cur_icd_index = icds.size();
+    size_t cur_icd_index = test_icds.size();
+    if (icd_details.type == ICDType::entrypoint_driver) {
+        cur_icd_index = entrypoint_drivers.size();
+    }
     fs::FolderManager* folder = &icd_folder;
     if (icd_details.discovery_type == ManifestDiscoveryType::env_var ||
         icd_details.discovery_type == ManifestDiscoveryType::add_env_var) {
         folder = &icd_env_vars_folder;
     }
-    if (!icd_details.is_fake) {
+    if (icd_details.type != ICDType::fake) {
         fs::path new_driver_name = fs::path(icd_details.icd_manifest.lib_path).stem() + "_" + std::to_string(cur_icd_index) +
                                    fs::path(icd_details.icd_manifest.lib_path).extension();
 
         auto new_driver_location = folder->copy_file(icd_details.icd_manifest.lib_path, new_driver_name.str());
 
-        icds.push_back(TestICDHandle(new_driver_location));
-        if (icds.back().proc_addr_reset_icd != NULL) {
-            icds.back().reset_test_icd();
-        } else if (icds.back().proc_addr_reset_ep_driver != NULL) {
-            icds.back().reset_ep_driver();
+        if (icd_details.type == ICDType::test_icd) {
+            test_icds.push_back(TestICDHandle(new_driver_location));
+            test_icds.back().reset_test_icd();
+            icd_details.icd_manifest.lib_path = new_driver_location.str();
+
+        } else if (icd_details.type == ICDType::entrypoint_driver) {
+            entrypoint_drivers.push_back(EntrypointDriverHandle(new_driver_location));
+            entrypoint_drivers.back().reset_ep_driver();
+            icd_details.icd_manifest.lib_path = new_driver_location.str();
         }
-        icd_details.icd_manifest.lib_path = new_driver_location.str();
     }
     std::string full_json_name = icd_details.json_name + "_" + std::to_string(cur_icd_index) + ".json";
-
-    icds.back().manifest_path = folder->write_manifest(full_json_name, icd_details.icd_manifest.get_manifest_str());
+    fs::path manifest_path = folder->write_manifest(full_json_name, icd_details.icd_manifest.get_manifest_str());
+    if (icd_details.type == ICDType::test_icd) {
+        test_icds.back().manifest_path = manifest_path;
+    } else if (icd_details.type == ICDType::entrypoint_driver) {
+        entrypoint_drivers.back().manifest_path = manifest_path;
+    }
     switch (icd_details.discovery_type) {
         default:
         case (ManifestDiscoveryType::generic):
-            platform_shim->add_manifest(ManifestCategory::icd, icds.back().manifest_path);
+            platform_shim->add_manifest(ManifestCategory::icd, manifest_path);
             break;
         case (ManifestDiscoveryType::env_var):
             if (!env_var_vk_icd_filenames.empty()) {
@@ -336,18 +344,26 @@ void FrameworkEnvironment::add_layer_impl(TestLayerDetails layer_details, Manife
     }
 }
 
-TestICD& FrameworkEnvironment::get_test_icd(size_t index) noexcept { return icds[index].get_test_icd(); }
-TestICD& FrameworkEnvironment::reset_test_icd(size_t index) noexcept { return icds[index].reset_test_icd(); }
-fs::path FrameworkEnvironment::get_test_icd_path(size_t index) noexcept { return icds[index].get_icd_full_path(); }
-fs::path FrameworkEnvironment::get_icd_manifest_path(size_t index) noexcept { return icds[index].get_icd_manifest_path(); }
+TestICD& FrameworkEnvironment::get_test_icd(size_t index) noexcept { return test_icds[index].get_test_icd(); }
+TestICD& FrameworkEnvironment::reset_test_icd(size_t index) noexcept { return test_icds[index].reset_test_icd(); }
 
-EntrypointTestDriver& FrameworkEnvironment::reset_ep_driver(size_t index ) noexcept { return icds[index].get_ep_driver(); }
-EntrypointTestDriver& FrameworkEnvironment::get_ep_driver(size_t index) noexcept { return icds[index].reset_ep_driver(); }
+EntrypointTestDriver& FrameworkEnvironment::reset_ep_driver(size_t index) noexcept {
+    return entrypoint_drivers[index].get_ep_driver();
+}
+EntrypointTestDriver& FrameworkEnvironment::get_ep_driver(size_t index) noexcept {
+    return entrypoint_drivers[index].reset_ep_driver();
+}
 
 TestLayer& FrameworkEnvironment::get_test_layer(size_t index) noexcept { return layers[index].get_test_layer(); }
 TestLayer& FrameworkEnvironment::reset_layer(size_t index) noexcept { return layers[index].reset_layer(); }
-fs::path FrameworkEnvironment::get_test_layer_path(size_t index) noexcept { return layers[index].get_layer_full_path(); }
-fs::path FrameworkEnvironment::get_layer_manifest_path(size_t index) noexcept { return layers[index].get_layer_manifest_path(); }
+
+#if defined(WIN32)
+void FrameworkEnvironment::add_d3dkmt_adapter(size_t index, LUID adapter_luid) noexcept {
+    platform_shim->add_d3dkmt_adapter(D3DKMT_Adapter{static_cast<UINT>(index), _LUID{10, 1000}}.add_driver_manifest_path(
+        test_icds.at(index).get_manifest_path()));
+}
+
+#endif
 
 void setup_WSI_in_ICD(TestICD& icd) {
     icd.enable_icd_wsi = true;

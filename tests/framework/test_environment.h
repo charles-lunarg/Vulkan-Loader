@@ -194,7 +194,7 @@ struct DebugUtilsLogger {
                                                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
                                                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                                                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-        returned_output.reserve(4096);  // output can be very noisy, reserving should help prevent many small allocations
+        returned_output.reserve(1024);  // output can be very noisy, reserving should help prevent many small allocations
         create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         create_info.pNext = nullptr;
         create_info.messageSeverity = severity;
@@ -281,38 +281,42 @@ struct PlatformShimWrapper {
     PlatformShim* platform_shim;
 };
 
-struct TestICDHandle {
-    TestICDHandle() noexcept;
+struct BaseHandle {
+    BaseHandle(fs::path const& path) noexcept : library(path) {}
+
+    fs::path get_library_path() noexcept;
+    fs::path get_manifest_path() noexcept;
+    LibraryWrapper library;
+    fs::path manifest_path;
+};
+
+struct TestICDHandle : public BaseHandle {
     TestICDHandle(fs::path const& icd_path) noexcept;
     TestICD& reset_test_icd() noexcept;
     TestICD& get_test_icd() noexcept;
-    EntrypointTestDriver& reset_ep_driver() noexcept;
-    EntrypointTestDriver& get_ep_driver() noexcept;
-    fs::path get_icd_full_path() noexcept;
-    fs::path get_icd_manifest_path() noexcept;
 
-    // Must use statically
-    LibraryWrapper icd_library;
     GetTestICDFunc proc_addr_get_test_icd = nullptr;
     GetNewTestICDFunc proc_addr_reset_icd = nullptr;
-    fs::path manifest_path;
-    GetEPDriverFunc proc_addr_get_ep_driver;
-    GetNewEPDriverFunc proc_addr_reset_ep_driver;
 };
-struct TestLayerHandle {
-    TestLayerHandle() noexcept;
+
+struct EntrypointDriverHandle : public BaseHandle {
+    EntrypointDriverHandle(fs::path const& icd_path) noexcept;
+    EntrypointTestDriver& reset_ep_driver() noexcept;
+    EntrypointTestDriver& get_ep_driver() noexcept;
+
+    GetEPDriverFunc proc_addr_get_ep_driver = nullptr;
+    GetNewEPDriverFunc proc_addr_reset_ep_driver = nullptr;
+};
+struct TestLayerHandle : public BaseHandle {
     TestLayerHandle(fs::path const& layer_path) noexcept;
     TestLayer& reset_layer() noexcept;
     TestLayer& get_test_layer() noexcept;
-    fs::path get_layer_full_path() noexcept;
-    fs::path get_layer_manifest_path() noexcept;
 
-    // Must use statically
-    LibraryWrapper layer_library;
     GetTestLayerFunc proc_addr_get_test_layer = nullptr;
     GetNewTestLayerFunc proc_addr_reset_layer = nullptr;
-    fs::path manifest_path;
 };
+
+enum class ICDType { test_icd, entrypoint_driver, fake };
 
 enum class ManifestDiscoveryType {
     generic,          // put the manifest in the regular locations
@@ -330,7 +334,7 @@ struct TestICDDetails {
     BUILDER_VALUE(TestICDDetails, ManifestICD, icd_manifest, {});
     BUILDER_VALUE(TestICDDetails, std::string, json_name, "test_icd");
     BUILDER_VALUE(TestICDDetails, ManifestDiscoveryType, discovery_type, ManifestDiscoveryType::generic);
-    BUILDER_VALUE(TestICDDetails, bool, is_fake, false);
+    BUILDER_VALUE(TestICDDetails, ICDType, type, ICDType::test_icd);
 };
 
 struct TestLayerDetails {
@@ -355,16 +359,17 @@ struct FrameworkEnvironment {
 
     TestICD& get_test_icd(size_t index = 0) noexcept;
     TestICD& reset_test_icd(size_t index = 0) noexcept;
-    fs::path get_test_icd_path(size_t index = 0) noexcept;
-    fs::path get_icd_manifest_path(size_t index = 0) noexcept;
 
     EntrypointTestDriver& reset_ep_driver(size_t index = 0) noexcept;
     EntrypointTestDriver& get_ep_driver(size_t index = 0) noexcept;
 
     TestLayer& get_test_layer(size_t index = 0) noexcept;
     TestLayer& reset_layer(size_t index = 0) noexcept;
-    fs::path get_test_layer_path(size_t index = 0) noexcept;
-    fs::path get_layer_manifest_path(size_t index = 0) noexcept;
+
+#if defined(WIN32)
+    // The index corresponds to the TestICD index and will use the manifest path of it
+    void add_d3dkmt_adapter(size_t index, LUID adapter_luid) noexcept;
+#endif
 
     PlatformShimWrapper platform_shim;
     fs::FolderManager null_folder;
@@ -379,7 +384,8 @@ struct FrameworkEnvironment {
     DebugUtilsLogger debug_log;
     VulkanFunctions vulkan_functions;
 
-    std::vector<TestICDHandle> icds;
+    std::vector<TestICDHandle> test_icds;
+    std::vector<EntrypointDriverHandle> entrypoint_drivers;
     std::vector<TestLayerHandle> layers;
 
     std::string env_var_vk_icd_filenames;

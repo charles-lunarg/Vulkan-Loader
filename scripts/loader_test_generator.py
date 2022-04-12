@@ -107,113 +107,14 @@ class LoaderTestOutputGenerator(OutputGenerator):
                  diagFile = sys.stdout):
         OutputGenerator.__init__(self, errFile, warnFile, diagFile)
 
-        self.BasicHandleData = namedtuple(
-            'BasicHandleData',
-                [
-                    'name',             # The name of the handle
-                    'alias',            # Any alias for this handle
-                    'is_dispatchable'   # Boolean for is this handle a dispatchable type
-                ]
-        )
-        self.HandleTreeData = namedtuple(
-            'HandleTreeData',
-                [
-                    'name',           # Name of type used for handle (or None)
-                    'alias',            # Name of alias of this handle (or None)
-                    'parents',          # Name of parent handles
-                    'children',         # Name of children handles
-                    'create_funcs',     # BasicCommandData tuple list of functions used to create this handle
-                    'destroy_funcs',    # BasicCommandData tuple list of functions used to destroy this handle
-                    'usage_funcs'       # BasicCommandData tuple list of functions that use this handle
-                ]
-        )
-        self.BasicCommandData = namedtuple(
-            'BasicCommandData',
-                [
-                    'name',             # Name of the command
-                    'protect',          # Any protected info (i.e. if this requires an #ifdef)
-                    'return_type',      # The returned type
-                    'raw_handle',       # The raw handle data
-                    'handle_type',      # The string handle type (i.e. 'VkInstance',...)
-                    'is_create',        # Boolean for is this a create command
-                    'is_destroy',       # Boolean for is this a destroy command
-                    'is_begin',         # Boolean for is this a begin command
-                    'is_end',           # Boolean for is this an end command
-                    'modified_handle',  # If this is a create or destroy command, what handle does it modify
-                    'handles_used',     # List of all handles used in this command (excluding the modified handle)
-                    'params',           # List of all params (as CommandParam tuples)
-                    'cdecl',            # The raw cdecl for this command
-                    'alias'             # Any alias name for this command (i.e. it was promoted to core or a KHR extension)
-                ]
-        )
-        self.CommandParam = namedtuple(
-            'CommandParam',
-                [
-                    'type',             # Data type of the command parameter
-                    'name',             # Name of the parameter
-                    'length_info',      # Name of a length item that adjust this parameter
-                    'is_const',         # Boolean for is this a constant param
-                    'is_pointer',       # Boolean for is this a pointer param
-                    'is_array',         # Boolean for is this a array param
-                    'array_1st_size',   # Size of first array dimension (only valid if is_array = 'True')
-                    'array_2nd_size',   # Size of second array dimension (only valid if is_array = 'True' and may be 0 if 1d array)
-                    'cdecl'             # The raw cdecl for this parameter
-                ]
-        )
-        self.BasicExtensionData = namedtuple(
-            'BasicExtensionData',
-                [
-                    'name',             # The name of the extension
-                    'type',             # The type ('instance' or 'device') of the extension
-                    'protect',          # Any protected info (i.e. if this requires an #ifdef)
-                    'define_name',      # Name of #define used for the extension name
-                    'required_exts',    # List of any additional extensions required to use this extension
-                    'command_data'      # BasicExtensionCommandData tuple list of all commands
-                ]
-        )
-        self.BasicExtensionCommandData = namedtuple(
-            'BasicExtensionCommandData',
-                [
-                    'name',             # Name of command
-                    'requires'          # Any additional extensions this one command requires
-                ]
-        )
-        self.TestVariableNames = namedtuple(
-            'TestVariableNames',
-                [
-                    'type',             # Type of test variable
-                    'name',             # Name of test variable
-                    'is_array',         # Boolean for is this a array param
-                    'array_1st_size',   # Size of first array dimension (only valid if is_array = 'True')
-                    'array_2nd_size'    # Size of second array dimension (only valid if is_array = 'True' and may be 0 if 1d array)
-                ]
-        )
-        self.StructData = namedtuple(
-            'StructData',
-                [
-                    'name',             # Type name of test struct
-                    'protect',          # Any protected info (i.e. if this requires an #ifdef)
-                    'members'           # StructMember list of members
-                ]
-        )
-        self.StructMember = namedtuple(
-            'StructMember',
-                [
-                    'type',             # Data type of the struct member
-                    'name',             # Name of the struct member
-                    'req_value',        # Required value
-                    'cdecl'             # The raw cdecl
-                ]
-        )
-
         self.max_major = 1
         self.max_minor = 0
-        self.basic_handles = []
+        self.handles = {}
         self.handle_tree = []
-        self.basic_commands = []
-        self.basic_extensions = []
+        self.commands = {}
+        self.extensions = {}
         self.test_variables = []
-        self.struct_data = []
+        self.struct_data = {}
 
     # Called once at the beginning of each run
     def beginFile(self, genOpts):
@@ -289,18 +190,18 @@ class LoaderTestOutputGenerator(OutputGenerator):
         self.GenerateHandleTreeData()
 
         file_data = ''
-        
+
         if self.genOpts.filename == 'vk_test_entrypoint_core_tests.cpp':
             for count in range(0, 2):
                 use_dispatch_table = True
                 if count == 1:
                     use_dispatch_table = False
-                for ext in self.basic_extensions:
+                for ext in self.extensions.values():
                     if 'VK_VERSION_' in ext.name:
                         file_data += self.GenerateCoreTest(ext, use_dispatch_table)
         elif self.genOpts.filename == 'vk_test_entrypoint_extension_tests.cpp':
-            for ext in self.basic_extensions:
-                if (not 'VK_VERSION_' in ext.name and
+            for ext in self.extensions.values():
+                if ('VK_VERSION_' not in ext.name and
                     ext.name not in EXTENSIONS_TO_SKIP_TESTING and
                     len(ext.command_data) > 0):
                     file_data += self.GenerateExtensionTest(ext, True)
@@ -328,17 +229,15 @@ class LoaderTestOutputGenerator(OutputGenerator):
         self.featureExtraProtect = GetFeatureProtect(interface)
 
         enums = interface[0].findall('enum')
-        self.currentExtension = ''
-        self.name_definition = ''
+        name_definition = ''
 
         for item in enums:
-            name_definition = item.get('name')
-            if 'EXTENSION_NAME' in name_definition:
-                self.name_definition = name_definition
+            name_def = item.get('name')
+            if 'EXTENSION_NAME' in name_def:
+                name_definition = name_def
 
-        self.type = interface.get('type')
+        type = interface.get('type')
         name = interface.get('name')
-        self.currentExtension = name
 
         if 'android' in name.lower():
             return
@@ -350,13 +249,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if version_numbers[1] > self.max_minor:
                 self.max_minor = version_numbers[1]
 
-        extension_index = -1
-        for i in range(0, len(self.basic_extensions)):
-            if self.basic_extensions[i].name == name:
-                extension_index = i
-                break
 
-        commands = []
+        commands = {}
+        command_req_ext = {}
         for require_element in interface.findall('require'):
             req_ext = require_element.get('extension')
             xml_commands = require_element.findall('command')
@@ -364,46 +259,29 @@ class LoaderTestOutputGenerator(OutputGenerator):
                 for xml_command in xml_commands:
                     command_name = xml_command.get('name')
                     skip = False
-                    for ext in self.basic_extensions:
-                        for cmd in ext.command_data:
-                            if cmd.name == command_name:
-                                skip = True
-                                break
-                    for cmd in commands:
-                        if cmd.name == command_name:
+                    for ext in self.extensions.values():
+                        cmd = ext.command_data.get(command_name)
+                        if cmd is not None:
                             skip = True
                             break
                     if not skip:
                         required_ext_list = []
                         if not req_ext is None:
                             required_ext_list = req_ext.split(',')
-                        commands.append(
-                            self.BasicExtensionCommandData(
-                                name = command_name,
-                                requires = required_ext_list))
+                        commands[command_name] = required_ext_list
+                        command_req_ext.update(dict.fromkeys(required_ext_list))
 
-        if extension_index >= 0:
-            if len(commands) > 0:
-                new_commands = self.basic_extensions[extension_index].command_data
-                new_commands.append(commands)
-                new_ext = self.basic_extensions[extension_index]._replace(command_data = new_commands)
-                self.basic_extensions[extension_index] = new_ext
-        else:
-            requires = interface.get('requires')
-            if requires is not None:
-                self.required_ext_list = requires.split(',')
-            else:
-                self.required_ext_list = list()
+        requires = interface.get('requires')
+        required_exts = dict.fromkeys(requires.split(',')) if requires is not None else {}
+        required_exts.update(command_req_ext)
 
-            self.basic_extensions.append(
-                self.BasicExtensionData(
-                    name = name,
-                    type = self.type,
-                    protect = self.featureExtraProtect,
-                    define_name = self.name_definition,
-                    required_exts = self.required_ext_list,
-                    command_data = commands
-                )
+        self.extensions[name] = BasicExtensionData(
+                name = name,
+                type = type,
+                protect = self.featureExtraProtect,
+                define_name = name_definition,
+                required_exts = required_exts,
+                command_data = commands
             )
 
 
@@ -415,45 +293,16 @@ class LoaderTestOutputGenerator(OutputGenerator):
         category = typeElem.get('category')
         if category == 'handle' and name[0:2] == 'Vk':
             dispatchable = False
-            if (not typeElem.find('type') is None and not typeElem.find('type').text is None and
+            if (typeElem.find('type') is not None and typeElem.find('type').text is not None and
                 typeElem.find('type').text == 'VK_DEFINE_HANDLE'):
                 dispatchable = True
-            self.basic_handles.append(
-                self.BasicHandleData(
+            self.handles[name] = BasicHandleData(
                     name = name,
                     alias = alias,
                     is_dispatchable = dispatchable
                 )
-            )
         elif (category == 'struct' or category == 'union'):
             self.genStruct(typeinfo, name, alias)
-
-    # Retrieve the type and name for a parameter
-    def getTypeNameTuple(self, param):
-        type = ''
-        name = ''
-        for elem in param:
-            if elem.tag == 'type':
-                type = noneStr(elem.text)
-            elif elem.tag == 'name':
-                name = noneStr(elem.text)
-        return (type, name)
-
-    # Retrieve the value of the len tag
-    def getLen(self, param):
-        result = None
-        len = param.attrib.get('len')
-        if len and len != 'null-terminated':
-            # For string arrays, 'len' can look like 'count,null-terminated',
-            # indicating that we have a null terminated array of strings.  We
-            # strip the null-terminated from the 'len' field and only return
-            # the parameter specifying the string count
-            if 'null-terminated' in len:
-                result = len.split(',')[0]
-            else:
-                result = len
-            result = str(result).replace('::', '->')
-        return result
 
     # Generate a VkStructureType based on a structure typename
     def genVkStructureType(self, typename):
@@ -471,9 +320,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         members_data = []
         for member in members:
             # Get the member's type and name
-            info = self.getTypeNameTuple(member)
-            type = info[0]
-            name = info[1]
+            type = member.find('type').text if member.find('type') is not None else ''
+            name = member.find('name').text if member.find('name') is not None else ''
             cdecl = self.makeCParamDecl(member, 1)
             req_value = ''
             # Process VkStructureType
@@ -488,106 +336,47 @@ class LoaderTestOutputGenerator(OutputGenerator):
                     req_value = self.genVkStructureType(typeName)
 
             members_data.append(
-                self.StructMember(
+                StructMember(
                     type = type,
                     name = name,
                     req_value = req_value,
                     cdecl = cdecl))
-        self.struct_data.append(
-            self.StructData(
-                name = typeName,
-                protect = self.featureExtraProtect,
-                members = members_data))
-
-    # Check if the parameter passed in is a static array
-    def paramIsStaticArray(self, param):
-        isstaticarray = 0
-        paramname = param.find('name')
-        if (paramname.tail is not None) and ('[' in paramname.tail):
-            isstaticarray = paramname.tail.count('[')
-        return isstaticarray
-
-    # Retrieve the value of the len tag
-    def getLen(self, param):
-        result = None
-        # Default to altlen when available to avoid LaTeX markup
-        if 'altlen' in param.attrib:
-            len = param.attrib.get('altlen')
-        else:
-            len = param.attrib.get('len')
-        if len and len != 'null-terminated':
-            # Only first level is supported for multidimensional arrays. Conveniently, this also strips the trailing
-            # 'null-terminated' from arrays of strings
-            len = len.split(',')[0]
-            # Convert scope notation to pointer access
-            result = str(len).replace('::', '->')
-        elif self.paramIsStaticArray(param):
-            # For static arrays get length from inside []
-            array_match = re.search(r'\[(\d+)\]', param.find('name').tail)
-            if array_match:
-                result = array_match.group(1)
-        return result
-
-    # Check if the parameter passed in is a pointer
-    def paramIsPointer(self, param):
-        is_pointer = False
-        for elem in param:
-            if elem.tag == 'type' and elem.tail is not None and '*' in elem.tail:
-                is_pointer = True
-        return is_pointer
-
-    # Check if the parameter passed in is an array
-    def paramIsArray(self, param):
-        is_array = False
-        for elem in param:
-            if elem.tail is not None and '[' in elem.tail and ']' in elem.tail:
-                is_array = True
-        return is_array
-
-    # Return the sizes of the arrays
-    def paramGetArraySizes(self, param):
-        array_sizes = [1, 0]
-        for elem in param:
-            if elem.tail is not None and '[' in elem.tail and ']' in elem.tail:
-                tmp_array_sizes = list(map(int, re.findall(r'\d+', elem.tail)))
-                if len(tmp_array_sizes) >= 2:
-                    array_sizes[1] = tmp_array_sizes[1]
-                if len(tmp_array_sizes) >= 1:
-                    array_sizes[0] = tmp_array_sizes[0]
-        return array_sizes
+        self.struct_data[typeName] = StructData(
+            name = typeName,
+            protect = self.featureExtraProtect,
+            members = members_data)
 
     def paramIsHandle(self, param):
         if param[0:2] == 'Vk' and 'VkAlloc' not in param:
-            for handle in self.basic_handles:
-                if handle.name in param:
+            for handle_name in self.handles.keys():
+                if handle_name in param:
                     return True
         return False
 
     # Process commands, adding to appropriate dispatch tables
-    def genCmd(self, cmdinfo, name, alias):
-        OutputGenerator.genCmd(self, cmdinfo, name, alias)
+    def genCmd(self, cmd_info, name, alias):
+        OutputGenerator.genCmd(self, cmd_info, name, alias)
 
         if 'android' in name.lower():
             return
 
         # Get first param type
-        params = cmdinfo.elem.findall('.//param')
-        info = self.getTypeNameTuple(params[0])
+        params = cmd_info.elem.findall('.//param')
+        dispatch_type = params[0].find('type').text if params[0].find('type') is not None else ''
         handles_used = []
         cmd_params = []
-        paramsInfo = []
 
-        raw_handle = self.registry.tree.find("types/type/[name='" + info[0] + "'][@category='handle']")
-        mod_handle = ''
-        return_type =  cmdinfo.elem.find('proto/type')
+        raw_handle = self.registry.tree.find("types/type/[name='" + dispatch_type + "'][@category='handle']")
+        modified_handle = None
+        return_type = cmd_info.elem.find('proto/type')
 
         if return_type is not None:
             if return_type.text == 'void':
                 return_type = None
             elif self.paramIsHandle(return_type.text):
-                for handle in self.basic_handles:
-                    if handle.name in return_type.text:
-                        handles_used.append(handle.name)
+                for handle_name in self.handles.keys():
+                    if handle_name in return_type.text:
+                        handles_used.append(handle_name)
 
         is_create_command = any(
                                 filter(
@@ -601,77 +390,74 @@ class LoaderTestOutputGenerator(OutputGenerator):
                                     )
                                 )
                             )
-        is_create = is_create_command 
+        is_create = is_create_command
         is_destroy_command = any([destroy_txt in name for destroy_txt in ['Destroy', 'Free', 'ReleasePerformanceConfigurationINTEL']])
         is_begin = 'Begin' in name
         is_end = 'End' in name
 
         lens = set()
-        params = cmdinfo.elem.findall('param')
+        params = cmd_info.elem.findall('param')
         num_params = len(params)
         last = num_params - 1
         for index in range (0, num_params):
-            paramInfo = self.getTypeNameTuple(params[index])
-            param_type = paramInfo[0]
-            param_name = paramInfo[1]
+            param_type = params[index].find('type').text if params[index].find('type') is not None else ''
+            param_name = params[index].find('name').text if params[index].find('name') is not None else ''
             param_cdecl = self.makeCParamDecl(params[index], 0)
 
-            length_info = self.getLen(params[index])
+            length_info = getLen(params[index])
             if length_info:
                 lens.add(length_info)
 
-            is_pointer = self.paramIsPointer(params[index])
-            is_array = self.paramIsArray(params[index])
-            array_sizes = self.paramGetArraySizes(params[index])
+            is_pointer = paramIsPointer(params[index])
+            is_array = paramIsArray(params[index])
+            array_sizes = paramGetArraySizes(params[index])
             is_const = True if 'const' in param_cdecl else False
             is_handle = self.paramIsHandle(param_type)
 
             if is_handle and param_type not in handles_used:
                 handles_used.append(param_type)
 
-            cmd_params.append(self.CommandParam(type = param_type,
-                                                name = param_name,
-                                                cdecl = param_cdecl,
-                                                length_info = length_info,
-                                                is_const = is_const,
-                                                is_pointer = is_pointer,
-                                                is_array = is_array,
-                                                array_1st_size = array_sizes[0],
-                                                array_2nd_size = array_sizes[1]))
+            cmd_params.append(CommandParam(type = param_type,
+                                           name = param_name,
+                                           cdecl = param_cdecl,
+                                           length_info = length_info,
+                                           is_const = is_const,
+                                           is_pointer = is_pointer,
+                                           is_array = is_array,
+                                           array_1st_size = array_sizes[0],
+                                           array_2nd_size = array_sizes[1]))
 
             if is_handle and (is_pointer or is_destroy_command):
-                mod_handle = param_type
+                modified_handle = param_type
 
             # Determine if this is actually a create or destroy command
             if index == last and ('vkGet' in name and is_handle and is_pointer and not is_const):
                 is_create = True
 
         if is_create or is_destroy_command:
-            if len(mod_handle) > 0 and mod_handle in handles_used:
-                # We don't want the modified handle listed as a used handle here
-                handles_used.remove(mod_handle)
+            if modified_handle in handles_used:
+            # We don't want the modified handle listed as a used handle here
+                handles_used.remove(modified_handle)
         else:
-            # We don't want the mod_handle listed for anything but a create or destroy command
-            mod_handle = ''
+            # We don't want the modified_handle listed for anything but a create or destroy command
+            modified_handle = ''
 
-        self.basic_commands.append(
-            self.BasicCommandData(
+        self.commands[name] = BasicCommandData(
                 name = name,
                 protect = self.featureExtraProtect,
                 return_type = return_type,
-                raw_handle = raw_handle if 'CreateInfo' not in info[0] else None,
-                handle_type = info[0] if 'CreateInfo' not in info[0] else '',
+                raw_handle = raw_handle if 'CreateInfo' not in dispatch_type else None,
+                handle_type = dispatch_type,
                 is_create = is_create,
                 is_destroy = is_destroy_command,
                 is_begin = is_begin,
                 is_end = is_end,
-                modified_handle = mod_handle,
+                modified_handle = modified_handle,
                 handles_used = handles_used,
                 params = cmd_params,
-                cdecl = self.makeCDecls(cmdinfo.elem)[0],
+                cdecl = self.makeCDecls(cmd_info.elem)[0],
                 alias = alias
             )
-        )
 
     def endFeature(self):
         # Finish processing in superclass
@@ -706,13 +492,13 @@ class LoaderTestOutputGenerator(OutputGenerator):
     # Generate the handle tree data so we can determine what handles
     # are needed for what other handles
     def GenerateHandleTreeData(self):
-        for cur_handle in self.basic_handles:
+        for cur_handle in self.handles.values():
             parents = []
             children = []
             create_funcs = []
             destroy_funcs = []
             usage_funcs = []
-            for command in self.basic_commands:
+            for command in self.commands.values():
                 if command.modified_handle == cur_handle.name:
                     if command.is_create:
                         create_funcs.append(command)
@@ -722,11 +508,11 @@ class LoaderTestOutputGenerator(OutputGenerator):
                         destroy_funcs.append(command)
                 elif command.handle_type == cur_handle.name:
                     usage_funcs.append(command)
-                    if command.is_create and len(command.modified_handle) > 0 and command.modified_handle not in children:
+                    if command.is_create and command.modified_handle not in children:
                         children.append(command.modified_handle)
 
             self.handle_tree.append(
-                self.HandleTreeData(
+                HandleTreeData(
                     name = cur_handle.name,
                     alias = cur_handle.alias,
                     parents = parents,
@@ -740,9 +526,6 @@ class LoaderTestOutputGenerator(OutputGenerator):
         self.GenLowestParentHandlesForHandleTree()
         self.GenHighestChildrenHandlesForHandleTree()
 
-    # Generate the test
-    def GenerateDriver(self):
-        test = []
 
     def OutputTestStart(self, major_ver, minor_ver, ext, use_dispatch_table):
         test_start = ''
@@ -763,41 +546,34 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if ext.type == 'instance':
                 req_additional_ext.append(ext.define_name)
 
-            if ext.required_exts is not None:
-                for req_ext in ext.required_exts:
-                    for bas_ext in self.basic_extensions:
-                        if (bas_ext.name == req_ext and bas_ext.type == 'instance' and
-                            bas_ext.define_name not in req_additional_ext):
-                            req_additional_ext.append(bas_ext.define_name)
-                            if (len(create_surface_cmd) == 0 and
-                                'VK_KHR_surface' == req_ext):
-                                create_surface_cmd = 'vkCreateHeadlessSurfaceEXT'
-                            if (len(destroy_surface_cmd) == 0 and
-                                'VK_KHR_surface' == req_ext):
-                                destroy_surface_cmd = 'vkDestroySurfaceKHR'
-                            break
-            for cmd in ext.command_data:
-                if cmd.requires is not None:
-                    for req in cmd.requires:
-                        for bas_ext in self.basic_extensions:
-                            if (bas_ext.name == req and bas_ext.type == 'instance' and
-                                bas_ext.define_name not in req_additional_ext):
-                                req_additional_ext.append(bas_ext.define_name)
-                                break
-                for bas_cmd in self.basic_commands:
-                    if bas_cmd.name == cmd.name:
-                        if 'VkSurfaceKHR' in bas_cmd.handles_used or 'VkSurfaceKHR' == bas_cmd.modified_handle:
-                            if not uses_surfaces:
-                                uses_surfaces = True
-                                create_surface_cmd = 'vkCreateHeadlessSurfaceEXT'
-                                destroy_surface_cmd = 'vkDestroySurfaceKHR'
+            for req_ext in ext.required_exts:
+                bas_ext = self.extensions.get(req_ext)
+                if (bas_ext is not None and bas_ext.type == 'instance' and
+                    bas_ext.define_name not in req_additional_ext):
+                    req_additional_ext.append(bas_ext.define_name)
+                    if len(create_surface_cmd) == 0 and 'VK_KHR_surface' == req_ext:
+                        create_surface_cmd = 'vkCreateHeadlessSurfaceEXT'
+                    if len(destroy_surface_cmd) == 0 and 'VK_KHR_surface' == req_ext:
+                        destroy_surface_cmd = 'vkDestroySurfaceKHR'
 
-                            if bas_cmd.is_create and bas_cmd.modified_handle == 'VkSurfaceKHR':
-                                create_surface_cmd = bas_cmd.name
+            for cmd_name, cmd_list in ext.command_data.items():
+                for req in cmd_list:
+                    bas_ext = self.extensions.get(req)
+                    if (bas_ext is not None and bas_ext.type == 'instance' and
+                        bas_ext.define_name not in req_additional_ext):
+                        req_additional_ext.append(bas_ext.define_name)
+                bas_cmd = self.commands.get(cmd_name)
+                if bas_cmd is not None and 'VkSurfaceKHR' in bas_cmd.handles_used or 'VkSurfaceKHR' == bas_cmd.modified_handle:
+                    if not uses_surfaces:
+                        uses_surfaces = True
+                        create_surface_cmd = 'vkCreateHeadlessSurfaceEXT'
+                        destroy_surface_cmd = 'vkDestroySurfaceKHR'
 
-                            if bas_cmd.is_destroy and bas_cmd.modified_handle == 'VkSurfaceKHR':
-                                destroy_surface_cmd = bas_cmd.name
-                        break
+                    if bas_cmd.is_create and bas_cmd.modified_handle == 'VkSurfaceKHR':
+                        create_surface_cmd = bas_cmd.name
+
+                    if bas_cmd.is_destroy and bas_cmd.modified_handle == 'VkSurfaceKHR':
+                        destroy_surface_cmd = bas_cmd.name
 
             # If this uses vkCreateHeadlessSurfaceEXT make sure the
             # VK_KHR_surface extension is added to the required list.
@@ -817,7 +593,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
 
         test_start += '    FrameworkEnvironment env{};\n'
         test_start += '    uint32_t vulkan_version = VK_API_VERSION_%d_%d;\n' % (major_ver, minor_ver)
-        test_start += '    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));\n'
+        test_start += '    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));\n'
         test_start += '\n'
         test_start += '    const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";\n'
         test_start += '    env.add_explicit_layer(\n'
@@ -871,10 +647,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
 
         # If there's a surface create command, trigger it now that we've created
         # the instance
-        if len(create_surface_cmd) > 0:
-            for cmd in self.basic_commands:
-                if cmd.name == create_surface_cmd:
-                    test_start += self.OutputTestEntrypoint(cmd, ext, use_dispatch_table)
+        cmd = self.commands.get(create_surface_cmd)
+        if cmd is not None:
+            test_start += self.OutputTestEntrypoint(cmd, ext, use_dispatch_table)
         return test_start, destroy_surface_cmd
 
     def OutputTestEnd(self, major_ver, minor_ver, ext, destroy_surface_cmd, use_dispatch_table):
@@ -882,11 +657,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
 
         # If there's a surface destroy command, trigger it before we exit the
         # test
-        if len(destroy_surface_cmd) > 0:
-            for cmd in self.basic_commands:
-                if cmd.name == destroy_surface_cmd:
-                    test_end += self.OutputTestEntrypoint(cmd, ext, use_dispatch_table)
-                    break
+        cmd = self.commands.get(destroy_surface_cmd)
+        if cmd is not None:
+            test_end += self.OutputTestEntrypoint(cmd, ext, use_dispatch_table)
 
         if not use_dispatch_table:
             test_end += '\n'
@@ -928,7 +701,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
                     break
             if not already_defined:
                 self.test_variables.append(
-                    self.TestVariableNames(
+                    TestVariableNames(
                         type = 'uint64_t',
                         name = 'big_chunk_of_mem',
                         is_array = True,
@@ -964,7 +737,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
                     else:
                         name += '_1d_%d' % param.array_1st_size
                 self.test_variables.append(
-                    self.TestVariableNames(
+                    TestVariableNames(
                         type = param.type,
                         name = name,
                         is_array = param.is_array,
@@ -982,13 +755,13 @@ class LoaderTestOutputGenerator(OutputGenerator):
                 else:
                     init_value = ''
                     init_surf_value = ''
-                    for struct in self.struct_data:
-                        if struct.name == param.type:
-                            for mem in struct.members:
-                                if mem.type == 'VkStructureType':
-                                    init_value = mem.req_value
-                                if mem.type == 'VkSurfaceKHR':
-                                    init_surf_value = "    %s.%s = var_vksurfacekhr;\n" % (name, mem.name)
+                    struct = self.struct_data.get(param.type)
+                    if struct is not None:
+                        for mem in struct.members:
+                            if mem.type == 'VkStructureType':
+                                init_value = mem.req_value
+                            if mem.type == 'VkSurfaceKHR':
+                                init_surf_value = "    %s.%s = var_vksurfacekhr;\n" % (name, mem.name)
                     define_var = '    %s %s{%s};\n' % (param.type, name, init_value)
                     define_var += init_surf_value
         if param.is_pointer and not param.is_array:
@@ -1025,21 +798,17 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if ext.type == 'device':
                 req_additional_ext.append(ext.define_name)
 
-            if ext.required_exts is not None:
-                for req_ext in ext.required_exts:
-                    for bas_ext in self.basic_extensions:
-                        if (bas_ext.name == req_ext and bas_ext.type == 'device' and
-                            bas_ext.define_name not in req_additional_ext):
-                            req_additional_ext.append(bas_ext.define_name)
-                            break
-            for cmd in ext.command_data:
-                if cmd.requires is not None:
-                    for req in cmd.requires:
-                        for bas_ext in self.basic_extensions:
-                            if (bas_ext.name == req and bas_ext.type == 'device' and
-                                bas_ext.define_name not in req_additional_ext):
-                                req_additional_ext.append(bas_ext.define_name)
-                                break
+            for req_ext in ext.required_exts:
+                bas_ext = self.extensions.get(req_ext)
+                if (bas_ext is not None and bas_ext.type == 'device' and
+                    bas_ext.define_name not in req_additional_ext):
+                    req_additional_ext.append(bas_ext.define_name)
+            for cmd_list in ext.command_data:
+                for req in cmd_list:
+                    bas_ext = self.extensions.get(req)
+                    if (bas_ext is not None and bas_ext.type == 'device' and
+                        bas_ext.define_name not in req_additional_ext):
+                        req_additional_ext.append(bas_ext.define_name)
             if use_dispatch_table:
                 test_ep += '    DeviceWrapper dev{instance};\n'
                 test_ep += '    dev.create_info.'
@@ -1051,7 +820,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
                 test_ep += '    VkLayerDispatchTable device_disp_table;\n'
                 test_ep += '    layer_init_device_dispatch_table(dev.dev, &device_disp_table, instance.functions->vkGetDeviceProcAddr);\n\n'
                 self.test_variables.append(
-                    self.TestVariableNames(
+                    TestVariableNames(
                         type = 'VkDevice',
                         name = 'dev.dev',
                         is_array = False,
@@ -1082,7 +851,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
                 test_ep += '    ASSERT_TRUE(log->find("Generated Driver vkCreateDevice"));\n'
                 test_ep += '    log->logger.clear();\n\n'
                 self.test_variables.append(
-                    self.TestVariableNames(
+                    TestVariableNames(
                         type = 'VkDevice',
                         name = 'device',
                         is_array = False,
@@ -1159,18 +928,18 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if usage.is_create or usage.is_destroy:
                 continue
 
-            for cmd in ext.command_data:
-                if cmd.name == usage.name:
-                    ext_major_ver = 1
-                    ext_minor_ver = 0
-                    for requires in cmd.requires:
-                        if 'VK_VERSION_' in requires:
-                            version_numbers = list(map(int, re.findall(r'\d+', requires)))
-                            ext_major_ver = version_numbers[0]
-                            ext_minor_ver = version_numbers[1]
-                            break
-                    if (major_ver == ext_major_ver and minor_ver >= ext_minor_ver):
-                        call_funcs += self.OutputTestEntrypoint(usage, ext, use_dispatch_table)
+            cmd_list = ext.command_data.get(usage.name)
+            if cmd_list is not None:
+                ext_major_ver = 1
+                ext_minor_ver = 0
+                for requires in cmd_list:
+                    if 'VK_VERSION_' in requires:
+                        version_numbers = list(map(int, re.findall(r'\d+', requires)))
+                        ext_major_ver = version_numbers[0]
+                        ext_minor_ver = version_numbers[1]
+                        break
+                if (major_ver == ext_major_ver and minor_ver >= ext_minor_ver):
+                    call_funcs += self.OutputTestEntrypoint(usage, ext, use_dispatch_table)
         return call_funcs
 
     def PickCreateDestroyFunc(self, cur_handle_name, create_funcs, destroy_funcs, major_ver, minor_ver, ext_name):
@@ -1182,7 +951,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         while try_minor_version >= 0:
             # Go through list and only add items that are supported in the API version with the
             # above extension we are interested in
-            for ext in self.basic_extensions:
+            for ext in self.extensions.values():
                 ext_major_ver = 1
                 ext_minor_ver = 0
                 check_ext = False
@@ -1194,21 +963,17 @@ class LoaderTestOutputGenerator(OutputGenerator):
                     check_ext = True
 
                 for create_func in create_funcs:
-                    for cmd in ext.command_data:
-                        if (cmd.name == create_func.name and
-                            major_ver == ext_major_ver and try_minor_version == ext_minor_ver and
-                            (not check_ext or ext_name == ext.name)):
-                            create_list.append(create_func)
-                            break
+                    cmd = ext.command_data.get(create_func.name)
+                    if (cmd is not None and major_ver == ext_major_ver and try_minor_version == ext_minor_ver and
+                        (not check_ext or ext_name == ext.name)):
+                        create_list.append(create_func)
                     if len(create_list) > 0:
                         break
                 for destroy_func in destroy_funcs:
-                    for cmd in ext.command_data:
-                        if (cmd.name == destroy_func.name and
-                            major_ver == ext_major_ver and try_minor_version == ext_minor_ver and
-                            (not check_ext or ext_name == ext.name)):
-                            destroy_list.append(destroy_func)
-                            break
+                    cmd = ext.command_data.get(destroy_func.name)
+                    if (cmd is not None and major_ver == ext_major_ver and try_minor_version == ext_minor_ver and
+                        (not check_ext or ext_name == ext.name)):
+                        destroy_list.append(destroy_func)
                     if len(destroy_list) > 0:
                         break
             if len(create_list) > 0 and len(destroy_list) > 0:
@@ -1263,16 +1028,14 @@ class LoaderTestOutputGenerator(OutputGenerator):
         handle_list = []
 
         # First generate the list of handles required
-        for ext_cmd in ext.command_data:
-            for bas_cmd in self.basic_commands:
-                if ext_cmd.name == bas_cmd.name:
-                    if (not bas_cmd.handle_type is None) and bas_cmd.handle_type not in handle_list:
-                        handle_list.append(bas_cmd.handle_type)
-                    if not bas_cmd.handles_used is None:
-                        for used_handles in bas_cmd.handles_used:
-                            if used_handles not in handle_list:
-                                handle_list.append(used_handles)
-                    break
+        for ext_cmd in ext.command_data.keys():
+            cmd = self.commands.get(ext_cmd)
+            if cmd is not None:
+                if cmd.handle_type is not None and cmd.handle_type not in handle_list:
+                    handle_list.append(cmd.handle_type)
+                for used_handle in cmd.handles_used:
+                    if used_handle not in handle_list:
+                         handle_list.append(used_handle)
 
         # Second, make sure all the ancestors of the required handles are included up to at least
         # VkPhysicalDevice
@@ -1291,7 +1054,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         test = ''
         self.test_variables = []
         self.test_variables.append(
-            self.TestVariableNames(
+            TestVariableNames(
                 type = 'VkInstance',
                 name = 'instance',
                 is_array = False,
@@ -1318,7 +1081,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         test = ''
         self.test_variables = []
         self.test_variables.append(
-            self.TestVariableNames(
+            TestVariableNames(
                 type = 'VkInstance',
                 name = 'instance',
                 is_array = False,
@@ -1344,236 +1107,234 @@ class LoaderTestOutputGenerator(OutputGenerator):
         return test
 
     def GenerateLayerHeader(self):
-        max_api_version = 'VK_API_VERSION_%d_%d' % (self.max_major, self.max_minor)
-        layer_header = ''
-        layer_header += 'struct EntrypointTestLayer {\n'
-        layer_header += '    fs::path manifest_file_path;\n'
-        layer_header += '    const uint32_t manifest_version = VK_MAKE_API_VERSION(0, 1, 1, 2);\n'
-        layer_header += '    const uint32_t api_version = %s;\n' % max_api_version
-        layer_header += '\n'
-        layer_header += '    PFN_vkGetInstanceProcAddr next_vkGetInstanceProcAddr = VK_NULL_HANDLE;\n'
-        layer_header += '    PFN_vkGetDeviceProcAddr next_vkGetDeviceProcAddr = VK_NULL_HANDLE;\n'
-        layer_header += '\n'
-        layer_header += '    const uint32_t max_icd_interface_version = 6;\n'
-        layer_header += '    VkInstance instance_handle;\n'
-        layer_header += '    VkLayerInstanceDispatchTable instance_dispatch_table{};\n'
-        layer_header += '    uint8_t enabled_instance_major;\n'
-        layer_header += '    uint8_t enabled_instance_minor;\n'
-        layer_header += '    std::vector<std::string> enabled_instance_extensions{};\n'
-        layer_header += '\n'
-        layer_header += '    struct DebugUtilsInfo {\n'
-        layer_header += '        VkDebugUtilsMessageSeverityFlagsEXT     severities;\n'
-        layer_header += '        VkDebugUtilsMessageTypeFlagsEXT         types;\n'
-        layer_header += '        PFN_vkDebugUtilsMessengerCallbackEXT    callback = nullptr;\n'
-        layer_header += '        void*                                   user_data = nullptr;\n'
-        layer_header += '    };\n'
-        layer_header += '    DebugUtilsInfo debug_util_info;'
-        layer_header += '\n'
-        layer_header += '    struct Device {\n'
-        layer_header += '        VkDevice device_handle;\n'
-        layer_header += '        VkLayerDispatchTable dispatch_table;\n'
-        layer_header += '        std::vector<std::string> enabled_extensions;\n'
-        layer_header += '    };\n'
-        layer_header += '    std::vector<Device> created_devices;\n'
-        layer_header += '};\n'
-        layer_header += '\n'
-        layer_header += 'using GetTestLayerFunc = EntrypointTestLayer* (*)();\n'
-        layer_header += '#define GET_TEST_LAYER_FUNC_STR "get_test_layer_func"\n'
-        layer_header += '\n'
-        layer_header += 'using GetNewTestLayerFunc = EntrypointTestLayer* (*)();\n'
-        layer_header += '#define RESET_LAYER_FUNC_STR "reset_layer_func"\n'
-        layer_header += '\n'
-        return layer_header
+        ret = '''struct EntrypointTestLayer {
+    fs::path manifest_file_path;
+    const uint32_t manifest_version = VK_MAKE_API_VERSION(0, 1, 1, 2);
+    const uint32_t api_version = VK_API_VERSION_%d_%d;
+
+    PFN_vkGetInstanceProcAddr next_vkGetInstanceProcAddr = VK_NULL_HANDLE;
+    PFN_vkGetDeviceProcAddr next_vkGetDeviceProcAddr = VK_NULL_HANDLE;
+
+    const uint32_t max_icd_interface_version = 6;
+    VkInstance instance_handle;
+    VkLayerInstanceDispatchTable instance_dispatch_table{};
+    uint8_t enabled_instance_major;
+    uint8_t enabled_instance_minor;
+    std::vector<std::string> enabled_instance_extensions{};
+
+    struct DebugUtilsInfo {
+        VkDebugUtilsMessageSeverityFlagsEXT     severities;
+        VkDebugUtilsMessageTypeFlagsEXT         types;
+        PFN_vkDebugUtilsMessengerCallbackEXT    callback = nullptr;
+        void*                                   user_data = nullptr;
+    };
+    DebugUtilsInfo debug_util_info;
+    struct Device {
+        VkDevice device_handle;
+        VkLayerDispatchTable dispatch_table;
+        std::vector<std::string> enabled_extensions;
+    };
+    std::vector<Device> created_devices;
+};
+
+using GetTestLayerFunc = EntrypointTestLayer* (*)();
+#define GET_TEST_LAYER_FUNC_STR "get_test_layer_func"
+
+using GetNewTestLayerFunc = EntrypointTestLayer* (*)();
+#define RESET_LAYER_FUNC_STR "reset_layer_func"
+
+''' % (self.max_major, self.max_minor)
+        return ret
 
     def OutputCommonInstanceDeviceLayerFuncs(self):
-        common_layer_funcs = ''
-        common_layer_funcs += 'EntrypointTestLayer layer;\n'
-        common_layer_funcs += 'extern "C" {\n'
-        common_layer_funcs += 'FRAMEWORK_EXPORT EntrypointTestLayer* get_test_layer_func() { return &layer; }\n'
-        common_layer_funcs += 'FRAMEWORK_EXPORT EntrypointTestLayer* reset_layer_func() {\n'
-        common_layer_funcs += '    layer.~EntrypointTestLayer();\n'
-        common_layer_funcs += '    return new (&layer) EntrypointTestLayer();\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '} // extern "C"\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '#ifndef TEST_LAYER_NAME\n'
-        common_layer_funcs += '#define TEST_LAYER_NAME "VkLayer_LunarG_entrypoint_layer"\n'
-        common_layer_funcs += '#endif\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VkLayerInstanceCreateInfo* get_chain_info(const VkInstanceCreateInfo* pCreateInfo, VkLayerFunction func) {\n'
-        common_layer_funcs += '    VkLayerInstanceCreateInfo* chain_info = (VkLayerInstanceCreateInfo*)pCreateInfo->pNext;\n'
-        common_layer_funcs += '    while (chain_info && !(chain_info->sType == VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO && chain_info->function == func)) {\n'
-        common_layer_funcs += '        chain_info = (VkLayerInstanceCreateInfo*)chain_info->pNext;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    assert(chain_info != NULL);\n'
-        common_layer_funcs += '    return chain_info;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VkLayerDeviceCreateInfo* get_chain_info(const VkDeviceCreateInfo* pCreateInfo, VkLayerFunction func) {\n'
-        common_layer_funcs += '    VkLayerDeviceCreateInfo* chain_info = (VkLayerDeviceCreateInfo*)pCreateInfo->pNext;\n'
-        common_layer_funcs += '    while (chain_info && !(chain_info->sType == VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO && chain_info->function == func)) {\n'
-        common_layer_funcs += '        chain_info = (VkLayerDeviceCreateInfo*)chain_info->pNext;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    assert(chain_info != NULL);\n'
-        common_layer_funcs += '    return chain_info;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'void log_layer_message(const std::string& message) {\n'
-        common_layer_funcs += '    static uint8_t cur_message_index = 0;\n'
-        common_layer_funcs += '    static std::string messages[8];\n'
-        common_layer_funcs += '    if (layer.debug_util_info.callback != nullptr) {\n'
-        common_layer_funcs += '        VkDebugUtilsMessengerCallbackDataEXT callback_data{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};\n'
-        common_layer_funcs += '        messages[cur_message_index] = message.c_str();\n'
-        common_layer_funcs += '        callback_data.pMessage = messages[cur_message_index].c_str();\n'
-        common_layer_funcs += '        if (++cur_message_index >= 8) { cur_message_index = 0; }\n'
-        common_layer_funcs += '        layer.debug_util_info.callback(\n'
-        common_layer_funcs += '               VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,\n'
-        common_layer_funcs += '               VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,\n'
-        common_layer_funcs += '               &callback_data,\n'
-        common_layer_funcs += '               layer.debug_util_info.user_data);\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceLayerProperties(uint32_t* pPropertyCount, VkLayerProperties* pProperties) {\n'
-        common_layer_funcs += '    return VK_SUCCESS;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceExtensionProperties(const char* pLayerName, uint32_t* pPropertyCount,\n'
-        common_layer_funcs += '                                                                         VkExtensionProperties* pProperties) {\n'
-        common_layer_funcs += '    if (pLayerName && string_eq(pLayerName, TEST_LAYER_NAME)) {\n'
-        common_layer_funcs += '        *pPropertyCount = 0;\n'
-        common_layer_funcs += '        return VK_SUCCESS;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    return layer.instance_dispatch_table.EnumerateInstanceExtensionProperties(pLayerName, pPropertyCount, pProperties);\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t* pPropertyCount,\n'
-        common_layer_funcs += '                                                                   VkLayerProperties* pProperties) {\n'
-        common_layer_funcs += '    log_layer_message("Generated Layer vkEnumerateDeviceLayerProperties");\n'
-        common_layer_funcs += '    return VK_SUCCESS;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char* pLayerName,\n'
-        common_layer_funcs += '                                                                       uint32_t* pPropertyCount,\n'
-        common_layer_funcs += '                                                                       VkExtensionProperties* pProperties) {\n'
-        common_layer_funcs += '    log_layer_message("Generated Layer vkEnumerateDeviceExtensionProperties");\n'
-        common_layer_funcs += '    if (pLayerName && string_eq(pLayerName, TEST_LAYER_NAME)) {\n'
-        common_layer_funcs += '        *pPropertyCount = 0;\n'
-        common_layer_funcs += '        return VK_SUCCESS;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    return layer.instance_dispatch_table.EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pPropertyCount,\n'
-        common_layer_funcs += '                                                                            pProperties);\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceVersion(uint32_t* pApiVersion) {\n'
-        common_layer_funcs += '    log_layer_message("Generated Layer vkEnumerateInstanceVersion");\n'
-        common_layer_funcs += '    if (pApiVersion != nullptr) {\n'
-        common_layer_funcs += '        *pApiVersion = VK_API_VERSION_%d_%d;\n' % (self.max_major, self.max_minor)
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    return VK_SUCCESS;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_CreateInstance(const VkInstanceCreateInfo* pCreateInfo,\n'
-        common_layer_funcs += '                                                   const VkAllocationCallbacks* pAllocator, VkInstance* pInstance) {\n'
-        common_layer_funcs += '    VkLayerInstanceCreateInfo* chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;\n'
-        common_layer_funcs += '    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)fpGetInstanceProcAddr(NULL, "vkCreateInstance");\n'
-        common_layer_funcs += '    if (fpCreateInstance == NULL) {\n'
-        common_layer_funcs += '        return VK_ERROR_INITIALIZATION_FAILED;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    layer.next_vkGetInstanceProcAddr = fpGetInstanceProcAddr;\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // Advance the link info for the next element of the chain\n'
-        common_layer_funcs += '    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // Continue call down the chain\n'
-        common_layer_funcs += '    VkResult result = fpCreateInstance(pCreateInfo, pAllocator, pInstance);\n'
-        common_layer_funcs += '    if (result != VK_SUCCESS) {\n'
-        common_layer_funcs += '        return result;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    layer.instance_handle = *pInstance;\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    layer.enabled_instance_major = 1;\n'
-        common_layer_funcs += '    layer.enabled_instance_minor = 0;\n'
-        common_layer_funcs += '    if (pCreateInfo->pApplicationInfo != NULL && pCreateInfo->pApplicationInfo->apiVersion != 0) {\n'
-        common_layer_funcs += '        layer.enabled_instance_major = static_cast<uint8_t>(VK_API_VERSION_MAJOR(pCreateInfo->pApplicationInfo->apiVersion));\n'
-        common_layer_funcs += '        layer.enabled_instance_minor = static_cast<uint8_t>(VK_API_VERSION_MINOR(pCreateInfo->pApplicationInfo->apiVersion));\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    for (uint32_t ext = 0; ext < pCreateInfo->enabledExtensionCount; ++ext) {\n'
-        common_layer_funcs += '        layer.enabled_instance_extensions.push_back(pCreateInfo->ppEnabledExtensionNames[ext]);\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // Init layer\'s dispatch table using GetInstanceProcAddr of next layer in the chain.\n'
-        common_layer_funcs += '    layer_init_instance_dispatch_table(layer.instance_handle, &layer.instance_dispatch_table, fpGetInstanceProcAddr);\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    return result;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR void VKAPI_CALL layer_DestroyInstance(VkInstance instance, const VkAllocationCallbacks* pAllocator) {\n'
-        common_layer_funcs += '    layer.instance_dispatch_table.DestroyInstance(instance, pAllocator);\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_CreateDebugUtilsMessengerEXT(VkInstance instance,\n'
-        common_layer_funcs += '                                                                  const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,\n'
-        common_layer_funcs += '                                                                  const VkAllocationCallbacks* pAllocator,\n'
-        common_layer_funcs += '                                                                  VkDebugUtilsMessengerEXT* pMessenger) {\n'
-        common_layer_funcs += '    layer.debug_util_info.severities = pCreateInfo->messageSeverity;\n'
-        common_layer_funcs += '    layer.debug_util_info.types = pCreateInfo->messageType;\n'
-        common_layer_funcs += '    layer.debug_util_info.callback = pCreateInfo->pfnUserCallback;\n'
-        common_layer_funcs += '    layer.debug_util_info.user_data = pCreateInfo->pUserData;\n'
-        common_layer_funcs += '    return layer.instance_dispatch_table.CreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pMessenger);\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR VkResult VKAPI_CALL layer_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo,\n'
-        common_layer_funcs += '                                                 const VkAllocationCallbacks* pAllocator, VkDevice* pDevice) {\n'
-        common_layer_funcs += '    VkLayerDeviceCreateInfo* chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    log_layer_message("Generated Layer vkCreateDevice");\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;\n'
-        common_layer_funcs += '    PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr = chain_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;\n'
-        common_layer_funcs += '    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)fpGetInstanceProcAddr(layer.instance_handle, "vkCreateDevice");\n'
-        common_layer_funcs += '    if (fpCreateDevice == NULL) {\n'
-        common_layer_funcs += '        return VK_ERROR_INITIALIZATION_FAILED;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    layer.next_vkGetDeviceProcAddr = fpGetDeviceProcAddr;\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // Advance the link info for the next element on the chain\n'
-        common_layer_funcs += '    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    VkResult result = fpCreateDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);\n'
-        common_layer_funcs += '    if (result != VK_SUCCESS) {\n'
-        common_layer_funcs += '        return result;\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '    EntrypointTestLayer::Device device{*pDevice};\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    for (uint32_t ext = 0; ext < pCreateInfo->enabledExtensionCount; ++ext) {\n'
-        common_layer_funcs += '        device.enabled_extensions.push_back(pCreateInfo->ppEnabledExtensionNames[ext]);\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // initialize layer\'s dispatch table\n'
-        common_layer_funcs += '    layer_init_device_dispatch_table(device.device_handle, &device.dispatch_table, fpGetDeviceProcAddr);\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    // Need to add the created devices to the list so it can be freed\n'
-        common_layer_funcs += '    layer.created_devices.push_back(device);\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += '    return result;\n'
-        common_layer_funcs += '}\n'
-        common_layer_funcs += '\n'
-        common_layer_funcs += 'VKAPI_ATTR void VKAPI_CALL layer_DestroyDevice(VkDevice device, const VkAllocationCallbacks* pAllocator) {\n'
-        common_layer_funcs += '    log_layer_message("Generated Layer vkDestroyDevice");\n'
-        common_layer_funcs += '    for (auto& created_device : layer.created_devices) {\n'
-        common_layer_funcs += '        if (created_device.device_handle == device) {\n'
-        common_layer_funcs += '            created_device.dispatch_table.DestroyDevice(device, pAllocator);\n'
-        common_layer_funcs += '            break;\n'
-        common_layer_funcs += '        }\n'
-        common_layer_funcs += '    }\n'
-        common_layer_funcs += '}\n'
-        return common_layer_funcs
+        ret = '''EntrypointTestLayer layer;
+extern "C" {
+FRAMEWORK_EXPORT EntrypointTestLayer* get_test_layer_func() { return &layer; }
+FRAMEWORK_EXPORT EntrypointTestLayer* reset_layer_func() {
+    layer.~EntrypointTestLayer();
+    return new (&layer) EntrypointTestLayer();
+}
+} // extern "C"
+
+#ifndef TEST_LAYER_NAME
+#define TEST_LAYER_NAME "VkLayer_LunarG_entrypoint_layer"
+#endif
+
+VkLayerInstanceCreateInfo* get_chain_info(const VkInstanceCreateInfo* pCreateInfo, VkLayerFunction func) {
+    VkLayerInstanceCreateInfo* chain_info = (VkLayerInstanceCreateInfo*)pCreateInfo->pNext;
+    while (chain_info && !(chain_info->sType == VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO && chain_info->function == func)) {
+        chain_info = (VkLayerInstanceCreateInfo*)chain_info->pNext;
+    }
+    assert(chain_info != NULL);
+    return chain_info;
+}
+
+VkLayerDeviceCreateInfo* get_chain_info(const VkDeviceCreateInfo* pCreateInfo, VkLayerFunction func) {
+    VkLayerDeviceCreateInfo* chain_info = (VkLayerDeviceCreateInfo*)pCreateInfo->pNext;
+    while (chain_info && !(chain_info->sType == VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO && chain_info->function == func)) {
+        chain_info = (VkLayerDeviceCreateInfo*)chain_info->pNext;
+    }
+    assert(chain_info != NULL);
+    return chain_info;
+}
+
+void log_layer_message(const std::string& message) {
+    static uint8_t cur_message_index = 0;
+    static std::string messages[8];
+    if (layer.debug_util_info.callback != nullptr) {
+        VkDebugUtilsMessengerCallbackDataEXT callback_data{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
+        messages[cur_message_index] = message.c_str();
+        callback_data.pMessage = messages[cur_message_index].c_str();
+        if (++cur_message_index >= 8) { cur_message_index = 0; }
+        layer.debug_util_info.callback(
+               VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+               VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT,
+               &callback_data,
+               layer.debug_util_info.user_data);
+    }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceLayerProperties(uint32_t* pPropertyCount, VkLayerProperties* pProperties) {
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceExtensionProperties(const char* pLayerName, uint32_t* pPropertyCount,
+                                                                         VkExtensionProperties* pProperties) {
+    if (pLayerName && string_eq(pLayerName, TEST_LAYER_NAME)) {
+        *pPropertyCount = 0;
+        return VK_SUCCESS;
+    }
+    return layer.instance_dispatch_table.EnumerateInstanceExtensionProperties(pLayerName, pPropertyCount, pProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t* pPropertyCount,
+                                                                   VkLayerProperties* pProperties) {
+    log_layer_message("Generated Layer vkEnumerateDeviceLayerProperties");
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char* pLayerName,
+                                                                       uint32_t* pPropertyCount,
+                                                                       VkExtensionProperties* pProperties) {
+    log_layer_message("Generated Layer vkEnumerateDeviceExtensionProperties");
+    if (pLayerName && string_eq(pLayerName, TEST_LAYER_NAME)) {
+        *pPropertyCount = 0;
+        return VK_SUCCESS;
+    }
+    return layer.instance_dispatch_table.EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pPropertyCount,
+                                                                            pProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_EnumerateInstanceVersion(uint32_t* pApiVersion) {
+    log_layer_message("Generated Layer vkEnumerateInstanceVersion");
+    if (pApiVersion != nullptr) {
+        *pApiVersion = VK_API_VERSION_%d_%d;
+    }
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_CreateInstance(const VkInstanceCreateInfo* pCreateInfo,
+                                                   const VkAllocationCallbacks* pAllocator, VkInstance* pInstance) {
+    VkLayerInstanceCreateInfo* chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
+
+    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)fpGetInstanceProcAddr(NULL, "vkCreateInstance");
+    if (fpCreateInstance == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    layer.next_vkGetInstanceProcAddr = fpGetInstanceProcAddr;
+
+    // Advance the link info for the next element of the chain
+    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;
+
+    // Continue call down the chain
+    VkResult result = fpCreateInstance(pCreateInfo, pAllocator, pInstance);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+    layer.instance_handle = *pInstance;
+
+    layer.enabled_instance_major = 1;
+    layer.enabled_instance_minor = 0;
+    if (pCreateInfo->pApplicationInfo != NULL && pCreateInfo->pApplicationInfo->apiVersion != 0) {
+        layer.enabled_instance_major = static_cast<uint8_t>(VK_API_VERSION_MAJOR(pCreateInfo->pApplicationInfo->apiVersion));
+        layer.enabled_instance_minor = static_cast<uint8_t>(VK_API_VERSION_MINOR(pCreateInfo->pApplicationInfo->apiVersion));
+    }
+
+    for (uint32_t ext = 0; ext < pCreateInfo->enabledExtensionCount; ++ext) {
+        layer.enabled_instance_extensions.push_back(pCreateInfo->ppEnabledExtensionNames[ext]);
+    }
+
+    // Init layer's dispatch table using GetInstanceProcAddr of next layer in the chain.
+    layer_init_instance_dispatch_table(layer.instance_handle, &layer.instance_dispatch_table, fpGetInstanceProcAddr);
+
+    return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL layer_DestroyInstance(VkInstance instance, const VkAllocationCallbacks* pAllocator) {
+    layer.instance_dispatch_table.DestroyInstance(instance, pAllocator);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_CreateDebugUtilsMessengerEXT(VkInstance instance,
+                                                                  const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+                                                                  const VkAllocationCallbacks* pAllocator,
+                                                                  VkDebugUtilsMessengerEXT* pMessenger) {
+    layer.debug_util_info.severities = pCreateInfo->messageSeverity;
+    layer.debug_util_info.types = pCreateInfo->messageType;
+    layer.debug_util_info.callback = pCreateInfo->pfnUserCallback;
+    layer.debug_util_info.user_data = pCreateInfo->pUserData;
+    return layer.instance_dispatch_table.CreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pMessenger);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL layer_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo,
+                                                 const VkAllocationCallbacks* pAllocator, VkDevice* pDevice) {
+    VkLayerDeviceCreateInfo* chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
+
+    log_layer_message("Generated Layer vkCreateDevice");
+
+    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr = chain_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;
+    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)fpGetInstanceProcAddr(layer.instance_handle, "vkCreateDevice");
+    if (fpCreateDevice == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    layer.next_vkGetDeviceProcAddr = fpGetDeviceProcAddr;
+
+    // Advance the link info for the next element on the chain
+    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;
+
+    VkResult result = fpCreateDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+    EntrypointTestLayer::Device device{*pDevice};
+
+    for (uint32_t ext = 0; ext < pCreateInfo->enabledExtensionCount; ++ext) {
+        device.enabled_extensions.push_back(pCreateInfo->ppEnabledExtensionNames[ext]);
+    }
+
+    // initialize layer's dispatch table
+    layer_init_device_dispatch_table(device.device_handle, &device.dispatch_table, fpGetDeviceProcAddr);
+
+    // Need to add the created devices to the list so it can be freed
+    layer.created_devices.push_back(device);
+
+    return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL layer_DestroyDevice(VkDevice device, const VkAllocationCallbacks* pAllocator) {
+    log_layer_message("Generated Layer vkDestroyDevice");
+    for (auto& created_device : layer.created_devices) {
+        if (created_device.device_handle == device) {
+            created_device.dispatch_table.DestroyDevice(device, pAllocator);
+            break;
+        }
+    }
+}
+''' % (self.max_major, self.max_minor)
+        return ret
 
     def OutputLayerGIPA(self):
         layer_gipa = ''
@@ -1588,7 +1349,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         layer_gipa += '\n\n'
         layer_gipa += 'FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL layer_GetInstanceProcAddr(VkInstance instance, const char* pName) {\n'
 
-        for ext in self.basic_extensions:
+        printed_commands = set()
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -1613,9 +1375,12 @@ class LoaderTestOutputGenerator(OutputGenerator):
             elif ext.type == 'instance':
                 layer_gipa += '    if (IsInstanceExtensionEnabled("%s")) {\n' % ext.name
                 add_indent = '    '
-                
-            for cmd in ext.command_data:
-                layer_gipa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(layer_%s);\n' % (add_indent, cmd.name, cmd.name[2:])
+
+            for cmd_name in ext.command_data.keys():
+                if cmd_name in printed_commands:
+                    continue
+                layer_gipa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(layer_%s);\n' % (add_indent, cmd_name, cmd_name[2:])
+                printed_commands.add(cmd_name)
 
             if 'VK_VERSION_' in ext.name:
                 layer_gipa += '    } '
@@ -1642,7 +1407,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         layer_gdpa += '}\n\n'
         layer_gdpa += 'FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL layer_GetDeviceProcAddr(VkDevice device, const char* pName) {\n'
 
-        for ext in self.basic_extensions:
+        printed_commands = set()
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -1667,9 +1433,12 @@ class LoaderTestOutputGenerator(OutputGenerator):
             elif ext.type == 'device':
                 layer_gdpa += '    if (IsDeviceExtensionEnabled("%s")) {\n' % ext.name
                 add_indent = '    '
-                
-            for cmd in ext.command_data:
-                layer_gdpa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(layer_%s);\n' % (add_indent, cmd.name, cmd.name[2:])
+
+            for cmd_name in ext.command_data.keys():
+                if cmd_name in printed_commands:
+                    continue
+                layer_gdpa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(layer_%s);\n' % (add_indent, cmd_name, cmd_name[2:])
+                printed_commands.add(cmd_name)
 
             if 'VK_VERSION_' in ext.name:
                 layer_gdpa += '    } '
@@ -1717,26 +1486,26 @@ class LoaderTestOutputGenerator(OutputGenerator):
         return layer_wrapup
 
     def PrintLayerCommand(self, command_name):
+        cmd = self.commands.get(command_name)
+        if cmd is None:
+            return ''
         cmd_str = ''
-        for basic_cmd in self.basic_commands:
-            if basic_cmd.name == command_name:
-                cmd_str += basic_cmd.cdecl.replace(';', ' {\n').replace('VKAPI_CALL vk', 'VKAPI_CALL layer_')
-                cmd_str += '    log_layer_message("Generated Layer %s");\n' % basic_cmd.name
-                if basic_cmd.return_type is not None:
-                    cmd_str += '    return '
-                else:
-                    cmd_str += '   '
-                if (basic_cmd.handle_type == 'VkInstance' or basic_cmd.handle_type == 'VkPhysicalDevice'):
-                    cmd_str += 'layer.instance_dispatch_table.%s(' % basic_cmd.name[2:]
-                else:
-                    cmd_str += 'layer.created_devices[0].dispatch_table.%s(' % basic_cmd.name[2:]
-                param_list = []
-                for param in basic_cmd.params:
-                    param_list.append(param.name)
-                cmd_str += ', '.join(param_list)
-                cmd_str += ');\n'
-                cmd_str += '}\n'
-                break
+        cmd_str += cmd.cdecl.replace(';', ' {\n').replace('VKAPI_CALL vk', 'VKAPI_CALL layer_')
+        cmd_str += '    log_layer_message("Generated Layer %s");\n' % cmd.name
+        if cmd.return_type is not None:
+            cmd_str += '    return '
+        else:
+            cmd_str += '   '
+        if (cmd.handle_type in ['VkInstance', 'VkPhysicalDevice']):
+            cmd_str += 'layer.instance_dispatch_table.%s(' % cmd.name[2:]
+        else:
+            cmd_str += 'layer.created_devices[0].dispatch_table.%s(' % cmd.name[2:]
+        param_list = []
+        for param in cmd.params:
+            param_list.append(param.name)
+        cmd_str += ', '.join(param_list)
+        cmd_str += ');\n'
+        cmd_str += '}\n'
         return cmd_str
 
     def GenerateLayerSource(self):
@@ -1744,7 +1513,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         layer_src += self.OutputCommonInstanceDeviceLayerFuncs()
 
         # Printout funcs
-        for ext in self.basic_extensions:
+        printed_commands = set()
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -1753,12 +1523,13 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if (ext.protect is not None):
                 layer_src += '#ifdef %s\n' % ext.protect
 
-            for cmd in ext.command_data:
-                if cmd.name in MANUAL_LAYER_DRIVER_ENTRYPOINTS:
+            for cmd_name in ext.command_data.keys():
+                if cmd_name in MANUAL_LAYER_DRIVER_ENTRYPOINTS or cmd_name in printed_commands:
                     continue
 
-                layer_src += self.PrintLayerCommand(cmd.name)
+                layer_src += self.PrintLayerCommand(cmd_name)
                 layer_src += '\n'
+                printed_commands.add(cmd_name)
 
             if (ext.protect is not None):
                 layer_src += '#endif // %s\n' % ext.protect
@@ -1798,9 +1569,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         driver_header += '    std::vector<DispatchableHandle<VkDevice>*> dev_handles;\n'
         driver_header += '    std::vector<std::string> enabled_device_extensions;\n'
         driver_header += '\n'
-        for handle in self.basic_handles:
-            if (handle.name == 'VkInstance' or handle.name == 'VkPhysicalDevice' or
-                handle.name == 'VkDevice'):
+        for handle in self.handles.values():
+            if handle.name in ['VkInstance', 'VkPhysicalDevice', 'VkDevice']:
                 continue
             if handle.is_dispatchable:
                 driver_header += '    std::vector<DispatchableHandle<%s>*> %s_handles;\n' % (handle.name, handle.name[2:].lower())
@@ -1817,9 +1587,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
         alias_protos = ''
         alias_protos += '// Alias prototypes\n'
         alias_protos += '//---------------------\n'
-        for basic_cmd in self.basic_commands:
-            if basic_cmd.alias is not None:
-                alias_cmd = basic_cmd.cdecl.replace(basic_cmd.name, basic_cmd.alias).replace('VKAPI_CALL vk', 'VKAPI_CALL driver_')
+        for cmd in self.commands.values():
+            if cmd.alias is not None:
+                alias_cmd = cmd.cdecl.replace(cmd.name, cmd.alias).replace('VKAPI_CALL vk', 'VKAPI_CALL driver_')
                 alias_cmd = re.sub('\n', ' ', alias_cmd)
                 alias_cmd = re.sub(' +', ' ', alias_cmd)
                 alias_protos += alias_cmd.replace('( ', '(').replace(' )', ')')
@@ -1835,7 +1605,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         common_src += '\n'
         common_src += '// Instance extensions supported\n'
         common_src += 'const char inst_ext_arr[][VK_MAX_EXTENSION_NAME_SIZE] = {\n'
-        for ext in self.basic_extensions:
+        for ext in self.extensions.values():
             if ext.type == 'instance':
                 if (ext.protect is not None):
                     common_src += '#ifdef %s\n' % ext.protect
@@ -1847,7 +1617,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         common_src += '};\n'
         common_src += '\n// Device extensions supported\n'
         common_src += 'const char dev_ext_arr[][VK_MAX_EXTENSION_NAME_SIZE] = {\n'
-        for ext in self.basic_extensions:
+        for ext in self.extensions.values():
             if ext.type == 'device':
                 if (ext.protect is not None):
                     common_src += '#ifdef %s\n' % ext.protect
@@ -2094,8 +1864,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         common_src += '        }\n'
         common_src += '    }\n'
         common_src += '    if (driver.dev_handles.size() == 0) {\n'
-        for handle in self.basic_handles:
-            if handle.is_dispatchable and handle.name != 'VkInstance' and handle.name != 'VkPhysicalDevice' and handle.name != 'VkDevice':
+        for handle in self.handles.values():
+            if handle.is_dispatchable and handle.name not in ['VkInstance', 'VkPhysicalDevice', 'VkDevice']:
                 handle_vect_name = 'driver.%s_handles' % handle.name[2:].lower()
                 common_src += '        for (uint32_t ii = 0; ii < static_cast<uint32_t>(%s.size()); ++ii) {\n' % handle_vect_name
                 common_src += '            delete %s[ii];\n' % handle_vect_name
@@ -2119,7 +1889,8 @@ class LoaderTestOutputGenerator(OutputGenerator):
         driver_gipa += '\n'
         driver_gipa += 'FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL driver_GetInstanceProcAddr(VkInstance instance, const char* pName) {\n'
 
-        for ext in self.basic_extensions:
+        printed_commands = set()
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -2141,9 +1912,12 @@ class LoaderTestOutputGenerator(OutputGenerator):
             elif ext.type == 'instance':
                 driver_gipa += '    if (IsInstanceExtensionEnabled("%s")) {\n' % ext.name
                 add_indent = '    '
-                
-            for cmd in ext.command_data:
-                driver_gipa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(driver_%s);\n' % (add_indent, cmd.name, cmd.name[2:])
+
+            for cmd_name in ext.command_data.keys():
+                if cmd_name in printed_commands:
+                    continue
+                driver_gipa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(driver_%s);\n' % (add_indent, cmd_name, cmd_name[2:])
+                printed_commands.add(cmd_name)
 
             if 'VK_VERSION_' in ext.name:
                 driver_gipa += '    } '
@@ -2169,8 +1943,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
         driver_gdpa += '                        [extension_name](Extension const& ext) { return ext.extensionName == extension_name; });\n'
         driver_gdpa += '}\n\n'
         driver_gdpa += 'FRAMEWORK_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL driver_GetDeviceProcAddr(VkDevice device, const char* pName) {\n'
+        printed_commands = set()
 
-        for ext in self.basic_extensions:
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -2192,9 +1967,12 @@ class LoaderTestOutputGenerator(OutputGenerator):
             elif ext.type == 'device':
                 driver_gdpa += '    if (IsDeviceExtensionEnabled("%s")) {\n' % ext.name
                 add_indent = '    '
-                
-            for cmd in ext.command_data:
-                driver_gdpa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(driver_%s);\n' % (add_indent, cmd.name, cmd.name[2:])
+
+            for cmd_name in ext.command_data.keys():
+                if cmd_name in printed_commands:
+                    continue
+                driver_gdpa += '    %sif (string_eq(pName, "%s")) return to_vkVoidFunction(driver_%s);\n' % (add_indent, cmd_name, cmd_name[2:])
+                printed_commands.add(cmd_name)
 
             if 'VK_VERSION_' in ext.name:
                 driver_gdpa += '    } '
@@ -2211,7 +1989,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
         driver_gdpa += '\n'
         return driver_gdpa
 
-    def OutputDriverWrapup(self):
+    def OutputDriverFunctionExport(self):
         driver_wrapup = ''
         driver_wrapup += '\n'
         driver_wrapup += '// Exported functions\n'
@@ -2232,58 +2010,57 @@ class LoaderTestOutputGenerator(OutputGenerator):
         return driver_wrapup
 
     def PrintDriverCommand(self, command_name):
+        cmd = self.commands.get(command_name)
+        if cmd is None:
+            return
         cmd_str = ''
-        for basic_cmd in self.basic_commands:
-            if basic_cmd.name == command_name:
-                cmd_str += basic_cmd.cdecl.replace(';', ' {\n').replace('VKAPI_CALL vk', 'VKAPI_CALL driver_')
-                cmd_str += '    log_driver_message("Generated Driver %s");\n' % basic_cmd.name
-                if basic_cmd.alias:
-                    cmd_str += '    return driver_%s(' %basic_cmd.alias[2:]
-                    param_list = []
-                    for param in basic_cmd.params:
-                        param_list.append(param.name)
-                    cmd_str += ', '.join(param_list)
-                    cmd_str += ');\n'
-                else:
-                    if basic_cmd.is_create:
-                        for handle in self.basic_handles:
-                            if basic_cmd.modified_handle == handle.name:
-                                if handle.is_dispatchable:
-                                    cmd_str += '    DispatchableHandle<%s>* temp_handle = new DispatchableHandle<%s>();\n' % (basic_cmd.modified_handle, basic_cmd.modified_handle)
-                                    cmd_str += '    driver.%s_handles.push_back(temp_handle);\n' % basic_cmd.modified_handle[2:].lower()
-                                    cmd_str += '    *%s = temp_handle->handle;\n' % basic_cmd.params[-1].name
-                                else:
-                                    cmd_str += '    *%s = reinterpret_cast<%s>(reinterpret_cast<%s*>(0xdeadbeefdeadbeef));\n' % (basic_cmd.params[-1].name, basic_cmd.params[-1].type, basic_cmd.params[-1].type)
-                    elif basic_cmd.is_destroy:
-                        for handle in self.basic_handles:
-                            if basic_cmd.modified_handle == handle.name:
-                                if handle.is_dispatchable:
-                                    handle_vect_name = 'driver.%s_handles' % basic_cmd.modified_handle[2:].lower()
-                                    param_name = basic_cmd.params[-1].name
-                                    if basic_cmd.params[-1].is_pointer:
-                                        param_name = '*' + param_name
-                                    cmd_str += '    for (uint32_t ii = 0; ii < static_cast<uint32_t>(%s.size()); ++ii) {\n' % handle_vect_name
-                                    cmd_str += '        if (%s[ii]->handle == %s) {\n' % (handle_vect_name, param_name)
-                                    cmd_str += '            delete %s[ii];\n' % handle_vect_name
-                                    cmd_str += '            %s.erase(%s.begin() + ii);\n' % (handle_vect_name, handle_vect_name)
-                                    cmd_str += '        }\n'
-                                    cmd_str += '    }\n'
+        cmd_str += cmd.cdecl.replace(';', ' {\n').replace('VKAPI_CALL vk', 'VKAPI_CALL driver_')
+        cmd_str += '    log_driver_message("Generated Driver %s");\n' % cmd.name
+        if cmd.alias:
+            cmd_str += '    return driver_%s(' %cmd.alias[2:]
+            param_list = []
+            for param in cmd.params:
+                param_list.append(param.name)
+            cmd_str += ', '.join(param_list)
+            cmd_str += ');\n'
+        else:
+            if cmd.is_create:
+                handle = self.handles.get(cmd.modified_handle)
+                if handle is not None:
+                    if handle.is_dispatchable:
+                        cmd_str += '    DispatchableHandle<%s>* temp_handle = new DispatchableHandle<%s>();\n' % (cmd.modified_handle, cmd.modified_handle)
+                        cmd_str += '    driver.%s_handles.push_back(temp_handle);\n' % cmd.modified_handle[2:].lower()
+                        cmd_str += '    *%s = temp_handle->handle;\n' % cmd.params[-1].name
+                    else:
+                        cmd_str += '    *%s = reinterpret_cast<%s>(reinterpret_cast<%s*>(0xdeadbeefdeadbeef));\n' % (cmd.params[-1].name, cmd.params[-1].type, cmd.params[-1].type)
+            elif cmd.is_destroy:
+                handle = self.handles.get(cmd.modified_handle)
+                if handle is not None and handle.is_dispatchable:
+                    handle_vect_name = 'driver.%s_handles' % cmd.modified_handle[2:].lower()
+                    param_name = cmd.params[-1].name
+                    if cmd.params[-1].is_pointer:
+                        param_name = '*' + param_name
+                    cmd_str += '    for (uint32_t ii = 0; ii < static_cast<uint32_t>(%s.size()); ++ii) {\n' % handle_vect_name
+                    cmd_str += '        if (%s[ii]->handle == %s) {\n' % (handle_vect_name, param_name)
+                    cmd_str += '            delete %s[ii];\n' % handle_vect_name
+                    cmd_str += '            %s.erase(%s.begin() + ii);\n' % (handle_vect_name, handle_vect_name)
+                    cmd_str += '        }\n'
+                    cmd_str += '    }\n'
 
-                    if basic_cmd.return_type is not None:
-                        if 'VkResult' == basic_cmd.return_type.text:
-                            cmd_str += '    return VK_SUCCESS;\n'
-                        elif '*' in basic_cmd.return_type.text:
-                            cmd_str += '    return nullptr;\n'
-                        elif ('int' in basic_cmd.return_type.text or
-                            'VkDeviceAddress' == basic_cmd.return_type.text or
-                            'VkDeviceSize' ==  basic_cmd.return_type.text):
-                            cmd_str += '    return static_cast<%s>(0);\n' % basic_cmd.return_type.text
-                        elif 'VkBool32' == basic_cmd.return_type.text:
-                            cmd_str += '    return VK_TRUE;\n'
-                        else:
-                            cmd_str += '    return TODO!;\n'
-                cmd_str += '}\n'
-                break
+            if cmd.return_type is not None:
+                if 'VkResult' == cmd.return_type.text:
+                    cmd_str += '    return VK_SUCCESS;\n'
+                elif '*' in cmd.return_type.text:
+                    cmd_str += '    return nullptr;\n'
+                elif ('int' in cmd.return_type.text or
+                    'VkDeviceAddress' == cmd.return_type.text or
+                    'VkDeviceSize' ==  cmd.return_type.text):
+                    cmd_str += '    return static_cast<%s>(0);\n' % cmd.return_type.text
+                elif 'VkBool32' == cmd.return_type.text:
+                    cmd_str += '    return VK_TRUE;\n'
+                else:
+                    cmd_str += '    return TODO!;\n'
+        cmd_str += '}\n'
         return cmd_str
 
     def GenerateDriverSource(self):
@@ -2301,8 +2078,9 @@ class LoaderTestOutputGenerator(OutputGenerator):
         driver_src += self.OutputDriverAliasPrototypes()
         driver_src += self.OutputCommonInstanceDeviceDriverFuncs()
 
+        printed_commands = set()
         # Printout funcs
-        for ext in self.basic_extensions:
+        for ext in self.extensions.values():
             if len(ext.command_data) == 0:
                 continue
 
@@ -2312,21 +2090,101 @@ class LoaderTestOutputGenerator(OutputGenerator):
             if (ext.protect is not None):
                 driver_src += '#ifdef %s\n' % ext.protect
 
-            first = True
-            for cmd in ext.command_data:
-                if (cmd.name in MANUAL_LAYER_DRIVER_ENTRYPOINTS or
-                    cmd.name in MANUAL_DRIVER_ENTRYPOINTS):
+            for cmd_name in ext.command_data.keys():
+                if (cmd_name in MANUAL_LAYER_DRIVER_ENTRYPOINTS or
+                    cmd_name in MANUAL_DRIVER_ENTRYPOINTS or
+                    cmd_name in printed_commands):
                     continue
 
-                driver_src += self.PrintDriverCommand(cmd.name)
+                driver_src += self.PrintDriverCommand(cmd_name)
                 driver_src += '\n'
+                printed_commands.add(cmd_name)
 
             if (ext.protect is not None):
                 driver_src += '#endif // %s\n' % ext.protect
 
 
-        driver_src += self.OutputDriverWrapup()
+        driver_src += self.OutputDriverFunctionExport()
 
         driver_src += '\n'
         return driver_src
 
+class BasicHandleData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')             # The name of the handle
+        self.alias = kwargs.get('alias')            # Any alias for this handle
+        self.is_dispatchable = kwargs.get('is_dispatchable')  # Boolean for is this handle a dispatchable type
+
+class HandleTreeData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')           # Name of type used for handle (or None)
+        self.alias = kwargs.get('alias')            # Name of alias of this handle (or None)
+        self.parents = kwargs.get('parents')          # Name of parent handles
+        self.children = kwargs.get('children')         # Name of children handles
+        self.create_funcs = kwargs.get('create_funcs')     # BasicCommandData tuple list of functions used to create this handle
+        self.destroy_funcs = kwargs.get('destroy_funcs')    # BasicCommandData tuple list of functions used to destroy this handle
+        self.usage_funcs = kwargs.get('usage_funcs')      # BasicCommandData tuple list of functions that use this handle
+
+class BasicCommandData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')             # Name of the command
+        self.protect = kwargs.get('protect')          # Any protected info (i.e. if this requires an #ifdef)
+        self.return_type = kwargs.get('return_type')      # The returned type
+        self.raw_handle = kwargs.get('raw_handle')       # The raw handle data
+        self.handle_type = kwargs.get('handle_type')      # The string handle type (i.e. 'VkInstance',...)
+        self.is_create = kwargs.get('is_create')        # Boolean for is this a create command
+        self.is_destroy = kwargs.get('is_destroy')       # Boolean for is this a destroy command
+        self.is_begin = kwargs.get('is_begin')         # Boolean for is this a begin command
+        self.is_end = kwargs.get('is_end')           # Boolean for is this an end command
+        self.modified_handle = kwargs.get('modified_handle')  # If this is a create or destroy command, what handle does it modify
+        self.handles_used = kwargs.get('handles_used')     # List of all handles used in this command (excluding the modified handle)
+        self.params = kwargs.get('params')           # List of all params (as CommandParam tuples)
+        self.cdecl = kwargs.get('cdecl')            # The raw cdecl for this command
+        self.alias = kwargs.get('alias')            # Any alias name for this command (i.e. it was promoted to core or a KHR extension)
+
+class CommandParam :
+    def __init__(self, **kwargs):
+        self.type = kwargs.get('type')             # Data type of the command parameter
+        self.name = kwargs.get('name')             # Name of the parameter
+        self.length_info = kwargs.get('length_info')      # Name of a length item that adjust this parameter
+        self.is_const = kwargs.get('is_const')         # Boolean for is this a constant param
+        self.is_pointer = kwargs.get('is_pointer')       # Boolean for is this a pointer param
+        self.is_array = kwargs.get('is_array')         # Boolean for is this a array param
+        self.array_1st_size = kwargs.get('array_1st_size')   # Size of first array dimension (only valid if is_array = 'True')
+        self.array_2nd_size = kwargs.get('array_2nd_size')   # Size of second array dimension (only valid if is_array = 'True' and may be 0 if 1d array)
+        self.cdecl = kwargs.get('cdecl')            # The raw cdecl for this parameter
+
+class BasicExtensionData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')             # The name of the extension
+        self.type = kwargs.get('type')             # The type ('instance' or 'device') of the extension
+        self.protect = kwargs.get('protect')          # Any protected info (i.e. if this requires an #ifdef)
+        self.define_name = kwargs.get('define_name')      # Name of #define used for the extension name
+        self.required_exts = kwargs.get('required_exts')    # Dict of any additional extensions required to use this extension, use dict as a set with None for the values
+        self.command_data = kwargs.get('command_data')     # BasicExtensionCommandData tuple list of all commands
+
+class BasicExtensionCommandData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')             # Name of command
+        self.requires = kwargs.get('requires')         # Any additional extensions this one command requires
+
+class TestVariableNames :
+    def __init__(self, **kwargs):
+        self.type =kwargs.get('type')             # Type of test variable
+        self.name =kwargs.get('name')             # Name of test variable
+        self.is_array =kwargs.get('is_array')         # Boolean for is this a array param
+        self.array_1st_size =kwargs.get('array_1st_size')   # Size of first array dimension (only valid if is_array = 'True')
+        self.array_2nd_size =kwargs.get('array_2nd_size')   # Size of second array dimension (only valid if is_array = 'True' and may be 0 if 1d array)
+
+class StructData :
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')             # Type name of test struct
+        self.protect = kwargs.get('protect')          # Any protected info (i.e. if this requires an #ifdef)
+        self.members = kwargs.get('members')          # StructMember list of members
+
+class StructMember :
+    def __init__(self, **kwargs):
+        self.type = kwargs.get('type')             # Data type of the struct member
+        self.name = kwargs.get('name')             # Name of the struct member
+        self.req_value = kwargs.get('req_value')        # Required value
+        self.cdecl = kwargs.get('cdecl')            # The raw cdecl

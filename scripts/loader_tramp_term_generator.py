@@ -123,7 +123,7 @@ INST_EXTENSION_HAVING_MANUAL_TERMINATORS = [
 ]
 
 # Device commands that require a terminator
-DEVICE_CMDS_NEEDING_TERMINATOR = [
+DEVICE_COMMANDS_NEEDING_TERMINATOR = [
     'vkGetDeviceProcAddr',
     # VK_KHR_swapchain
     'vkCreateSwapchainKHR',
@@ -221,21 +221,13 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                  diagFile = sys.stdout):
         OutputGenerator.__init__(self, errFile, warnFile, diagFile)
 
-        self.basic_commands = []
-        self.BasicCommandData = namedtuple('BasicCommandData', ['name', 'protect', 'return_type', 'handle', 'handle_type', 'params', 'cdecl', 'alias'])
-        self.basic_extensions = []
-        self.BasicExtensionCommandData = namedtuple('BasicExtensionCommandData', ['name', 'requires'])
-        self.BasicExtensionData = namedtuple('BasicExtensionData', ['name', 'type', 'define', 'protect', 'required_exts', 'command_data'])
-        self.required_ext_list = []
-        self.dispatchable_handles = []
-        self.core_command_groups = []
-        self.CoreCommandGroup = namedtuple('CoreCommandGroup', ['major', 'minor', 'inst_cmds', 'dev_cmds', 'needs_dev_term_override', 'needs_tramp', 'needs_term'])
-        self.ext_command_groups = []
-        self.ExtCommandGroup = namedtuple('ExtCommandGroup', ['ext_name', 'ext_type', 'define', 'protect', 'required_exts', 'cmds', 'has_inst', 'needs_dev_term_override', 'needs_tramp', 'needs_term', 'requires_term_disp'])
-        self.CommandParam = namedtuple('CommandParam', ['type', 'name', 'is_const', 'is_pointer', 'cdecl'])
-        self.CommandData = namedtuple('CommandData', ['name', 'require', 'protect', 'return_type', 'handle', 'handle_type', 'params', 'cdecl', 'alias', 'alias_ext', 'needs_tramp', 'needs_term', 'requires_term_disp'])
+        self.commands = {}
+        self.extensions = {}
+        self.dispatchable_handles = set()
+        self.core_command_groups = {}
+        self.ext_command_groups = {}
         self.dev_extensions_tracked_by_loader = []
-        self.dev_extensions_from_drivers = []
+        self.dev_extensions_from_drivers = {}
 
     #
     # Called once at the beginning of each run
@@ -243,7 +235,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         OutputGenerator.beginFile(self, genOpts)
 
         # User-supplied prefix text, if any (list of strings)
-        if (genOpts.prefixText):
+        if genOpts.prefixText:
             for s in genOpts.prefixText:
                 write(s, file=self.outFile)
 
@@ -317,30 +309,27 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     #
     # Write generate and write dispatch tables to output file
     def endFile(self):
-        for cur_ext in self.basic_extensions:
-            if len(cur_ext.command_data) > 0:
-                for command in cur_ext.command_data:
-                    self.AddCommandToDispatchList(cur_ext, command)
+        for cur_ext in self.extensions.values():
+            if len(cur_ext.command_names) > 0:
+                for command_name in cur_ext.command_names.keys():
+                    self.AddCommandToDispatchList(cur_ext, command_name)
             else:
                 self.FindExtCommandGroup(cur_ext, False, False, False, False, False)
 
         file_data = ''
 
         # Generate a list of device extensions the loader needs to follow (and also drivers)
-        for ext_group in self.ext_command_groups:
+        for ext_group in self.ext_command_groups.values():
             if ext_group.needs_dev_term_override or ext_group.ext_name in ADD_DEVICE_EXTS_TRACKED_BY_LOADER:
                 self.dev_extensions_tracked_by_loader.append(ext_group.ext_name)
-                self.dev_extensions_from_drivers.append(ext_group)
+                self.dev_extensions_from_drivers[ext_group.ext_name] = ext_group
 
         # Generate a list of device extensions that use physical devices
         phys_dev_ext_list = self.GeneratePhysicalDeviceExtensionList()
         for phys_dev_ext in phys_dev_ext_list:
-            found = False
-            for driver_ext in self.dev_extensions_from_drivers:
-                if driver_ext.ext_name == phys_dev_ext.ext_name:
-                    found = True
-            if not found:
-                self.dev_extensions_from_drivers.append(phys_dev_ext)
+            driver_ext = self.dev_extensions_from_drivers.get(phys_dev_ext.ext_name)
+            if driver_ext is None:
+                self.dev_extensions_from_drivers[phys_dev_ext.ext_name] = phys_dev_ext
 
         if self.genOpts.filename == 'vk_layer_dispatch_table.h':
             file_data += self.OutputLayerInstanceTermDispatchTable(True)
@@ -375,7 +364,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
         file_data += '// clang-format on\n'
 
-        write(file_data, file=self.outFile);
+        write(file_data, file=self.outFile)
 
         # Finish processing in superclass
         OutputGenerator.endFile(self)
@@ -387,26 +376,18 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         self.featureExtraProtect = GetFeatureProtect(interface)
 
         enums = interface[0].findall('enum')
-        self.currentExtension = ''
-        self.name_definition = ''
+        name_definition = ''
 
         for item in enums:
-            name_definition = item.get('name')
-            if 'EXTENSION_NAME' in name_definition:
-                self.name_definition = name_definition
+            name_def = item.get('name')
+            if 'EXTENSION_NAME' in name_def:
+                name_definition = name_def
 
-        self.type = interface.get('type')
-        self.num_commands = 0
+        type = interface.get('type')
         name = interface.get('name')
-        self.currentExtension = name
 
-        extension_index = -1
-        for i in range(0, len(self.basic_extensions)):
-            if self.basic_extensions[i].name == name:
-                extension_index = i
-                break
-
-        commands = []
+        # BasicExtensionData.command_names is a dict to preserve order
+        command_names = {}
         for require_element in interface.findall('require'):
             req_ext = require_element.get('extension')
             xml_commands = require_element.findall('command')
@@ -414,43 +395,23 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 for xml_command in xml_commands:
                     command_name = xml_command.get('name')
                     skip = False
-                    for ext in self.basic_extensions:
-                        for cmd in ext.command_data:
-                            if cmd.name == command_name:
-                                skip = True
-                                break
-                    for cmd in commands:
-                        if cmd.name == command_name:
+                    for ext in self.extensions.values():
+                        if command_name in ext.command_names:
                             skip = True
                             break
                     if not skip:
-                        commands.append(
-                            self.BasicExtensionCommandData(
-                                name = command_name,
-                                requires = req_ext))
+                        command_names[command_name] = None # the values are None since it is used as a set
 
-        if extension_index >= 0:
-            if len(commands) > 0:
-                new_commands = self.basic_extensions[extension_index].command_data
-                new_commands.append(commands)
-                new_ext = self.basic_extensions[extension_index]._replace(command_data = new_commands)
-                self.basic_extensions[extension_index] = new_ext
-        else:
-            requires = interface.get('requires')
-            if requires is not None:
-                self.required_ext_list = requires.split(',')
-            else:
-                self.required_ext_list = list()
+        requires = interface.get('requires')
+        required_exts = requires.split(',') if requires is not None else []
 
-            self.basic_extensions.append(
-                self.BasicExtensionData(
-                    name = name,
-                    type = self.type,
-                    define = self.name_definition,
-                    protect = self.featureExtraProtect,
-                    required_exts = self.required_ext_list,
-                    command_data = commands
-                )
+        self.extensions[name] = BasicExtensionData(
+                name = name,
+                type = type,
+                define = name_definition,
+                protect = self.featureExtraProtect,
+                required_exts = required_exts,
+                command_names = command_names
             )
 
 
@@ -466,92 +427,24 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         if (category == 'handle' and not (typeElem.find('type') is None) and
             not (typeElem.find('type').text is None) and typeElem.find('type').text == 'VK_DEFINE_HANDLE'):
 
-            self.dispatchable_handles.append(name)
+            self.dispatchable_handles.add(name)
 
     # Process commands, adding to appropriate dispatch tables
-    def genCmd(self, cmdinfo, name, alias):
-        OutputGenerator.genCmd(self, cmdinfo, name, alias)
-
-        # Get first param type
-        params = cmdinfo.elem.findall('param')
-        info = self.getTypeNameTuple(params[0])
-
-        self.num_commands += 1
+    def genCmd(self, cmd_info, name, alias):
+        OutputGenerator.genCmd(self, cmd_info, name, alias)
 
         if 'android' not in name.lower():
-            # Record all command data to a temporary basic extension and command data structs
-            # which will be used to properly parse the data after we've gone through the whole XML.
-
-            handle = self.registry.tree.find("types/type/[name='" + info[0] + "'][@category='handle']")
-            return_type =  cmdinfo.elem.find('proto/type')
-
-            if (return_type is not None and return_type.text == 'void'):
-                return_type = None
-
-            cmd_params = []
-
-            params = cmdinfo.elem.findall('param')
-            lens = set()
-            for param in params:
-                len = self.getLen(param)
-                if len:
-                    lens.add(len)
-            paramsInfo = []
-            for param in params:
-                paramInfo = self.getTypeNameTuple(param)
-                param_type = paramInfo[0]
-                param_name = paramInfo[1]
-                param_cdecl = self.makeCParamDecl(param, 0)
-
-                is_pointer = False
-                for elem in param:
-                    if elem.tag == 'type' and elem.tail is not None and '*' in elem.tail:
-                        is_pointer = True
-
-                cmd_params.append(self.CommandParam(type = param_type,
-                                                    name = param_name,
-                                                    cdecl = param_cdecl,
-                                                    is_const = True if 'const' in param_cdecl else False,
-                                                    is_pointer = is_pointer))
-
-            self.basic_commands.append(
-                self.BasicCommandData(
-                    name = name,
-                    protect = self.featureExtraProtect,
-                    return_type = return_type,
-                    handle_type = info[0],
-                    handle = handle,
-                    params = cmd_params,
-                    cdecl = self.makeCDecls(cmdinfo.elem)[0],
-                    alias = alias
-                )
-            )
-
-    # Retrieve the value of the len tag
-    def getLen(self, param):
-        result = None
-        len = param.attrib.get('len')
-        if len and len != 'null-terminated':
-            # For string arrays, 'len' can look like 'count,null-terminated',
-            # indicating that we have a null terminated array of strings.  We
-            # strip the null-terminated from the 'len' field and only return
-            # the parameter specifying the string count
-            if 'null-terminated' in len:
-                result = len.split(',')[0]
-            else:
-                result = len
-            result = str(result).replace('::', '->')
-        return result
+            # Record all command data to a structs which will be used to properly parse the data after we've gone through the whole XML.
+            self.commands[name] = BasicCommandData(self, cmd_info, name, alias, self.featureExtraProtect)
 
     def endFeature(self):
         # Finish processing in superclass
         OutputGenerator.endFeature(self)
 
     def RequiresTrampoline(self, extension_type, extension_name, cmd_name, alias):
-        if (extension_name in WSI_EXT_NAMES or cmd_name in MANUALLY_IMPLEMENTED_COMMANDS):
+        if extension_name in WSI_EXT_NAMES or cmd_name in MANUALLY_IMPLEMENTED_COMMANDS:
             return False
-        if alias is not None:
-            print("Extension %s Command %s has alias %s" % (extension_name, cmd_name, alias))
+        if alias is not None and self:
             return False
         requires = 'VK_VERSION_' in extension_name
         if not requires and ('instance' != extension_type or extension_name in INST_EXTENSION_OVERRIDES):
@@ -563,12 +456,11 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             return False
         if cmd_name in MANUALLY_IMPLEMENTED_COMMANDS or cmd_name in MANUALLY_IMPLEMENTED_TERMINATORS or cmd_name in INST_EXTENSION_HAVING_MANUAL_TERMINATORS:
             return False
-        if (handle_type == 'VkInstance') or (handle_type == 'VkPhysicalDevice') or (cmd_name in DEVICE_CMDS_NEEDING_TERMINATOR):
+        if handle_type in ['VkInstance', 'VkPhysicalDevice'] or cmd_name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
             return True
         else:
             for param in params:
-                if (param.type == 'VkInstance' or param.type == 'VkPhysicalDevice' or
-                    param.type == 'VkSurfaceKHR' or param.type == 'VkPhysicalDeviceSurfaceInfo2KHR'):
+                if param.type in ['VkInstance', 'VkPhysicalDevice' , 'VkSurfaceKHR', 'VkPhysicalDeviceSurfaceInfo2KHR']:
                     return True
         return False
 
@@ -581,120 +473,70 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         return False
 
     # Find the existing core  group for the version of Vulkan, or create it.
-    def FindCoreCommandGroup(self, major_version, minor_version, needs_dev_term_override, needs_tramp, needs_term):
-        cmd_group = None
-        num_cur_cmd_groups = 0
-
-        if self.core_command_groups != None:
-            num_cur_cmd_groups = len(self.core_command_groups)
-        for i in range(0, num_cur_cmd_groups):
-            if (self.core_command_groups[i].major == major_version and
-                self.core_command_groups[i].minor == minor_version):
-
-                # If there and needs replacing, replace it and restart (we have to restart for python)
-                if ((needs_dev_term_override and (self.core_command_groups[i].needs_dev_term_override != needs_dev_term_override)) or
-                    (needs_tramp and (self.core_command_groups[i].needs_tramp != needs_tramp)) or
-                    (needs_term and (self.core_command_groups[i].needs_term != needs_term))):
-                    new_version = self.core_command_groups[i]._replace(
-                                        needs_dev_term_override = (needs_dev_term_override or self.core_command_groups[i].needs_dev_term_override),
-                                        needs_tramp = (needs_tramp or self.core_command_groups[i].needs_tramp),
-                                        needs_term = (needs_term or self.core_command_groups[i].needs_term))
-                    self.core_command_groups[i] = new_version
-
-                cmd_group = self.core_command_groups[i]
-                break
+    def FindCoreCommandGroup(self, version_str, needs_dev_term_override, needs_tramp, needs_term):
+        if self.core_command_groups.get(version_str) is not None:
+            # If there and needs replacing, update it
+            self.core_command_groups[version_str].needs_dev_term_override = needs_dev_term_override or self.core_command_groups[version_str].needs_dev_term_override
+            self.core_command_groups[version_str].needs_tramp = needs_tramp or self.core_command_groups[version_str].needs_tramp
+            self.core_command_groups[version_str].needs_term = needs_term or self.core_command_groups[version_str].needs_term
 
         # Not found
-        if cmd_group is None:
-            cmd_group = self.CoreCommandGroup(major = major_version,
-                                                minor = minor_version,
-                                                inst_cmds = [],
-                                                dev_cmds = [],
-                                                needs_dev_term_override = needs_dev_term_override,
-                                                needs_tramp = needs_tramp,
-                                                needs_term = needs_term)
-            self.core_command_groups.append(cmd_group)
+        else:
+            self.core_command_groups[version_str] = CoreCommandGroup(version_str, needs_dev_term_override, needs_tramp, needs_term)
 
-        return cmd_group
+        return self.core_command_groups[version_str]
 
     # Find the existing extension group for the extesnsion, or create it.
     def FindExtCommandGroup(self, extension_data, has_inst, needs_dev_term_override, needs_tramp, needs_term, requires_term_disp):
-        cmd_group = None
-        num_cur_cmd_groups = 0
-        if self.ext_command_groups != None:
-            num_cur_cmd_groups = len(self.ext_command_groups)
-        for i in range(0, num_cur_cmd_groups):
-            if (self.ext_command_groups[i].ext_name == extension_data.name and
-                self.ext_command_groups[i].ext_type == extension_data.type):
+        extension_name = extension_data.name
+        if self.ext_command_groups.get(extension_name) is not None:
+            #  Update it
+            self.ext_command_groups[extension_name].has_inst = has_inst or self.ext_command_groups[extension_name].has_inst
+            self.ext_command_groups[extension_name].needs_dev_term_override = needs_dev_term_override or self.ext_command_groups[extension_name].needs_dev_term_override
+            self.ext_command_groups[extension_name].needs_tramp = needs_tramp or self.ext_command_groups[extension_name].needs_tramp
+            self.ext_command_groups[extension_name].needs_term = needs_term or self.ext_command_groups[extension_name].needs_term
+            self.ext_command_groups[extension_name].requires_term_disp = requires_term_disp or self.ext_command_groups[extension_name].requires_term_disp
 
-                # If there and needs replacing, replace it and restart (we have to restart for python)
-                if ((has_inst and (self.ext_command_groups[i].has_inst != has_inst)) or
-                    (needs_dev_term_override and (self.ext_command_groups[i].needs_dev_term_override != needs_dev_term_override)) or
-                    (needs_tramp and (self.ext_command_groups[i].needs_tramp != needs_tramp)) or
-                    (needs_term and (self.ext_command_groups[i].needs_term != needs_term)) or
-                    (requires_term_disp and (self.ext_command_groups[i].requires_term_disp != requires_term_disp))):
-                    new_version = self.ext_command_groups[i]._replace(
-                                        has_inst = (has_inst or self.ext_command_groups[i].has_inst),
-                                        needs_dev_term_override = (needs_dev_term_override or self.ext_command_groups[i].needs_dev_term_override),
-                                        needs_tramp = (needs_tramp or self.ext_command_groups[i].needs_tramp),
-                                        needs_term = (needs_term or self.ext_command_groups[i].needs_term),
-                                        requires_term_disp = (requires_term_disp or self.ext_command_groups[i].requires_term_disp))
-                    self.ext_command_groups[i] = new_version
+        else:
+            self.ext_command_groups[extension_name] = ExtCommandGroup(ext_name = extension_name,
+                                        ext_type = extension_data.type,
+                                        protect = extension_data.protect,
+                                        define = extension_data.define,
+                                        required_exts = extension_data.required_exts,
+                                        has_inst = has_inst,
+                                        needs_dev_term_override = needs_dev_term_override,
+                                        needs_tramp = needs_tramp,
+                                        needs_term = needs_term,
+                                        requires_term_disp = requires_term_disp)
 
-                cmd_group = self.ext_command_groups[i]
-                break
-
-        # Not found
-        if cmd_group is None:
-            cmd_group = self.ExtCommandGroup(ext_name = extension_data.name,
-                                             ext_type = extension_data.type,
-                                             protect = extension_data.protect,
-                                             define = extension_data.define,
-                                             required_exts = extension_data.required_exts,
-                                             cmds = [],
-                                             has_inst = has_inst,
-                                             needs_dev_term_override = needs_dev_term_override,
-                                             needs_tramp = needs_tramp,
-                                             needs_term = needs_term,
-                                             requires_term_disp = requires_term_disp)
-            self.ext_command_groups.append(cmd_group)
-
-        return cmd_group
+        return self.ext_command_groups[extension_name]
 
     def UpdateAliasCommandGroup(self, alias, extension_name, command_name):
-        found = False
         alias_ext = ''
 
         # First look at other extensions.  We have to do this here because the extension that
         # aliases this one may not be defined in the other internal structs yet.
-        for ext in self.basic_extensions:
-            for cmd in ext.command_data:
-                if cmd.name == alias:
-                    alias_ext = ext.name
-                    found = True
-                    break
-            if found:
+        for ext in self.extensions.values():
+            if alias in ext.command_names:
+                alias_ext = ext.name
                 break
 
         # If it's a core extension, we want to update it so that we know it is also used in an
         # extension so our trampolines can fall back to the extension option
         if 'VK_VERSION_' in alias_ext:
             found = False
-            for cur_group in self.core_command_groups:
-                for i in range (0, len(cur_group.inst_cmds)):
-                    if cur_group.inst_cmds[i].name == alias:
-                        new_command = cur_group.inst_cmds[i]._replace(alias = command_name,
-                                                                    alias_ext = extension_name)
-                        cur_group.inst_cmds[i] = new_command
+            for cur_group in self.core_command_groups.values():
+                for key in cur_group.inst_cmds.keys():
+                    if key == alias:
+                        cur_group.inst_cmds[key].alias = command_name
+                        cur_group.inst_cmds[key].alias_ext = extension_name
                         found = True
                         break
-
                 if not found:
-                    for i in range (0, len(cur_group.dev_cmds)):
-                        if cur_group.dev_cmds[i].name == alias:
-                            new_command = cur_group.dev_cmds[i]._replace(alias = command_name,
-                                                                        alias_ext = extension_name)
-                            cur_group.dev_cmds[i] = new_command
+                    for key in cur_group.dev_cmds.keys():
+                        if key == alias:
+                            cur_group.dev_cmds[key].alias = command_name
+                            cur_group.dev_cmds[key].alias_ext = extension_name
                             found = True
                             break
             if found:
@@ -706,56 +548,32 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         return (('VkInstance' == handle_type or 'VkPhysicalDevice' == handle_type or 'VkSurfaceKHR' == handle_type) and 'android' not in extension_name.lower())
 
     # Determine if this API should be ignored or added to the instance or device dispatch table
-    def AddCommandToDispatchList(self, basic_extension_data, command_data):
-        command = None
-        for i in range(0, len(self.basic_commands)):
-            if self.basic_commands[i].name == command_data.name:
-                command = self.basic_commands[i]
-                break
-
+    def AddCommandToDispatchList(self, basic_extension_data, command_name):
+        command = self.commands.get(command_name)
         if command is None:
             return
 
         command_requires = None
-        require_node = self.registry.tree.find("./extensions/extension[@name='{}']/require/command[@name='{}']/..".format(basic_extension_data.name, command.name))
+        require_node = self.registry.tree.find(f"./extensions/extension[@name='{basic_extension_data.name}']/require/command[@name='{command.name}']/..")
         if require_node is not None:
             if 'extension' in require_node.attrib:
                 command_requires = require_node.attrib['extension']
 
-        requires_dev_term_override = command.name in DEVICE_CMDS_NEEDING_TERMINATOR 
+        requires_dev_term_override = command.name in DEVICE_COMMANDS_NEEDING_TERMINATOR
         requires_tramp = self.RequiresTrampoline(basic_extension_data.type, basic_extension_data.name, command.name, command.alias)
         requires_term = self.RequiresTerminator(basic_extension_data.type, basic_extension_data.name, command.name, command.handle_type, command.params, command.alias)
         requires_term_disp = self.RequiresTerminatorDispatch(basic_extension_data.type, basic_extension_data.name, command.name, command.handle_type, command.params, command.alias)
+        alias_ext = ''
 
         # The Core Vulkan code will be wrapped in a feature called VK_VERSION_#_#
         # For example: VK_VERSION_1_0 wraps the core 1.0 Vulkan functionality
         if 'VK_VERSION_' in basic_extension_data.name:
             version_numbers = list(map(int, re.findall(r'\d+', basic_extension_data.name)))
 
-            cur_cmd_group = self.FindCoreCommandGroup(version_numbers[0],
-                                                      version_numbers[1],
+            cur_cmd_group = self.FindCoreCommandGroup(basic_extension_data.name,
                                                       requires_dev_term_override,
                                                       requires_tramp,
                                                       requires_term)
-
-            cmd_data = self.CommandData(name = command.name,
-                                        require = command_requires,
-                                        protect = command.protect,
-                                        return_type = command.return_type,
-                                        handle = command.handle,
-                                        handle_type = command.handle_type,
-                                        params = command.params,
-                                        cdecl = command.cdecl,
-                                        alias = command.alias,
-                                        alias_ext = '',
-                                        needs_tramp = requires_tramp,
-                                        needs_term = requires_term,
-                                        requires_term_disp = requires_term_disp)
-
-            if command.handle is not None and not (command.handle_type == 'VkInstance' or command.handle_type == 'VkPhysicalDevice'):
-                cur_cmd_group.dev_cmds.append(cmd_data)
-            else:
-                cur_cmd_group.inst_cmds.append(cmd_data)
         else:
             has_inst = self.CommandIsInstanceType(command.handle_type, basic_extension_data.name)
             cur_cmd_group = self.FindExtCommandGroup(basic_extension_data,
@@ -764,37 +582,29 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                                                      requires_tramp,
                                                      requires_term,
                                                      requires_term_disp)
-
-            alias_ext = ''
             if command.alias is not None:
                 alias_ext = self.UpdateAliasCommandGroup(command.alias, basic_extension_data.name, command.name)
 
-            cur_cmd_group.cmds.append(
-                self.CommandData(name=command.name,
-                                 require=command_requires,
-                                 protect=command.protect,
-                                 return_type = command.return_type,
-                                 handle = command.handle,
-                                 handle_type = command.handle_type,
-                                 params = command.params,
-                                 cdecl = command.cdecl,
-                                 alias = command.alias,
-                                 alias_ext = alias_ext,
-                                 needs_tramp = requires_tramp,
-                                 needs_term = requires_term,
-                                 requires_term_disp = requires_term_disp))
-
-    #
-    # Retrieve the type and name for a parameter
-    def getTypeNameTuple(self, param):
-        type = ''
-        name = ''
-        for elem in param:
-            if elem.tag == 'type':
-                type = noneStr(elem.text)
-            elif elem.tag == 'name':
-                name = noneStr(elem.text)
-        return (type, name)
+        cmd_data = CommandData(name = command.name,
+                                require = command_requires,
+                                protect = command.protect,
+                                return_type = command.return_type,
+                                handle = command.handle,
+                                handle_type = command.handle_type,
+                                params = command.params,
+                                cdecl = command.cdecl,
+                                alias = command.alias,
+                                alias_ext = alias_ext,
+                                needs_tramp = requires_tramp,
+                                needs_term = requires_term,
+                                requires_term_disp = requires_term_disp)
+        if 'VK_VERSION_' in basic_extension_data.name:
+            if command.handle is not None and not (command.handle_type == 'VkInstance' or command.handle_type == 'VkPhysicalDevice'):
+                cur_cmd_group.dev_cmds[command.name] = cmd_data
+            else:
+                cur_cmd_group.inst_cmds[command.name] = cmd_data
+        else:
+            cur_cmd_group.cmds.append(cmd_data)
 
     # Output the trampoline defined prototypes
     def OutputLoaderTrampolinePrototypes(self):
@@ -804,52 +614,34 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         protos += 'bool extension_instance_gpa(struct loader_instance *ptr_instance, const char *name, void **addr);\n\n'
         return protos
 
+    def OutputHeader(self, small_header, indent, header_string, header_dashes):
+        header = '\n'
+        if not small_header:
+            if indent:
+                header += '    '
+            header += f'// {header_dashes}\n'
+
+        if indent:
+            header += '    '
+        header += f'// {header_string}\n'
+
+        if not small_header:
+            if indent:
+                header += '    '
+            header += f'// {header_dashes}\n\n'
+        return header
 
     # Create a comment header for the core function section to follow
     def OutputCoreSectionHeader(self, small_header, indent, major, minor, identifier):
-        header_string = '---- Vulkan API version %s.%s %s ----' % (major, minor, identifier)
-        header_dashes = ''
-        for x in range(0, len(header_string)):
-            header_dashes += '-'
-
-        header = '\n'
-        if not small_header:
-            if indent:
-                header += '    '
-            header += '// %s\n' % header_dashes
-
-        if indent:
-            header += '    '
-        header += '// %s\n' % header_string
-
-        if not small_header:
-            if indent:
-                header += '    '
-            header += '// %s\n\n' % header_dashes
-        return header
+        header_string = f'---- Vulkan API version {major}.{minor} {identifier} ----'
+        header_dashes = ''.ljust(len(header_string), '-')
+        return self.OutputHeader(small_header, indent, header_string, header_dashes)
 
     # Create a comment header for the extension function section to follow
     def OutputExtensionSectionHeader(self, small_header, indent, ext_type, ext_name, identifier):
-        header_string = '---- Vulkan %s extension %s %s ----' % (ext_type, ext_name, identifier)
-        header_dashes = ''
-        for x in range(0, len(header_string)):
-            header_dashes += '-'
-
-        header = '\n'
-        if not small_header:
-            if indent:
-                header += '    '
-            header += '// %s\n' % header_dashes
-
-        if indent:
-            header += '    '
-        header += '// %s\n' % header_string
-
-        if not small_header:
-            if indent:
-                header += '    '
-            header += '// %s\n\n' % header_dashes
-        return header
+        header_string = f'---- Vulkan {ext_type} extension {ext_name} { identifier} ----'
+        header_dashes = ''.ljust(len(header_string), '-')
+        return self.OutputHeader(small_header, indent, header_string, header_dashes)
 
     # Output physical device unwrapping and validation functionality for trampolines
     def OutputTrampPhysDevValidFunc(self, func_name, var_name):
@@ -977,7 +769,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             if is_array:
                 set_dispatch += pre_space
                 array_count = 'UNKNOWN_COUNT_ITEM_PLEASE_EDIT_SCRIPT'
-                if (command.name == 'vkAllocateCommandBuffers'):
+                if command.name == 'vkAllocateCommandBuffers':
                     array_count = 'pAllocateInfo->commandBufferCount'
                 set_dispatch += 'for (uint32_t i = 0; i < %s; i++) {\n' % array_count
                 pre_space += '    '
@@ -1020,7 +812,6 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
     # Output a function trampoline definition
     def OutputTrampolineDefinition(self, is_extension, ext_name, cmd):
-        has_return_type = False
         needs_tmp_var = False
         return_prefix = '    '
         if cmd.return_type is not None:
@@ -1030,7 +821,6 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 return_prefix += 'temp = '
             else:
                 return_prefix += 'return '
-            has_return_type = True
 
         cmd_base_name = cmd.name[2:]
 
@@ -1061,18 +851,17 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             tramp += '    if (disp->' + cmd_base_name + ' != NULL) {\n'
             tramp += '    '
         elif cmd.alias is not None and len(cmd.alias_ext) > 0 and cmd.handle_type == 'VkPhysicalDevice':
-            for ext in self.basic_extensions:
-                if ext.name == cmd.alias_ext:
-                    if ext.type == 'instance':
-                        extension_var_name = cmd.alias_ext[3:].lower()
-                        tramp += '    const struct loader_instance *inst = ((struct loader_physical_device_tramp *)%s)->this_instance;\n' % cmd.params[0].name
-                        tramp += '    if (inst != NULL && inst->inst_ext_enables.%s) {\n' % extension_var_name
-                        tramp += '    '
-                        tramp += self.PrintOutInternalTrampolineCommandCall(cmd.alias[2:], return_prefix, cmd.handle_type, cmd.params)
-                        tramp += '    } else {\n'
-                        tramp += '    '
-                        printed_inst_ext_check = True
-                        break
+            ext = self.extensions.get(cmd.alias_ext)
+            if ext is not None:
+                if ext.type == 'instance':
+                    extension_var_name = cmd.alias_ext[3:].lower()
+                    tramp += '    const struct loader_instance *inst = ((struct loader_physical_device_tramp *)%s)->this_instance;\n' % cmd.params[0].name
+                    tramp += '    if (inst != NULL && inst->inst_ext_enables.%s) {\n' % extension_var_name
+                    tramp += '    '
+                    tramp += self.PrintOutInternalTrampolineCommandCall(cmd.alias[2:], return_prefix, cmd.handle_type, cmd.params)
+                    tramp += '    } else {\n'
+                    tramp += '    '
+                    printed_inst_ext_check = True
 
         tramp += self.PrintOutInternalTrampolineCommandCall(cmd_base_name, return_prefix, cmd.handle_type, cmd.params)
 
@@ -1094,29 +883,29 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     def OutputLoaderTrampolineDefinitions(self):
         tramps = ''
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             if cur_core_cmd_group.needs_tramp:
                 tramps += self.OutputCoreSectionHeader(False, False, cur_core_cmd_group.major, cur_core_cmd_group.minor, 'trampolines')
 
-                for cur_cmd in cur_core_cmd_group.inst_cmds:
+                for cur_cmd in cur_core_cmd_group.inst_cmds.values():
                     if cur_cmd.needs_tramp:
                         tramps += self.OutputTrampolineDefinition(False, '', cur_cmd)
 
-                for cur_cmd in cur_core_cmd_group.dev_cmds:
+                for cur_cmd in cur_core_cmd_group.dev_cmds.values():
                     if cur_cmd.needs_tramp:
                         tramps += self.OutputTrampolineDefinition(False, '', cur_cmd)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if cur_ext_cmd_group.needs_tramp:
                 tramps += self.OutputExtensionSectionHeader(False, False, cur_ext_cmd_group.ext_type, cur_ext_cmd_group.ext_name, 'trampolines')
-                if (cur_ext_cmd_group.protect is not None):
+                if cur_ext_cmd_group.protect is not None:
                     tramps += '#ifdef %s\n' % cur_ext_cmd_group.protect
 
                 for cur_cmd in cur_ext_cmd_group.cmds:
                     if cur_cmd.needs_tramp:
                         tramps += self.OutputTrampolineDefinition(True, cur_ext_cmd_group.ext_name, cur_cmd)
 
-                if (cur_ext_cmd_group.protect is not None):
+                if cur_ext_cmd_group.protect is not None:
                     tramps += '#endif // %s\n' % cur_ext_cmd_group.protect
 
         tramps += '\n'
@@ -1131,7 +920,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             else:
                 base_name = command.alias
 
-        if (extension_type == 'instance'):
+        if extension_type == 'instance':
             gipa += '    if (!strcmp("%s", name)) {\n' % (command.name)
             gipa += '        *addr = (ptr_instance->inst_ext_enables.'
             gipa += extension_name[3:].lower()
@@ -1155,7 +944,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         utils += 'bool extension_instance_gpa(struct loader_instance *ptr_instance, const char *name, void **addr) {\n'
         utils += '    *addr = NULL;\n\n'
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if (cur_ext_cmd_group.ext_name in WSI_EXT_NAMES or cur_ext_cmd_group.ext_name in TRAMP_EXT_GIPA_AVOID_EXTS or
                 'android' in cur_ext_cmd_group.ext_name.lower() or 0 == len(cur_ext_cmd_group.cmds)):
                 continue
@@ -1206,14 +995,13 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         for term in MANUALLY_IMPLEMENTED_TERMINATORS:
             if term in skip_commands:
                 continue
-            for cmd in self.basic_commands:
-                if cmd.name == term:
-                    cmd_proto = cmd.cdecl.replace('VKAPI_CALL vk', 'VKAPI_CALL terminator_')
-                    cmd_proto = re.sub('\n', ' ', cmd_proto)
-                    cmd_proto = re.sub(' +', ' ', cmd_proto)
-                    prototypes += cmd_proto
-                    prototypes += '\n'
-                    break
+            cmd = self.commands.get(term)
+            if cmd is not None:
+                cmd_proto = cmd.cdecl.replace('VKAPI_CALL vk', 'VKAPI_CALL terminator_')
+                cmd_proto = re.sub('\n', ' ', cmd_proto)
+                cmd_proto = re.sub(' +', ' ', cmd_proto)
+                prototypes += cmd_proto
+                prototypes += '\n'
         return prototypes
 
     # Output a function terminator prototype
@@ -1230,22 +1018,20 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     def OutputLoaderTerminatorPrototypes(self):
         prototypes = ''
 
-        for cur_ext_cmd_group in self.ext_command_groups:
-            if cur_ext_cmd_group.ext_name != 'VK_EXT_debug_utils':
+        cur_ext_cmd_group = self.ext_command_groups.get('VK_EXT_debug_utils')
+        assert(cur_ext_cmd_group is not None)
+        if cur_ext_cmd_group.protect is not None:
+            prototypes += '#ifdef %s\n' % cur_ext_cmd_group.protect
+
+        prototypes += self.OutputExtensionSectionHeader(False, False, cur_ext_cmd_group.ext_type, cur_ext_cmd_group.ext_name, 'terminators')
+
+        for cur_cmd in cur_ext_cmd_group.cmds:
+            if not cur_cmd.needs_term or cur_cmd.alias is not None:
                 continue
+            prototypes += self.OutputTerminatorPrototype(cur_cmd)
 
-            if (cur_ext_cmd_group.protect is not None):
-                prototypes += '#ifdef %s\n' % cur_ext_cmd_group.protect
-
-            prototypes += self.OutputExtensionSectionHeader(False, False, cur_ext_cmd_group.ext_type, cur_ext_cmd_group.ext_name, 'terminators')
-
-            for cur_cmd in cur_ext_cmd_group.cmds:
-                if not cur_cmd.needs_term or cur_cmd.alias is not None:
-                    continue
-                prototypes += self.OutputTerminatorPrototype(cur_cmd)
-
-            if (cur_ext_cmd_group.protect is not None):
-                prototypes += '#endif // %s\n' % cur_ext_cmd_group.protect
+        if cur_ext_cmd_group.protect is not None:
+            prototypes += '#endif // %s\n' % cur_ext_cmd_group.protect
 
         prototypes += '\n'
         return prototypes
@@ -1393,46 +1179,25 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         return valid
 
     # Output a function terminator definition
-    def OutputTerminatorDefinition(self, ext_type, ext_name, cmd):
+    def OutputTerminatorDefinition(self, ext_type, cmd):
         has_return_type = False
         return_prefix = '    '
-        if (cmd.return_type is not None):
+        if cmd.return_type is not None:
             return_prefix += 'return '
             has_return_type = True
 
         has_surface = 0
         surface_var_name = ''
-        phys_dev_var_name = ''
-        instance_var_name = ''
-        always_use_param_name = True
-        surface_type_to_replace = ''
-        surface_name_replacement = ''
-        physdev_type_to_replace = ''
-        physdev_name_replacement = ''
 
         for param in cmd.params:
             if param.type == 'VkSurfaceKHR':
                 has_surface = 1
                 surface_var_name = param.name
-                always_use_param_name = False
-                surface_type_to_replace = 'VkSurfaceKHR'
-                surface_name_replacement = 'icd_surface->real_icd_surfaces[icd_index]'
             if param.type == 'VkPhysicalDeviceSurfaceInfo2KHR':
                 has_surface = 1
                 surface_var_name = param.name + '->surface'
-                update_structure_surface = 1
                 update_structure_string = '        VkPhysicalDeviceSurfaceInfo2KHR info_copy = *pSurfaceInfo;\n'
                 update_structure_string += '        info_copy.surface = icd_surface->real_icd_surfaces[icd_index];\n'
-                always_use_param_name = False
-                surface_type_to_replace = 'VkPhysicalDeviceSurfaceInfo2KHR'
-                surface_name_replacement = '&info_copy'
-            if param.type == 'VkPhysicalDevice':
-                phys_dev_var_name = param.name
-                always_use_param_name = False
-                physdev_type_to_replace = 'VkPhysicalDevice'
-                physdev_name_replacement = 'phys_dev_term->phys_dev'
-            if param.type == 'VkInstance':
-                instance_var_name = param.name
 
         cmd_base_name = cmd.name[2:]
 
@@ -1496,22 +1261,22 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     def OutputLoaderTerminatorDefinitions(self):
         terms = ''
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             if not cur_core_cmd_group.needs_term:
                 continue
             terms += self.OutputCoreSectionHeader(False, False, cur_core_cmd_group.major, cur_core_cmd_group.minor, 'terminators')
 
-            for cur_cmd in cur_core_cmd_group.inst_cmds:
+            for cur_cmd in cur_core_cmd_group.inst_cmds.values():
                 if not cur_cmd.needs_term:
                     continue
-                terms += self.OutputTerminatorDefinition('', '', cur_cmd)
+                terms += self.OutputTerminatorDefinition('', cur_cmd)
 
-            for cur_cmd in cur_core_cmd_group.dev_cmds:
+            for cur_cmd in cur_core_cmd_group.dev_cmds.values():
                 if not cur_cmd.needs_term:
                     continue
-                terms += self.OutputTerminatorDefinition('', '', cur_cmd)
+                terms += self.OutputTerminatorDefinition('', cur_cmd)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             print_header = True
             if not cur_ext_cmd_group.needs_term:
                 continue
@@ -1521,10 +1286,10 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                     continue
                 if print_header:
                     terms += self.OutputExtensionSectionHeader(False, False, cur_ext_cmd_group.ext_type, cur_ext_cmd_group.ext_name, 'terminators')
-                    if (cur_ext_cmd_group.protect is not None):
+                    if cur_ext_cmd_group.protect is not None:
                         terms += '#ifdef %s\n' % cur_ext_cmd_group.protect
                     print_header = False
-                terms += self.OutputTerminatorDefinition(cur_ext_cmd_group.ext_type, cur_ext_cmd_group.ext_name, cur_cmd)
+                terms += self.OutputTerminatorDefinition(cur_ext_cmd_group.ext_type, cur_cmd)
 
             if not print_header and cur_ext_cmd_group.protect is not None:
                 terms += '#endif // %s\n' % cur_ext_cmd_group.protect
@@ -1532,14 +1297,8 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         terms += '\n'
         return terms
 
-    def PrintTerminatorDispatchTableCommand(self, command_protect, command_name):
-        cmd_entry = ''
-
-        # Remove 'vk' from proto name
-        base_name = command_name[2:]
-
-        cmd_entry += '    PFN_%s %s;\n' % (command_name, base_name)
-        return cmd_entry
+    def PrintTerminatorDispatchTableCommand(self, command_name):
+        return f'    PFN_{command_name} {command_name[2:]};\n'
 
     # Create a dispatch table from the appropriate terminator list and return it as a string
     def OutputLoaderTerminatorDispatchStruct(self):
@@ -1547,10 +1306,10 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         table += '// ICD function pointer dispatch table\n'
         table += 'struct loader_icd_term_dispatch {\n'
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             print_header = True
 
-            for cur_cmd in cur_core_cmd_group.inst_cmds:
+            for cur_cmd in cur_core_cmd_group.inst_cmds.values():
                 if "GetInstanceProcAddr" in cur_cmd.name or "EnumerateDeviceLayerProperties" in cur_cmd.name:
                     continue
 
@@ -1558,17 +1317,17 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                     table += self.OutputCoreSectionHeader(True, True, cur_core_cmd_group.major, cur_core_cmd_group.minor, '')
                     print_header = False
 
-                table += self.PrintTerminatorDispatchTableCommand(cur_cmd.protect, cur_cmd.name)
-    
-            for cur_cmd in cur_core_cmd_group.dev_cmds:
-                if (cur_cmd.requires_term_disp or 'GetDeviceProcAddr' in cur_cmd.name):
+                table += self.PrintTerminatorDispatchTableCommand(cur_cmd.name)
+
+            for cur_cmd in cur_core_cmd_group.dev_cmds.values():
+                if cur_cmd.requires_term_disp or 'GetDeviceProcAddr' in cur_cmd.name:
                     if print_header:
                         table += self.OutputCoreSectionHeader(True, True, cur_core_cmd_group.major, cur_core_cmd_group.minor, '')
                         print_header = False
 
-                    table += self.PrintTerminatorDispatchTableCommand(cur_cmd.protect, cur_cmd.name)
+                    table += self.PrintTerminatorDispatchTableCommand(cur_cmd.name)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             print_header = True
             if cur_ext_cmd_group.requires_term_disp:
 
@@ -1580,7 +1339,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                                 table += '#ifdef %s\n' % cur_ext_cmd_group.protect
 
                             print_header = False
-                        table += self.PrintTerminatorDispatchTableCommand(cur_cmd.protect, cur_cmd.name)
+                        table += self.PrintTerminatorDispatchTableCommand(cur_cmd.name)
 
                 if not print_header and cur_ext_cmd_group.protect is not None:
                     table += '#endif // %s\n' % cur_ext_cmd_group.protect
@@ -1591,37 +1350,23 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     def GenerateInstanceExtensionList(self):
         ext_used = []
         # First add instance extensions we need to verify are enabled
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if cur_ext_cmd_group.ext_name not in ext_used:
                 if 'instance' == cur_ext_cmd_group.ext_type and 'android' not in cur_ext_cmd_group.ext_name.lower():
                     ext_used.append(cur_ext_cmd_group)
-
-        # Hack, make sure the first one is not protected or else it messes up the if else blocks
-        if ext_used[0].protect is not None:
-            for i in range(0, len(ext_used)):
-                if ext_used[i].protect is None:
-                    ext_used[0], ext_used[i] = ext_used[i], ext_used[0]
-                    break
 
         return ext_used
 
     def GeneratePhysicalDeviceExtensionList(self):
         ext_used = []
         # First add instance extensions we need to verify are enabled
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if cur_ext_cmd_group.ext_name not in ext_used:
                 if 'instance' != cur_ext_cmd_group.ext_type and 'android' not in cur_ext_cmd_group.ext_name.lower():
                     for cur_cmd in cur_ext_cmd_group.cmds:
                         if cur_cmd.handle_type == 'VkPhysicalDevice':
                             ext_used.append(cur_ext_cmd_group)
                             break
-
-        # Hack, make sure the first one is not protected or else it messes up the if else blocks
-        if ext_used[0].protect is not None:
-            for i in range(0, len(ext_used)):
-                if ext_used[i].protect is None:
-                    ext_used[0], ext_used[i] = ext_used[i], ext_used[0]
-                    break
 
         return ext_used
 
@@ -1709,16 +1454,14 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         structs += 'struct loader_driver_device_extension_enables {\n'
 
         # Print out the device extension enable options
-        for ext in self.dev_extensions_from_drivers:
-            structs += '    int %s : 2;\n' % ext.ext_name[3:].lower()
+        for ext in self.dev_extensions_from_drivers.keys():
+            structs += '    int %s : 2;\n' % ext[3:].lower()
 
         structs += '};\n\n'
         return structs
 
     # Determine which instance extensions a driver supports
     def OutputDriverExtensionChecks(self):
-        cur_extension_name = ''
-
         driver_ext_check = ''
         driver_ext_check += '// Check to determine support of instance extensions by a driver.\n'
         driver_ext_check += 'void instance_extensions_supported_by_driver(struct loader_scanned_icd *scanned_icd, struct loader_extension_list *ext_list) {\n'
@@ -1796,8 +1539,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
         # Print out code to check for device extension support
         print_else = False
-        ext_used = self.dev_extensions_from_drivers
-        for ext in ext_used:
+        for ext in self.dev_extensions_from_drivers.values():
             driver_ext_check += '\n        // ---- %s extension commands\n' % ext.ext_name
             if ext.protect is not None:
                 driver_ext_check += '#ifdef %s\n' % ext.protect
@@ -1832,7 +1574,6 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
     # Create the extension enable check during vkCreateInstance
     def OutputInstanceExtensionEnableCheck(self):
         print_else = False
-        cur_extension_name = ''
 
         create_funcs = ''
         create_funcs += '// A function that can be used to query enabled extensions during a vkCreateInstance call\n'
@@ -1871,7 +1612,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         create_funcs += '    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {\n'
 
         first = True
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if cur_ext_cmd_group.needs_dev_term_override:
                 if cur_ext_cmd_group.protect is not None:
                     create_funcs += '\n'
@@ -1935,10 +1676,8 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         base_name = command_name[2:]
 
         # Names to skip
-        if (base_name == 'CreateInstance' or base_name == 'CreateDevice' or
-            base_name == 'EnumerateInstanceExtensionProperties' or
-            base_name == 'EnumerateInstanceLayerProperties' or
-            base_name == 'EnumerateInstanceVersion'):
+        if base_name in ['CreateInstance', 'CreateDevice', 'EnumerateInstanceExtensionProperties',
+            'EnumerateInstanceLayerProperties', 'EnumerateInstanceVersion']:
             return ''
 
         # If we're looking for the proc we are passing in, just point the table to it.  This fixes the issue where
@@ -1948,7 +1687,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         else:
             if base_name == 'GetDeviceProcAddr':
                 cmd_disp_entry += '    table->GetDeviceProcAddr = gdpa;\n'
-            elif (base_name == 'GetInstanceProcAddr'):
+            elif base_name == 'GetInstanceProcAddr':
                 cmd_disp_entry += '    table->GetInstanceProcAddr = gipa;\n'
             else:
                 cmd_disp_entry += '    table->%s = (PFN_%s)%s(%s, "%s");\n' % (base_name, command_name, proc_addr, inst_dev, command_name)
@@ -2019,12 +1758,12 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         lookup_dev_disp += '\n'
         lookup_dev_disp += '    name += 2;\n'
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             if len(cur_core_cmd_group.inst_cmds) > 0:
                 inst_head = '\n    // ---- Vulkan %d.%d commands\n' % (cur_core_cmd_group.major, cur_core_cmd_group.minor)
                 inst_core_disp += inst_head
                 lookup_inst_disp += inst_head
-            for cur_cmd in cur_core_cmd_group.inst_cmds:
+            for cur_cmd in cur_core_cmd_group.inst_cmds.values():
                 inst_core_disp += self.OutputCommandToDispatchTable(cur_cmd.name, 'inst', 'gipa', False)
                 lookup_inst_disp += self.OutputCommandToDispatchTable(cur_cmd.name, 'inst', 'gipa', True)
 
@@ -2032,11 +1771,11 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 dev_head = '\n    // ---- Vulkan %d.%d commands\n' % (cur_core_cmd_group.major, cur_core_cmd_group.minor)
                 dev_core_disp += dev_head
                 lookup_dev_disp += dev_head
-            for cur_cmd in cur_core_cmd_group.dev_cmds:
+            for cur_cmd in cur_core_cmd_group.dev_cmds.values():
                 dev_core_disp += self.OutputCommandToDispatchTable(cur_cmd.name, 'dev', 'gdpa', False)
                 lookup_dev_disp += self.OutputCommandToDispatchTable(cur_cmd.name, 'dev', 'gdpa', True)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             print_inst_header = True
             print_dev_header = True
             for cur_cmd in cur_ext_cmd_group.cmds:
@@ -2124,20 +1863,14 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         return entry
 
     # Output an entry for the current command to the LoaderDriverDispatchTable
-    def OutputLoaderDeviceProcEntry(self, extension_name, command, first):
+    def OutputLoaderDeviceProcEntry(self, command_name, first):
         entry = ''
-
-        # Remove 'vk' from proto name
-        base_name = command.name[2:]
-
         if first:
             entry += '        if'
         else:
             entry += ' else if'
-
-        entry += '(!strcmp(pName, "%s")) {\n' % (command.name)
-        entry += '            addr = (PFN_vkVoidFunction)terminator_%s;\n' % (command.name[2:])
-
+        entry += f'(!strcmp(pName, "{command_name}")) {{\n'
+        entry += f'            addr = (PFN_vkVoidFunction)terminator_{command_name[2:]};\n'
         entry += '        }'
         return entry
 
@@ -2166,12 +1899,12 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         dev_proc_term += 'PFN_vkVoidFunction get_extension_device_proc_terminator(struct loader_device *dev, const char *pName) {\n'
         dev_proc_term += '    PFN_vkVoidFunction addr = NULL;\n'
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             print_icd_header = True
             print_dev_header = True
             dev_core_header = '\n    // ---- Vulkan %d.%d commands\n' % (cur_core_cmd_group.major, cur_core_cmd_group.minor)
             required = cur_core_cmd_group.major == 1 and cur_core_cmd_group.minor == 0
-            for cur_cmd in cur_core_cmd_group.inst_cmds:
+            for cur_cmd in cur_core_cmd_group.inst_cmds.values():
 
                 if print_icd_header:
                     icd_dis_init += dev_core_header
@@ -2179,22 +1912,20 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
                 icd_dis_init += self.OutputLoaderDriverEntry(cur_cmd, required)
 
-            for cur_cmd in cur_core_cmd_group.dev_cmds:
-                if cur_cmd.name in DEVICE_CMDS_NEEDING_TERMINATOR:
+            for cur_cmd in cur_core_cmd_group.dev_cmds.values():
+                if cur_cmd.name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
                     if print_dev_header:
                         dev_proc_term += dev_core_header
                         print_dev_header = False
 
-                if (self.CommandIsInstanceType(cur_cmd.handle_type, '') or
-                    cur_cmd.name in DEVICE_CMDS_NEEDING_TERMINATOR):
-
+                if self.CommandIsInstanceType(cur_cmd.handle_type, '') or cur_cmd.name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
                     if print_icd_header:
                         dev_proc_term += dev_core_header
                         print_icd_header = False
 
                     icd_dis_init += self.OutputLoaderDriverEntry(cur_cmd, required)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             if 'android' in cur_ext_cmd_group.ext_name.lower():
                 continue
 
@@ -2218,7 +1949,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 dev_proc_term += ') {\n'
             for cur_cmd in cur_ext_cmd_group.cmds:
                 if (self.CommandIsInstanceType(cur_cmd.handle_type, cur_ext_cmd_group.ext_name) or
-                    cur_cmd.name in DEVICE_CMDS_NEEDING_TERMINATOR):
+                    cur_cmd.name in DEVICE_COMMANDS_NEEDING_TERMINATOR):
 
                     if print_icd_header:
                         icd_dis_init += dev_ext_header
@@ -2228,8 +1959,8 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
                     icd_dis_init += self.OutputLoaderDriverEntry(cur_cmd, False)
 
-                    if cur_cmd.name in DEVICE_CMDS_NEEDING_TERMINATOR:
-                        dev_proc_term += self.OutputLoaderDeviceProcEntry(cur_ext_cmd_group.ext_name, cur_cmd, first)
+                    if cur_cmd.name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
+                        dev_proc_term += self.OutputLoaderDeviceProcEntry(cur_cmd.name, first)
                         first = False
 
             if not print_icd_header and cur_ext_cmd_group.protect is not None:
@@ -2300,16 +2031,16 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             table += '// pointers to "terminator functions".\n'
             table += 'const VkLayerInstanceDispatchTable instance_term_disp = {\n'
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             print_header = True
             required = cur_core_cmd_group.major == 1 and cur_core_cmd_group.minor == 0
-            for cur_cmd in cur_core_cmd_group.inst_cmds:
+            for cur_cmd in cur_core_cmd_group.inst_cmds.values():
                 if print_header:
                     table += '\n    // ---- Vulkan %d.%d commands\n' % (cur_core_cmd_group.major, cur_core_cmd_group.minor)
                     print_header = False
                 table += self.OutputLoaderInstanceTermDispatchEntry(cur_cmd, True, required, is_definition)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             print_inst_header = True
             if not cur_ext_cmd_group.has_inst:
                 continue
@@ -2355,20 +2086,20 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         table += 'typedef struct VkLayerDispatchTable_ {\n'
         table += '    uint64_t magic; // Should be DEVICE_DISP_TABLE_MAGIC_NUMBER\n'
 
-        for cur_core_cmd_group in self.core_command_groups:
+        for cur_core_cmd_group in self.core_command_groups.values():
             table += '\n    // ---- Vulkan %d.%d commands\n' % (cur_core_cmd_group.major, cur_core_cmd_group.minor)
             required = cur_core_cmd_group.major == 1 and cur_core_cmd_group.minor == 0
-            for cur_cmd in cur_core_cmd_group.dev_cmds:
+            for cur_cmd in cur_core_cmd_group.dev_cmds.values():
                 table += self.OutputLoaderInstanceTermDispatchEntry(cur_cmd, True, required, True)
 
-        for cur_ext_cmd_group in self.ext_command_groups:
+        for cur_ext_cmd_group in self.ext_command_groups.values():
             print_header = True
 
             if ('instance' == cur_ext_cmd_group.ext_type and 'VK_EXT_debug_utils' != cur_ext_cmd_group.ext_name) or len(cur_ext_cmd_group.cmds) == 0:
                 continue
 
             for cur_cmd in cur_ext_cmd_group.cmds:
-                if cur_cmd.handle_type == 'VkInstance' or cur_cmd.handle_type == 'VkPhysicalDevice':
+                if cur_cmd.handle_type in ['VkInstance', 'VkPhysicalDevice']:
                     continue
 
                 if print_header:
@@ -2385,3 +2116,97 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
         table += '} VkLayerDispatchTable;\n\n'
         return table
+
+class BasicCommandData:
+    def __init__(self, generator, cmd_info, name, alias, protect):
+        self.name = name
+        self.alias = alias
+        self.protect = protect
+        self.params = []
+
+        self.cdecl = generator.makeCDecls(cmd_info.elem)[0]
+
+                # Get first param type
+        first_param = cmd_info.elem.findall('param')[0]
+        self.handle_type = first_param.find('type').text if first_param.find('type') is not None else ''
+
+        self.handle = generator.registry.tree.find("types/type/[name='" + self.handle_type + "'][@category='handle']")
+        self.return_type =  cmd_info.elem.find('proto/type')
+
+        if self.return_type is not None and self.return_type.text == 'void':
+            self.return_type = None
+
+        for param in cmd_info.elem.findall('param'):
+            param_type = param.find('type').text if param.find('type') is not None else ''
+            param_name = param.find('name').text if param.find('name') is not None else ''
+            param_cdecl = generator.makeCParamDecl(param, 0)
+
+            is_pointer = False
+            for elem in param:
+                if elem.tag == 'type' and elem.tail is not None and '*' in elem.tail:
+                    is_pointer = True
+
+            self.params.append(CommandParam(type = param_type,
+                                            name = param_name,
+                                            cdecl = param_cdecl,
+                                            is_const = True if 'const' in param_cdecl else False,
+                                            is_pointer = is_pointer))
+
+class BasicExtensionData:
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')
+        self.type = kwargs.get('type')
+        self.define = kwargs.get('define')
+        self.protect = kwargs.get('protect')
+        self.required_exts = kwargs.get('required_exts')
+        self.command_names = kwargs.get('command_names')
+
+class CoreCommandGroup:
+    def __init__(self, version_str, needs_dev_term_override, needs_tramp, needs_term):
+        self.version_str = version_str
+        self.inst_cmds = {}
+        self.dev_cmds = {}
+        self.needs_dev_term_override = needs_dev_term_override
+        self.needs_tramp = needs_tramp
+        self.needs_term = needs_term
+        version_numbers = list(map(int, re.findall(r'\d+', version_str)))
+        self.major = version_numbers[0]
+        self.minor = version_numbers[1]
+
+class ExtCommandGroup:
+    def __init__(self, **kwargs):
+        self.ext_name = kwargs.get('ext_name')
+        self.ext_type = kwargs.get('ext_type')
+        self.protect = kwargs.get('protect')
+        self.define = kwargs.get('define')
+        self.required_exts = kwargs.get('required_exts')
+        self.cmds = []
+        self.has_inst = kwargs.get('has_inst')
+        self.needs_dev_term_override = kwargs.get('needs_dev_term_override')
+        self.needs_tramp = kwargs.get('needs_tramp')
+        self.needs_term = kwargs.get('needs_term')
+        self.requires_term_disp = kwargs.get('requires_term_disp')
+
+class CommandParam:
+    def __init__(self, **kwargs):
+        self.type = kwargs.get('type')
+        self.name = kwargs.get('name')
+        self.cdecl = kwargs.get('cdecl')
+        self.is_const = kwargs.get('is_const')
+        self.is_pointer = kwargs.get('is_pointer')
+
+class CommandData:
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')
+        self.require = kwargs.get('require')
+        self.protect = kwargs.get('protect')
+        self.return_type = kwargs.get('return_type')
+        self.handle = kwargs.get('handle')
+        self.handle_type = kwargs.get('handle_type')
+        self.params = kwargs.get('params')
+        self.cdecl = kwargs.get('cdecl')
+        self.alias = kwargs.get('alias')
+        self.alias_ext = kwargs.get('alias_ext')
+        self.needs_tramp = kwargs.get('needs_tramp')
+        self.needs_term = kwargs.get('needs_term')
+        self.requires_term_disp = kwargs.get('requires_term_disp')

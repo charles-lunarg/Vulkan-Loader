@@ -1,8 +1,8 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2015-2017 The Khronos Group Inc.
-# Copyright (c) 2015-2017 Valve Corporation
-# Copyright (c) 2015-2017 LunarG, Inc.
+# Copyright (c) 2015-2017, 2022 The Khronos Group Inc.
+# Copyright (c) 2015-2017, 2022 Valve Corporation
+# Copyright (c) 2015-2017, 2022 LunarG, Inc.
 # Copyright (c) 2015-2017 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +20,7 @@
 # Author: Mark Lobodzinski <mark@lunarg.com>
 # Author: Tobin Ehlis <tobine@google.com>
 # Author: John Zulauf <jzulauf@lunarg.com>
+# Author: Charles Giessen <charles@lunarg.com>
 
 import os,re,sys
 import xml.etree.ElementTree as etree
@@ -245,54 +246,7 @@ class HelperFileOutputGenerator(OutputGenerator):
         value = value.upper()
         # Add STRUCTURE_TYPE_
         return re.sub('VK_', 'VK_STRUCTURE_TYPE_', value)
-    #
-    # Check if the parameter passed in is a pointer
-    def paramIsPointer(self, param):
-        ispointer = False
-        for elem in param:
-            if ((elem.tag != 'type') and (elem.tail is not None)) and '*' in elem.tail:
-                ispointer = True
-        return ispointer
-    #
-    # Check if the parameter passed in is a static array
-    def paramIsStaticArray(self, param):
-        isstaticarray = 0
-        paramname = param.find('name')
-        if (paramname.tail is not None) and ('[' in paramname.tail):
-            isstaticarray = paramname.tail.count('[')
-        return isstaticarray
-    #
-    # Retrieve the type and name for a parameter
-    def getTypeNameTuple(self, param):
-        type = ''
-        name = ''
-        for elem in param:
-            if elem.tag == 'type':
-                type = noneStr(elem.text)
-            elif elem.tag == 'name':
-                name = noneStr(elem.text)
-        return (type, name)
-    #
-    # Retrieve the value of the len tag
-    def getLen(self, param):
-        result = None
-        len = param.attrib.get('len')
-        if len and len != 'null-terminated':
-            # For string arrays, 'len' can look like 'count,null-terminated', indicating that we
-            # have a null terminated array of strings.  We strip the null-terminated from the
-            # 'len' field and only return the parameter specifying the string count
-            if 'null-terminated' in len:
-                result = len.split(',')[0]
-            else:
-                result = len
-            if 'altlen' in param.attrib:
-                # Elements with latexmath 'len' also contain a C equivalent 'altlen' attribute
-                # Use indexing operator instead of get() so we fail if the attribute is missing
-                result = param.attrib['altlen']
-            # Spec has now notation for len attributes, using :: instead of platform specific pointer symbol
-            result = str(result).replace('::', '->')
-        return result
-    #
+
     # Check if a structure is or contains a dispatchable (dispatchable = True) or
     # non-dispatchable (dispatchable = False) handle
     def TypeContainsObjectHandle(self, handle_type, dispatchable):
@@ -320,16 +274,15 @@ class HelperFileOutputGenerator(OutputGenerator):
         # Iterate over members once to get length parameters for arrays
         lens = set()
         for member in members:
-            len = self.getLen(member)
+            len = getLen(member)
             if len:
                 lens.add(len)
         # Generate member info
         membersInfo = []
         for member in members:
             # Get the member's type and name
-            info = self.getTypeNameTuple(member)
-            type = info[0]
-            name = info[1]
+            type = member.find('type').text if member.find('type') is not None else ''
+            name = member.find('name').text if member.find('name') is not None else ''
             cdecl = self.makeCParamDecl(member, 1)
             # Process VkStructureType
             if type == 'VkStructureType':
@@ -344,14 +297,14 @@ class HelperFileOutputGenerator(OutputGenerator):
                 # Store the required type value
                 self.structTypes[typeName] = self.StructType(name=name, value=value)
             # Store pointer/array/string info
-            isstaticarray = self.paramIsStaticArray(member)
+            isstaticarray = paramIsStaticArray(member)
             membersInfo.append(self.CommandParam(type=type,
                                                  name=name,
-                                                 ispointer=self.paramIsPointer(member),
+                                                 ispointer=paramIsPointer(member),
                                                  isstaticarray=isstaticarray,
                                                  isconst=True if 'const' in cdecl else False,
                                                  iscount=True if name in lens else False,
-                                                 len=self.getLen(member),
+                                                 len=getLen(member),
                                                  extstructs=self.registry.validextensionstructs[typeName] if name == 'pNext' else None,
                                                  cdecl=cdecl))
         self.structMembers.append(self.StructMemberData(name=typeName, members=membersInfo, ifdef_protect=self.featureExtraProtect))

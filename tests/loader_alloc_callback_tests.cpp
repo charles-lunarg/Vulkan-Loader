@@ -555,7 +555,7 @@ TEST(Allocation, CreateInstanceDeviceIntentionalAllocFail) {
 TEST(TryLoadWrongBinaries, CreateInstanceIntentionalAllocFail) {
     FrameworkEnvironment env{};
     env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2));
-    env.add_icd(TestICDDetails(CURRENT_PLATFORM_DUMMY_BINARY_WRONG_TYPE).set_is_fake(true));
+    env.add_icd(TestICDDetails(CURRENT_PLATFORM_DUMMY_BINARY_WRONG_TYPE).set_type(ICDType::fake));
     size_t fail_index = 0;
     VkResult result = VK_ERROR_OUT_OF_HOST_MEMORY;
     while (result == VK_ERROR_OUT_OF_HOST_MEMORY && fail_index <= 10000) {
@@ -665,8 +665,7 @@ TEST(Allocation, CreateInstanceDeviceWithDXGIDriverIntentionalAllocFail) {
     desc1.AdapterLuid = _LUID{10, 1000};
     env.platform_shim->add_dxgi_adapter(GpuType::discrete, desc1);
     env.get_test_icd().set_adapterLUID(desc1.AdapterLuid);
-
-    env.platform_shim->add_d3dkmt_adapter(D3DKMT_Adapter{0, _LUID{10, 1000}}.add_driver_manifest_path(env.get_icd_manifest_path()));
+    env.add_d3dkmt_adapter(0, desc1.AdapterLuid);
 
     size_t fail_index = 0;
     VkResult result = VK_ERROR_OUT_OF_HOST_MEMORY;

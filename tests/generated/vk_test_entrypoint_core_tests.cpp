@@ -30,7 +30,7 @@
 TEST(BasicEntrypointTest, VulkanCore_1_0_DispatchTable) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_0;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -722,7 +722,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_0_DispatchTable) {
 TEST(BasicEntrypointTest, VulkanCore_1_1_DispatchTable) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_1;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -916,7 +916,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_1_DispatchTable) {
 TEST(BasicEntrypointTest, VulkanCore_1_2_DispatchTable) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_2;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -1077,7 +1077,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_2_DispatchTable) {
 TEST(BasicEntrypointTest, VulkanCore_1_3_DispatchTable) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_3;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -1402,7 +1402,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_3_DispatchTable) {
 TEST(BasicEntrypointTest, VulkanCore_1_0_LoaderExports) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_0;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -2129,7 +2129,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_0_LoaderExports) {
 TEST(BasicEntrypointTest, VulkanCore_1_1_LoaderExports) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_1;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -2358,7 +2358,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_1_LoaderExports) {
 TEST(BasicEntrypointTest, VulkanCore_1_2_LoaderExports) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_2;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(
@@ -2554,7 +2554,7 @@ TEST(BasicEntrypointTest, VulkanCore_1_2_LoaderExports) {
 TEST(BasicEntrypointTest, VulkanCore_1_3_LoaderExports) {
     FrameworkEnvironment env{};
     uint32_t vulkan_version = VK_API_VERSION_1_3;
-    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version));
+    env.add_icd(TestICDDetails(TEST_ENTRYPOINT_DRIVER, vulkan_version).set_type(ICDType::entrypoint_driver));
 
     const char* entrypoint_test_layer_name = "VkLayer_LunarG_entrypoint_layer";
     env.add_explicit_layer(

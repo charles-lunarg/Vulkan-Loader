@@ -18,15 +18,15 @@
 #
 # Author: Mark Lobodzinski <mark@lunarg.com>
 
-import os
+import os,re
 
 # Copyright text prefixing all headers (list of strings).
 prefixStrings = [
     '/*',
-    '** Copyright (c) 2015-2017, 2019-2021 The Khronos Group Inc.',
-    '** Copyright (c) 2015-2017, 2019-2021 Valve Corporation',
-    '** Copyright (c) 2015-2017, 2019-2021 LunarG, Inc.',
-    '** Copyright (c) 2015-2017, 2019-2021 Google Inc.',
+    '** Copyright (c) 2015-2017, 2019-2022 The Khronos Group Inc.',
+    '** Copyright (c) 2015-2017, 2019-2022 Valve Corporation',
+    '** Copyright (c) 2015-2017, 2019-2022 LunarG, Inc.',
+    '** Copyright (c) 2015-2017, 2019-2022 Google Inc.',
     '**',
     '** Licensed under the Apache License, Version 2.0 (the "License");',
     '** you may not use this file except in compliance with the License.',
@@ -75,3 +75,61 @@ def GetFeatureProtect(interface):
 # helper to define paths relative to the repo root
 def repo_relative(path):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', path))
+
+#
+# Check if the parameter passed in is a static array
+def paramIsStaticArray(param):
+    is_static_array = 0
+    paramname = param.find('name')
+    if (paramname.tail is not None) and ('[' in paramname.tail):
+        is_static_array = paramname.tail.count('[')
+    return is_static_array
+
+# Retrieve the value of the len tag
+def getLen(param):
+    result = None
+    # Default to altlen when available to avoid LaTeX markup
+    if 'altlen' in param.attrib:
+        len = param.attrib.get('altlen')
+    else:
+        len = param.attrib.get('len')
+    if len and len != 'null-terminated':
+        # Only first level is supported for multidimensional arrays. Conveniently, this also strips the trailing
+        # 'null-terminated' from arrays of strings
+        len = len.split(',')[0]
+        # Convert scope notation to pointer access
+        result = str(len).replace('::', '->')
+    elif paramIsStaticArray(param):
+        # For static arrays get length from inside []
+        array_match = re.search(r'\[(\d+)\]', param.find('name').tail)
+        if array_match:
+            result = array_match.group(1)
+    return result
+
+# Check if the parameter passed in is a pointer
+def paramIsPointer(param):
+    is_pointer = False
+    for elem in param:
+        if elem.tag == 'type' and elem.tail is not None and '*' in elem.tail:
+            is_pointer = True
+    return is_pointer
+
+# Check if the parameter passed in is an array
+def paramIsArray(param):
+    is_array = False
+    for elem in param:
+        if elem.tail is not None and '[' in elem.tail and ']' in elem.tail:
+            is_array = True
+    return is_array
+
+# Return the sizes of the arrays
+def paramGetArraySizes(param):
+    array_sizes = [1, 0]
+    for elem in param:
+        if elem.tail is not None and '[' in elem.tail and ']' in elem.tail:
+            tmp_array_sizes = list(map(int, re.findall(r'\d+', elem.tail)))
+            if len(tmp_array_sizes) >= 2:
+                array_sizes[1] = tmp_array_sizes[1]
+            if len(tmp_array_sizes) >= 1:
+                array_sizes[0] = tmp_array_sizes[0]
+    return array_sizes

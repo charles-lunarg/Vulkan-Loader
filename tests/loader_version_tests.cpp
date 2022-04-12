@@ -153,8 +153,7 @@ TEST(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, version_6) {
     env.platform_shim->add_dxgi_adapter(GpuType::discrete, desc1);
     driver.set_adapterLUID(desc1.AdapterLuid);
 
-    env.platform_shim->add_d3dkmt_adapter(
-        D3DKMT_Adapter{0, desc1.AdapterLuid}.add_driver_manifest_path(env.get_icd_manifest_path(0)));
+    env.add_d3dkmt_adapter(0, desc1.AdapterLuid);
 
     InstWrapper inst{env.vulkan_functions};
     inst.CheckCreate();
@@ -195,7 +194,7 @@ TEST(ICDInterfaceVersion2, EnumAdapters2) {
     uint32_t returned_physical_count = static_cast<uint32_t>(driver.physical_devices.size());
     std::vector<VkPhysicalDevice> physical_device_handles = std::vector<VkPhysicalDevice>(physical_count);
     driver.adapterLUID = _LUID{10, 1000};
-    env.platform_shim->add_d3dkmt_adapter(D3DKMT_Adapter{0, _LUID{10, 1000}}.add_driver_manifest_path(env.get_icd_manifest_path()));
+    env.add_d3dkmt_adapter(0, driver.adapterLUID);
 
     inst.CheckCreate();
 
@@ -227,7 +226,7 @@ TEST(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, VerifyPhysDevResul
     env.platform_shim->add_dxgi_adapter(GpuType::discrete, desc1);
     env.get_test_icd().set_adapterLUID(desc1.AdapterLuid);
 
-    env.platform_shim->add_d3dkmt_adapter(D3DKMT_Adapter{0, _LUID{10, 1000}}.add_driver_manifest_path(env.get_icd_manifest_path()));
+    env.add_d3dkmt_adapter(0, desc1.AdapterLuid);
 
     InstWrapper inst{env.vulkan_functions};
     inst.CheckCreate();
@@ -277,7 +276,7 @@ TEST(ICDInterfaceVersion2PlusEnumerateAdapterPhysicalDevices, VerifyGroupResults
     env.platform_shim->add_dxgi_adapter(GpuType::discrete, desc1);
     env.get_test_icd().set_adapterLUID(desc1.AdapterLuid);
 
-    env.platform_shim->add_d3dkmt_adapter(D3DKMT_Adapter{0, _LUID{10, 1000}}.add_driver_manifest_path(env.get_icd_manifest_path()));
+    env.add_d3dkmt_adapter(0, desc1.AdapterLuid);
 
     InstWrapper inst{env.vulkan_functions};
     inst.CheckCreate();
