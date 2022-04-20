@@ -62,6 +62,13 @@ platform_dict = {
     'screen' : 'VK_USE_PLATFORM_SCREEN_QNX',
 }
 
+DISPATCH_TYPE_GLOBAL = 'global'
+DISPATCH_TYPE_INSTANCE = 'instance'
+DISPATCH_TYPE_DEVICE = 'device'
+
+INSTANCE_DISPATCHABLE_HANDLE_NAMES = ['VkInstance', 'VkPhysicalDevice']
+DEVICE_DISPATCHABLE_HANDLE_NAMES = ['VkDevice', 'VkQueue', 'VkCommandBuffer']
+
 #
 # Return appropriate feature protect string from 'platform' tag on feature
 def GetFeatureProtect(interface):

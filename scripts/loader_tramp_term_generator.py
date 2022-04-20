@@ -388,6 +388,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
         # BasicExtensionData.command_names is a dict to preserve order
         command_names = {}
+        command_req_ext = {}
         for require_element in interface.findall('require'):
             req_ext = require_element.get('extension')
             xml_commands = require_element.findall('command')
@@ -401,9 +402,12 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                             break
                     if not skip:
                         command_names[command_name] = None # the values are None since it is used as a set
+                        if not req_ext is None:
+                            command_req_ext.update(dict.fromkeys(req_ext.split(',')))
 
         requires = interface.get('requires')
-        required_exts = requires.split(',') if requires is not None else []
+        required_exts = dict.fromkeys(requires.split(',')) if requires is not None else {}
+        required_exts.update(command_req_ext)
 
         self.extensions[name] = BasicExtensionData(
                 name = name,
@@ -456,7 +460,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
             return False
         if cmd_name in MANUALLY_IMPLEMENTED_COMMANDS or cmd_name in MANUALLY_IMPLEMENTED_TERMINATORS or cmd_name in INST_EXTENSION_HAVING_MANUAL_TERMINATORS:
             return False
-        if handle_type in ['VkInstance', 'VkPhysicalDevice'] or cmd_name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
+        if handle_type in INSTANCE_DISPATCHABLE_HANDLE_NAMES or cmd_name in DEVICE_COMMANDS_NEEDING_TERMINATOR:
             return True
         else:
             for param in params:
@@ -553,11 +557,6 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
         if command is None:
             return
 
-        command_requires = None
-        require_node = self.registry.tree.find(f"./extensions/extension[@name='{basic_extension_data.name}']/require/command[@name='{command.name}']/..")
-        if require_node is not None:
-            if 'extension' in require_node.attrib:
-                command_requires = require_node.attrib['extension']
 
         requires_dev_term_override = command.name in DEVICE_COMMANDS_NEEDING_TERMINATOR
         requires_tramp = self.RequiresTrampoline(basic_extension_data.type, basic_extension_data.name, command.name, command.alias)
@@ -586,10 +585,8 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 alias_ext = self.UpdateAliasCommandGroup(command.alias, basic_extension_data.name, command.name)
 
         cmd_data = CommandData(name = command.name,
-                                require = command_requires,
                                 protect = command.protect,
                                 return_type = command.return_type,
-                                handle = command.handle,
                                 handle_type = command.handle_type,
                                 params = command.params,
                                 cdecl = command.cdecl,
@@ -599,10 +596,10 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                                 needs_term = requires_term,
                                 requires_term_disp = requires_term_disp)
         if 'VK_VERSION_' in basic_extension_data.name:
-            if command.handle is not None and not (command.handle_type == 'VkInstance' or command.handle_type == 'VkPhysicalDevice'):
-                cur_cmd_group.dev_cmds[command.name] = cmd_data
-            else:
+            if command.function_type == DISPATCH_TYPE_GLOBAL or command.function_type == DISPATCH_TYPE_INSTANCE:
                 cur_cmd_group.inst_cmds[command.name] = cmd_data
+            else:
+                cur_cmd_group.dev_cmds[command.name] = cmd_data
         else:
             cur_cmd_group.cmds.append(cmd_data)
 
@@ -1942,10 +1939,9 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
 
                 # If this requires additional extensions, check the other extensions are also enabled, but only
                 # if we also track those.
-                if cur_ext_cmd_group.required_exts is not None:
-                    for req_ext in cur_ext_cmd_group.required_exts:
-                        if req_ext in self.dev_extensions_tracked_by_loader:
-                            dev_proc_term += ' && dev->dev_ext_enables.%s' % req_ext[3:].lower()
+                for req_ext in cur_ext_cmd_group.required_exts.keys():
+                    if req_ext in self.dev_extensions_tracked_by_loader:
+                        dev_proc_term += ' && dev->dev_ext_enables.%s' % req_ext[3:].lower()
                 dev_proc_term += ') {\n'
             for cur_cmd in cur_ext_cmd_group.cmds:
                 if (self.CommandIsInstanceType(cur_cmd.handle_type, cur_ext_cmd_group.ext_name) or
@@ -2099,7 +2095,7 @@ class LoaderTrampTermOutputGenerator(OutputGenerator):
                 continue
 
             for cur_cmd in cur_ext_cmd_group.cmds:
-                if cur_cmd.handle_type in ['VkInstance', 'VkPhysicalDevice']:
+                if cur_cmd.handle_type in INSTANCE_DISPATCHABLE_HANDLE_NAMES:
                     continue
 
                 if print_header:
@@ -2130,7 +2126,6 @@ class BasicCommandData:
         first_param = cmd_info.elem.findall('param')[0]
         self.handle_type = first_param.find('type').text if first_param.find('type') is not None else ''
 
-        self.handle = generator.registry.tree.find("types/type/[name='" + self.handle_type + "'][@category='handle']")
         self.return_type =  cmd_info.elem.find('proto/type')
 
         if self.return_type is not None and self.return_type.text == 'void':
@@ -2151,6 +2146,13 @@ class BasicCommandData:
                                             cdecl = param_cdecl,
                                             is_const = True if 'const' in param_cdecl else False,
                                             is_pointer = is_pointer))
+
+        self.function_type = DISPATCH_TYPE_GLOBAL
+        if len(self.params) > 0:
+            if self.params[0].type in INSTANCE_DISPATCHABLE_HANDLE_NAMES:
+                self.function_type = DISPATCH_TYPE_INSTANCE
+            if self.params[0].type in DEVICE_DISPATCHABLE_HANDLE_NAMES:
+                self.function_type = DISPATCH_TYPE_DEVICE
 
 class BasicExtensionData:
     def __init__(self, **kwargs):
@@ -2198,10 +2200,8 @@ class CommandParam:
 class CommandData:
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
-        self.require = kwargs.get('require')
         self.protect = kwargs.get('protect')
         self.return_type = kwargs.get('return_type')
-        self.handle = kwargs.get('handle')
         self.handle_type = kwargs.get('handle_type')
         self.params = kwargs.get('params')
         self.cdecl = kwargs.get('cdecl')

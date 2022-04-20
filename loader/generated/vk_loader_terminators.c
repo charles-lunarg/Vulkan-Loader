@@ -893,7 +893,7 @@ PFN_vkVoidFunction get_extension_device_proc_terminator(struct loader_device *de
 
     // ---- VK_EXT_full_screen_exclusive extension commands
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-    if (dev->dev_ext_enables.ext_full_screen_exclusive && dev->dev_ext_enables.khr_swapchain) {
+    if (dev->dev_ext_enables.ext_full_screen_exclusive && dev->dev_ext_enables.khr_swapchain && dev->dev_ext_enables.khr_device_group) {
         if(!strcmp(pName, "vkGetDeviceGroupSurfacePresentModes2EXT")) {
             addr = (PFN_vkVoidFunction)terminator_GetDeviceGroupSurfacePresentModes2EXT;
         }

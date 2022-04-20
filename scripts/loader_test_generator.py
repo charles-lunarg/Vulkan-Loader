@@ -366,7 +366,6 @@ class LoaderTestOutputGenerator(OutputGenerator):
         handles_used = []
         cmd_params = []
 
-        raw_handle = self.registry.tree.find("types/type/[name='" + dispatch_type + "'][@category='handle']")
         modified_handle = None
         return_type = cmd_info.elem.find('proto/type')
 
@@ -446,7 +445,6 @@ class LoaderTestOutputGenerator(OutputGenerator):
                 name = name,
                 protect = self.featureExtraProtect,
                 return_type = return_type,
-                raw_handle = raw_handle if 'CreateInfo' not in dispatch_type else None,
                 handle_type = dispatch_type,
                 is_create = is_create,
                 is_destroy = is_destroy_command,
@@ -893,8 +891,7 @@ class LoaderTestOutputGenerator(OutputGenerator):
 
             if use_dispatch_table:
                 # Call the command with the correct dispatch table
-                if (command.handle_type == 'VkInstance' or command.handle_type == 'VkPhysicalDevice' or
-                    command.handle_type == 'VkSurfaceKHR'):
+                if (command.handle_type in INSTANCE_DISPATCHABLE_HANDLE_NAMES or command.handle_type == 'VkSurfaceKHR'):
                     test_ep += '    inst_disp_table.%s(' % command.name[2:]
                 else:
                     test_ep += '    device_disp_table.%s(' % command.name[2:]
@@ -2130,7 +2127,6 @@ class BasicCommandData :
         self.name = kwargs.get('name')             # Name of the command
         self.protect = kwargs.get('protect')          # Any protected info (i.e. if this requires an #ifdef)
         self.return_type = kwargs.get('return_type')      # The returned type
-        self.raw_handle = kwargs.get('raw_handle')       # The raw handle data
         self.handle_type = kwargs.get('handle_type')      # The string handle type (i.e. 'VkInstance',...)
         self.is_create = kwargs.get('is_create')        # Boolean for is this a create command
         self.is_destroy = kwargs.get('is_destroy')       # Boolean for is this a destroy command
