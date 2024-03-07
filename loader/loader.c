@@ -451,9 +451,9 @@ bool loader_find_layer_name_in_list(const char *name, const struct loader_pointe
     if (NULL == layer_list) {
         return false;
     }
-    if (NULL != loader_find_pointer_layer_property(name, layer_list)) {
-        return true;
-    }
+    // if (NULL != loader_find_pointer_layer_property(name, layer_list)) {
+    //     return true;
+    // }
     return false;
 }
 
