@@ -27,6 +27,89 @@
 
 #include "test_environment.h"
 
+#include <fcntl.h>
+#ifdef _MSC_VER
+#include <io.h>
+#define dup _dup
+#define dup2 _dup2
+#define fileno _fileno
+#define close _close
+#define read _read
+#endif
+
+CaptureStdOutStdErr::CaptureStdOutStdErr() {
+#if defined(_MSC_VER)
+    if (_pipe(pipe_handles.data(), 65536, O_BINARY) == -1) return;
+#else
+    if (pipe(pipe_handles.data()) == -1) return;
+#endif
+
+    oldStdOut = dup(fileno(stdout));
+    oldStdErr = dup(fileno(stderr));
+    if (oldStdOut == -1 || oldStdErr == -1) return;
+
+    fflush(stdout);
+    fflush(stderr);
+    dup2(pipe_handles[WRITE], fileno(stdout));
+    dup2(pipe_handles[WRITE], fileno(stderr));
+}
+
+CaptureStdOutStdErr::~CaptureStdOutStdErr() {
+    fflush(stdout);
+    fflush(stderr);
+    dup2(oldStdOut, fileno(stdout));
+    dup2(oldStdErr, fileno(stderr));
+    close(pipe_handles[READ]);
+    close(pipe_handles[WRITE]);
+}
+
+std::string const& CaptureStdOutStdErr::CollectStdOutStdErr() {
+    fflush(stdout);
+    fflush(stderr);
+    dup2(oldStdOut, fileno(stdout));
+    dup2(oldStdErr, fileno(stderr));
+    std::string buf;
+    const int bufSize = 1024;
+
+#if !defined(_MSC_VER)
+    fcntl(pipe_handles[READ], F_SETFL, O_NONBLOCK);
+#endif
+
+    while (1) {
+        buf.resize(bufSize);
+        int bytesRead = 0;
+#if defined(_MSC_VER)
+        if (!_eof(pipe_handles[READ])) {
+#endif
+            bytesRead = read(pipe_handles[READ], &(*buf.begin()), bufSize);
+#if defined(_MSC_VER)
+        }
+#endif
+        if (bytesRead <= 0) {
+            break;
+        }
+        if (bytesRead != bufSize) {
+            buf.resize(bytesRead);
+        }
+        std::cerr << buf;
+        captured_str.reserve(captured_str.size() + buf.size());
+        for (const auto& c : buf) {
+            if (c == '\r') {
+                continue;
+            }
+            captured_str += c;
+        }
+    }
+    dup2(pipe_handles[WRITE], fileno(stdout));
+    dup2(pipe_handles[WRITE], fileno(stderr));
+    return captured_str;
+}
+
+bool CaptureStdOutStdErr::find(std::string const& search_text) {
+    CollectStdOutStdErr();
+    return captured_str.find(search_text) != std::string::npos;
+}
+
 std::filesystem::path get_loader_path() {
     auto loader_path = std::filesystem::path(FRAMEWORK_VULKAN_LIBRARY_PATH);
     auto env_var_res = get_env_var("VK_LOADER_TEST_LOADER_PATH", false);
@@ -198,11 +281,13 @@ InstWrapper& InstWrapper::operator=(InstWrapper&& other) noexcept {
 }
 
 void InstWrapper::CheckCreate(VkResult result_to_check) {
+    handle_assert_null(inst);
     ASSERT_EQ(result_to_check, functions->vkCreateInstance(create_info.get(), callbacks, &inst));
     functions->load_instance_functions(inst);
 }
 
 void InstWrapper::CheckCreateWithInfo(InstanceCreateInfo& create_info, VkResult result_to_check) {
+    handle_assert_null(inst);
     ASSERT_EQ(result_to_check, functions->vkCreateInstance(create_info.get(), callbacks, &inst));
     functions->load_instance_functions(inst);
 }
@@ -297,10 +382,12 @@ DeviceWrapper& DeviceWrapper::operator=(DeviceWrapper&& other) noexcept {
 }
 
 void DeviceWrapper::CheckCreate(VkPhysicalDevice phys_dev, VkResult result_to_check) {
+    handle_assert_null(dev);
     ASSERT_EQ(result_to_check, functions->vkCreateDevice(phys_dev, create_info.get(), callbacks, &dev));
 }
 
 VkResult CreateDebugUtilsMessenger(DebugUtilsWrapper& debug_utils) {
+    handle_assert_null(debug_utils.messenger);
     return debug_utils.local_vkCreateDebugUtilsMessengerEXT(debug_utils.inst, debug_utils.get(), debug_utils.callbacks,
                                                             &debug_utils.messenger);
 }

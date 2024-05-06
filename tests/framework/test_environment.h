@@ -72,6 +72,27 @@
 
 #include "layer/test_layer.h"
 
+class CaptureStdOutStdErr {
+   public:
+    CaptureStdOutStdErr();
+    ~CaptureStdOutStdErr();
+
+    CaptureStdOutStdErr(CaptureStdOutStdErr const&) = delete;
+    CaptureStdOutStdErr& operator=(CaptureStdOutStdErr const&) = delete;
+
+    std::string const& CollectStdOutStdErr();
+
+    bool find(std::string const& search_text);
+
+   private:
+    static constexpr int READ = 0;
+    static constexpr int WRITE = 1;
+    std::array<int, 2> pipe_handles = {0, 0};
+    int oldStdOut = 0;
+    int oldStdErr = 0;
+    std::string captured_str;
+};
+
 // Useful defines
 #if COMMON_UNIX_PLATFORMS
 #define HOME_DIR "/home/fake_home"

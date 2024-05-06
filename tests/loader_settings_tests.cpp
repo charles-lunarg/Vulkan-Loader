@@ -29,7 +29,7 @@
 
 std::string get_settings_location_log_message([[maybe_unused]] FrameworkEnvironment const& env,
                                               [[maybe_unused]] bool use_secure = false) {
-    std::string s = "Using layer configurations found in loader settings from ";
+    std::string s = "INFO:              Using layer configurations found in loader settings from ";
 #if defined(WIN32)
     return s + (env.get_folder(ManifestLocation::settings_location).location() / "vk_loader_settings.json").string();
 #elif COMMON_UNIX_PLATFORMS
@@ -60,11 +60,11 @@ TEST(SettingsFile, FileExist) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, regular_layer_name));
     }
@@ -89,12 +89,11 @@ TEST(SettingsFile, SettingsInUnsecuredLocation) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
-        env.debug_log.clear();
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, regular_layer_name));
     }
@@ -102,11 +101,11 @@ TEST(SettingsFile, SettingsInUnsecuredLocation) {
     {
         ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
     }
 }
@@ -130,12 +129,11 @@ TEST(SettingsFile, SettingsInSecuredLocation) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env, true)));
-        env.debug_log.clear();
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env, true)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, regular_layer_name));
     }
@@ -144,19 +142,18 @@ TEST(SettingsFile, SettingsInSecuredLocation) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env, true)));
-        env.debug_log.clear();
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env, true)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, regular_layer_name));
     }
 }
 
 // Make sure settings file can have multiple sets of settings
-TEST(SettingsFile, SupportsMultipleSetingsSimultaneously) {
+TEST(SettingsFile, SupportsMultipleSettingsSimultaneously) {
     FrameworkEnvironment env{};
     const char* app_specific_layer_name = "VK_LAYER_TestLayer_0";
     env.add_explicit_layer(TestLayerDetails{
@@ -204,14 +201,14 @@ TEST(SettingsFile, SupportsMultipleSetingsSimultaneously) {
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, global_layer_name));
 
         // Check that the global config is used
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, global_layer_name));
     }
-    env.debug_log.clear();
     // Set one set to contain the current executable path
     env.loader_settings.app_specific_settings.at(0).add_app_key(escape_backslashes_for_json(test_platform_executable_path()));
     env.update_loader_settings(env.loader_settings);
@@ -219,10 +216,11 @@ TEST(SettingsFile, SupportsMultipleSetingsSimultaneously) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, app_specific_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, app_specific_layer_name));
     }
@@ -250,23 +248,25 @@ TEST(SettingsFile, LayerAutoEnabledByEnvVars) {
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, layer_name));
     }
-    env.debug_log.clear();
 
     {
         EnvVarWrapper loader_layers_enable{"VK_LOADER_LAYERS_ENABLE", layer_name};
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, layer_name));
+
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, layer_name));
     }
@@ -292,11 +292,12 @@ TEST(SettingsFile, LayerDisablesImplicitLayer) {
                 .set_treat_as_implicit_manifest(true))));
     {
         ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
+
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
     }
 }
@@ -323,10 +324,11 @@ TEST(SettingsFile, ImplicitLayersDontInterfere) {
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name2));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, implicit_layer_name2));
@@ -350,10 +352,11 @@ TEST(SettingsFile, ImplicitLayersDontInterfere) {
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name2));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, implicit_layer_name2));
@@ -380,10 +383,11 @@ TEST(SettingsFile, ImplicitLayersDontInterfere) {
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, implicit_layer_name2));
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name1));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name2));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, implicit_layer_name1));
@@ -408,10 +412,11 @@ TEST(SettingsFile, ImplicitLayersDontInterfere) {
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, explicit_layer_name3));
         ASSERT_TRUE(string_eq(layer_props.at(2).layerName, implicit_layer_name1));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 3);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name2));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, explicit_layer_name3));
@@ -438,7 +443,7 @@ TEST(SettingsFile, ApplicationEnablesIgnored) {
     {
         ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
+
         inst.create_info.add_layer(explicit_layer_name);
         ASSERT_NO_FATAL_FAILURE(inst.CheckCreate(VK_ERROR_LAYER_NOT_PRESENT));
     }
@@ -465,11 +470,14 @@ TEST(SettingsFile, LayerListIsEmpty) {
     env.write_settings_file(writer.output);
 
     ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
+    std::string empty_config_list =
+        "DEBUG:             Layer Configurations count = 0\nDEBUG:             ---------------------------------\n";
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.CollectStdOutStdErr().empty());
     ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
 }
 
@@ -492,11 +500,13 @@ TEST(SettingsFile, InvalidSettingsFile) {
         auto layer_props = env.GetLayerProperties(2);
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, implicit_layer_name));
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, explicit_layer_name));
+
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.create_info.add_layer(explicit_layer_name);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, explicit_layer_name));
@@ -601,11 +611,13 @@ TEST(SettingsFile, UnknownLayersInRightPlace) {
     ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name1));
     ASSERT_TRUE(string_eq(layer_props.at(2).layerName, explicit_layer_name1));
     ASSERT_TRUE(string_eq(layer_props.at(3).layerName, implicit_layer_name2));
+
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.create_info.add_layer(explicit_layer_name1);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 4);
     ASSERT_TRUE(string_eq(layer_props.at(0).layerName, explicit_layer_name2));
     ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name1));
@@ -647,10 +659,12 @@ TEST(SettingsFile, MultipleLayersWithSameName) {
     ASSERT_TRUE(string_eq(layer_props.at(0).description, "0000"));
     ASSERT_TRUE(string_eq(layer_props.at(1).layerName, explicit_layer_name));
     ASSERT_TRUE(string_eq(layer_props.at(1).description, "1111"));
+
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
     ASSERT_TRUE(string_eq(layers.at(0).layerName, explicit_layer_name));
     ASSERT_TRUE(string_eq(layers.at(0).description, "0000"));
@@ -684,10 +698,11 @@ TEST(SettingsFile, MultipleLayersWithSamePath) {
     auto layer_props = env.GetLayerProperties(1);
     ASSERT_TRUE(string_eq(layer_props.at(0).layerName, explicit_layer_name));
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
     ASSERT_TRUE(string_eq(layers.at(0).layerName, explicit_layer_name));
 }
@@ -721,10 +736,11 @@ TEST(SettingsFile, MismatchedLayerNameAndManifestPath) {
 
     ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
 }
 
@@ -801,10 +817,11 @@ TEST(SettingsFile, MetaLayerAlsoActivates) {
         ASSERT_TRUE(string_eq(layer_props.at(4).layerName, component_explicit_layer_name2));
         ASSERT_TRUE(string_eq(layer_props.at(5).layerName, settings_implicit_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 5);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, settings_explicit_layer_name));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, component_explicit_layer_name2));
@@ -822,10 +839,11 @@ TEST(SettingsFile, MetaLayerAlsoActivates) {
         ASSERT_TRUE(string_eq(layer_props.at(4).layerName, component_explicit_layer_name2));
         ASSERT_TRUE(string_eq(layer_props.at(5).layerName, settings_implicit_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 5);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, settings_explicit_layer_name));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, component_explicit_layer_name2));
@@ -902,15 +920,15 @@ TEST(SettingsFile, LayerOrdering) {
             ASSERT_TRUE(layer_configs.at(i).name == layer_props.at(i).layerName);
         }
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto active_layers = inst.GetActiveLayers(inst.GetPhysDev(), 4);
         for (uint32_t i = 0; i < 4; i++) {
             ASSERT_TRUE(layer_configs.at(i).name == active_layers.at(i).layerName);
         }
-        env.debug_log.clear();
         permutation_count++;
     } while (std::next_permutation(layer_configs.begin(), layer_configs.end()));
     ASSERT_EQ(permutation_count, 24U);  // should be this many orderings
@@ -944,19 +962,21 @@ TEST(SettingsFile, EnvVarsWork_VK_LAYER_PATH) {
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, explicit_layer_name1));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
     }
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.create_info.add_layer(explicit_layer_name1);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, explicit_layer_name1));
@@ -975,20 +995,22 @@ TEST(SettingsFile, EnvVarsWork_VK_LAYER_PATH) {
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layer_props.at(2).layerName, explicit_layer_name1));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, non_env_var_layer_name2));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, implicit_layer_name1));
     }
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.create_info.add_layer(explicit_layer_name1);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 3);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, non_env_var_layer_name2));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, implicit_layer_name1));
@@ -1024,19 +1046,21 @@ TEST(SettingsFile, EnvVarsWork_VK_ADD_LAYER_PATH) {
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, explicit_layer_name1));
         ASSERT_TRUE(string_eq(layer_props.at(2).layerName, non_env_var_layer_name2));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
     }
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.create_info.add_layer(explicit_layer_name1);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, explicit_layer_name1));
@@ -1064,21 +1088,23 @@ TEST(SettingsFile, EnvVarsWork_VK_ADD_LAYER_PATH) {
         ASSERT_TRUE(string_eq(layer_props.at(1).layerName, non_env_var_layer_name2));
         ASSERT_TRUE(string_eq(layer_props.at(2).layerName, implicit_layer_name1));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 3);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, explicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, non_env_var_layer_name2));
         ASSERT_TRUE(string_eq(layers.at(2).layerName, implicit_layer_name1));
     }
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.create_info.add_layer(explicit_layer_name1);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 3);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, explicit_layer_name1));
         ASSERT_TRUE(string_eq(layers.at(1).layerName, non_env_var_layer_name2));
@@ -1101,10 +1127,11 @@ TEST(SettingsFile, EnvVarsWork_VK_INSTANCE_LAYERS) {
         auto layer_props = env.GetLayerProperties(1);
         ASSERT_TRUE(string_eq(layer_props.at(0).layerName, explicit_layer_name));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_FALSE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_FALSE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layer = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layer.at(0).layerName, explicit_layer_name));
     }
@@ -1117,20 +1144,22 @@ TEST(SettingsFile, EnvVarsWork_VK_INSTANCE_LAYERS) {
     {
         ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
     }
     {
         EnvVarWrapper vk_instance_layers{"VK_INSTANCE_LAYERS", explicit_layer_name};
         ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
 
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
     }
 }
@@ -1155,10 +1184,11 @@ TEST(SettingsFile, EnvVarsWork_VK_LOADER_LAYERS_ENABLE) {
     EnvVarWrapper vk_instance_layers{"VK_LOADER_LAYERS_ENABLE", explicit_layer_name};
     ASSERT_NO_FATAL_FAILURE(env.GetLayerProperties(0));
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
 }
 // Make sure that layers enabled by settings file aren't disabled by VK_LOADER_LAYERS_ENABLE
@@ -1183,10 +1213,11 @@ TEST(SettingsFile, EnvVarsWork_VK_LOADER_LAYERS_DISABLE) {
     auto layer_props = env.GetLayerProperties(1);
     ASSERT_TRUE(string_eq(layer_props.at(0).layerName, explicit_layer_name));
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
+
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
 }
 
@@ -1213,12 +1244,11 @@ TEST(SettingsFile, MultipleKeysInRegistryInUnsecureLocation) {
     auto layer_props = env.GetLayerProperties(1);
     EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
+    CaptureStdOutStdErr stdout_stderr_capture;
     InstWrapper inst{env.vulkan_functions};
-    FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
     inst.CheckCreate();
 
-    ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
-    env.debug_log.clear();
+    ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
     auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
     ASSERT_TRUE(string_eq(layers.at(0).layerName, regular_layer_name));
 }
@@ -1246,15 +1276,14 @@ TEST(SettingsFile, MultipleKeysInRegistryInSecureLocation) {
     env.platform_shim->set_elevated_privilege(true);
     env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2));
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         auto layer_props = env.GetLayerProperties(1);
         EXPECT_TRUE(string_eq(layer_props.at(0).layerName, regular_layer_name));
 
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
-        env.debug_log.clear();
+        ASSERT_TRUE(stdout_stderr_capture.find(get_settings_location_log_message(env)));
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         ASSERT_TRUE(string_eq(layers.at(0).layerName, regular_layer_name));
     }
@@ -1384,19 +1413,19 @@ TEST(SettingsFile, ImplicitLayerDisableEnvironmentVariableOverriden) {
     auto check_log_for_insert_instance_layer_string = [](FrameworkEnvironment& env, const char* implicit_layer_name,
                                                          bool check_for_enable) {
         {
+            CaptureStdOutStdErr stdout_stderr_capture;
             InstWrapper inst{env.vulkan_functions};
-            FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
             inst.CheckCreate(VK_SUCCESS);
+
             if (check_for_enable) {
-                ASSERT_TRUE(env.debug_log.find(std::string("Insert instance layer \"") + implicit_layer_name));
+                ASSERT_TRUE(stdout_stderr_capture.find(std::string("Insert instance layer \"") + implicit_layer_name));
                 auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 1);
                 ASSERT_TRUE(string_eq(layers.at(0).layerName, implicit_layer_name));
             } else {
-                ASSERT_FALSE(env.debug_log.find(std::string("Insert instance layer \"") + implicit_layer_name));
+                ASSERT_FALSE(stdout_stderr_capture.find(std::string("Insert instance layer \"") + implicit_layer_name));
                 ASSERT_NO_FATAL_FAILURE(inst.GetActiveLayers(inst.GetPhysDev(), 0));
             }
         }
-        env.debug_log.clear();
     };
 
     FrameworkEnvironment env;
@@ -1527,99 +1556,119 @@ TEST(SettingsFile, StderrLogFilters) {
                 LoaderSettingsLayerConfiguration{}.set_name("VK_LAYER_missing").set_path("/road/to/nowhere").set_control("on"))));
 
     std::string expected_output_verbose;
-    expected_output_verbose += "Layer Configurations count = 2\n";
-    expected_output_verbose += "---- Layer Configuration [0] ----\n";
-    expected_output_verbose += std::string("Name: ") + explicit_layer_name + "\n";
-    expected_output_verbose += "Path: " + env.get_shimmed_layer_manifest_path().string() + "\n";
-    expected_output_verbose += "Control: on\n";
-    expected_output_verbose += "---- Layer Configuration [1] ----\n";
-    expected_output_verbose += "Name: VK_LAYER_missing\n";
-    expected_output_verbose += "Path: /road/to/nowhere\n";
-    expected_output_verbose += "Control: on\n";
-    expected_output_verbose += "---------------------------------\n";
+    expected_output_verbose += "DEBUG:             Layer Configurations count = 2\n";
+    expected_output_verbose += "DEBUG:             ---- Layer Configuration [0] ----\n";
+    expected_output_verbose += std::string("DEBUG:             Name: ") + explicit_layer_name + "\n";
+    expected_output_verbose += "DEBUG:             Path: " + env.get_shimmed_layer_manifest_path().string() + "\n";
+    expected_output_verbose += "DEBUG:             Control: on\n";
+    expected_output_verbose += "DEBUG:             ---- Layer Configuration [1] ----\n";
+    expected_output_verbose += "DEBUG:             Name: VK_LAYER_missing\n";
+    expected_output_verbose += "DEBUG:             Path: /road/to/nowhere\n";
+    expected_output_verbose += "DEBUG:             Control: on\n";
+    expected_output_verbose += "DEBUG:             ---------------------------------\n";
 
     std::string expected_output_info = get_settings_location_log_message(env) + "\n";
 
     std::string expected_output_warning =
-        "Layer name Regular_TestLayer1 does not conform to naming standard (Policy #LLP_LAYER_3)\n";
+        "WARNING:           Layer name Regular_TestLayer1 does not conform to naming standard (Policy #LLP_LAYER_3)\n";
 
-    std::string expected_output_error = "loader_get_json: Failed to open JSON file /road/to/nowhere\n";
+    std::string expected_output_error = "ERROR:             loader_get_json: Failed to open JSON file /road/to/nowhere\n";
 
     env.loader_settings.app_specific_settings.at(0).stderr_log = {"all"};
     env.update_loader_settings(env.loader_settings);
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(expected_output_verbose));
-        ASSERT_TRUE(env.debug_log.find(expected_output_info));
-        ASSERT_TRUE(env.debug_log.find(expected_output_warning));
-        ASSERT_TRUE(env.debug_log.find(expected_output_error));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_error));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
     }
-    env.debug_log.clear();
-    env.debug_log.create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
-    env.loader_settings.app_specific_settings.at(0).stderr_log = {"info"};
+    env.loader_settings.app_specific_settings.at(0).stderr_log = {"error", "warn", "info", "debug"};
     env.update_loader_settings(env.loader_settings);
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(expected_output_verbose));
-        ASSERT_FALSE(env.debug_log.find(expected_output_info));
-        ASSERT_FALSE(env.debug_log.find(expected_output_warning));
-        ASSERT_FALSE(env.debug_log.find(expected_output_error));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_error));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
     }
-    env.debug_log.clear();
-    env.debug_log.create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+    env.loader_settings.app_specific_settings.at(0).stderr_log = {"warn", "info", "debug"};
+    env.update_loader_settings(env.loader_settings);
+    {
+        CaptureStdOutStdErr stdout_stderr_capture;
+        InstWrapper inst{env.vulkan_functions};
+        inst.CheckCreate();
+
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_error));
+        auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
+        EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
+    }
     env.loader_settings.app_specific_settings.at(0).stderr_log = {"debug"};
     env.update_loader_settings(env.loader_settings);
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_FALSE(env.debug_log.find(expected_output_verbose));
-        ASSERT_TRUE(env.debug_log.find(expected_output_info));
-        ASSERT_FALSE(env.debug_log.find(expected_output_warning));
-        ASSERT_FALSE(env.debug_log.find(expected_output_error));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_error));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
     }
-    env.debug_log.clear();
-    env.debug_log.create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+    env.loader_settings.app_specific_settings.at(0).stderr_log = {"info"};
+    env.update_loader_settings(env.loader_settings);
+    {
+        CaptureStdOutStdErr stdout_stderr_capture;
+        InstWrapper inst{env.vulkan_functions};
+        inst.CheckCreate();
+
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_error));
+        auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
+        EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
+    }
     env.loader_settings.app_specific_settings.at(0).stderr_log = {"warn"};
     env.update_loader_settings(env.loader_settings);
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_FALSE(env.debug_log.find(expected_output_verbose));
-        ASSERT_FALSE(env.debug_log.find(expected_output_info));
-        ASSERT_TRUE(env.debug_log.find(expected_output_warning));
-        ASSERT_FALSE(env.debug_log.find(expected_output_error));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_error));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
     }
-    env.debug_log.clear();
-    env.debug_log.create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
     env.loader_settings.app_specific_settings.at(0).stderr_log = {"error"};
     env.update_loader_settings(env.loader_settings);
     {
+        CaptureStdOutStdErr stdout_stderr_capture;
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_FALSE(env.debug_log.find(expected_output_verbose));
-        ASSERT_FALSE(env.debug_log.find(expected_output_info));
-        ASSERT_FALSE(env.debug_log.find(expected_output_warning));
-        ASSERT_TRUE(env.debug_log.find(expected_output_error));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_verbose));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_info));
+        ASSERT_FALSE(stdout_stderr_capture.find(expected_output_warning));
+        ASSERT_TRUE(stdout_stderr_capture.find(expected_output_error));
         auto active_layer_props = inst.GetActiveLayers(inst.GetPhysDev(), 1);
         EXPECT_TRUE(string_eq(active_layer_props.at(0).layerName, explicit_layer_name));
     }
@@ -1653,11 +1702,8 @@ TEST(SettingsFile, TooManyLayers) {
             EXPECT_TRUE(string_eq(layer_props.at(i).layerName, expected_layer_name.c_str()));
         }
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
-        env.debug_log.clear();
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 40);
         for (uint32_t i = 0; i < layer_count; i++) {
             std::string expected_layer_name = layer_name + std::to_string(i);
@@ -1682,12 +1728,10 @@ TEST(SettingsFile, TooManyLayers) {
             std::string expected_layer_name = layer_name + std::to_string(layer_count - i - 1);
             EXPECT_TRUE(string_eq(layer_props.at(i).layerName, expected_layer_name.c_str()));
         }
+
         InstWrapper inst{env.vulkan_functions};
-        FillDebugUtilsCreateDetails(inst.create_info, env.debug_log);
         inst.CheckCreate();
 
-        ASSERT_TRUE(env.debug_log.find(get_settings_location_log_message(env)));
-        env.debug_log.clear();
         auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 40);
         for (uint32_t i = 0; i < layer_count; i++) {
             std::string expected_layer_name = layer_name + std::to_string(layer_count - i - 1);
