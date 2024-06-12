@@ -140,7 +140,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevic
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceFeatures2 = icd_term->dispatch.GetPhysicalDeviceFeatures2;
     }
-    if (fpGetPhysicalDeviceFeatures2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceFeatures2 == NULL && inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceFeatures2 = icd_term->dispatch.GetPhysicalDeviceFeatures2KHR;
     }
 
@@ -196,7 +196,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDev
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceProperties2 = icd_term->dispatch.GetPhysicalDeviceProperties2;
     }
-    if (fpGetPhysicalDeviceProperties2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceProperties2 == NULL && inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceProperties2 = icd_term->dispatch.GetPhysicalDeviceProperties2KHR;
     }
 
@@ -219,7 +219,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDev
                     VkPhysicalDeviceIDPropertiesKHR *id_properties = (VkPhysicalDeviceIDPropertiesKHR *)pNext;
 
                     // Verify that "VK_KHR_external_memory_capabilities" is enabled
-                    if (icd_term->this_instance->enabled_known_extensions.khr_external_memory_capabilities) {
+                    if (icd_term->this_instance->enabled_known_instance_extensions.khr_external_memory_capabilities) {
                         loader_log(icd_term->this_instance, VULKAN_LOADER_WARN_BIT, 0,
                                    "vkGetPhysicalDeviceProperties2: Emulation cannot generate unique IDs for struct "
                                    "VkPhysicalDeviceIDProperties - setting IDs to zero instead");
@@ -259,7 +259,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2(VkPhysi
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceFormatProperties2;
     }
-    if (fpGetPhysicalDeviceFormatProperties2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceFormatProperties2 == NULL &&
+        inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceFormatProperties2KHR;
     }
 
@@ -297,7 +298,8 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceImageFormatProperties
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceImageFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceImageFormatProperties2;
     }
-    if (fpGetPhysicalDeviceImageFormatProperties2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceImageFormatProperties2 == NULL &&
+        inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceImageFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceImageFormatProperties2KHR;
     }
 
@@ -337,7 +339,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(Vk
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceQueueFamilyProperties2 = icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties2;
     }
-    if (fpGetPhysicalDeviceQueueFamilyProperties2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceQueueFamilyProperties2 == NULL &&
+        inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceQueueFamilyProperties2 = icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties2KHR;
     }
 
@@ -395,7 +398,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2(VkPhysi
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceMemoryProperties2 = icd_term->dispatch.GetPhysicalDeviceMemoryProperties2;
     }
-    if (fpGetPhysicalDeviceMemoryProperties2 == NULL && inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+    if (fpGetPhysicalDeviceMemoryProperties2 == NULL &&
+        inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceMemoryProperties2 = icd_term->dispatch.GetPhysicalDeviceMemoryProperties2KHR;
     }
 
@@ -434,7 +438,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
         fpGetPhysicalDeviceSparseImageFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties2;
     }
     if (fpGetPhysicalDeviceSparseImageFormatProperties2 == NULL &&
-        inst->enabled_known_extensions.khr_get_physical_device_properties2) {
+        inst->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
         fpGetPhysicalDeviceSparseImageFormatProperties2 = icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties2KHR;
     }
 
@@ -503,7 +507,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalBufferProperties(
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceExternalBufferProperties = icd_term->dispatch.GetPhysicalDeviceExternalBufferProperties;
     }
-    if (fpGetPhysicalDeviceExternalBufferProperties == NULL && inst->enabled_known_extensions.khr_external_memory_capabilities) {
+    if (fpGetPhysicalDeviceExternalBufferProperties == NULL &&
+        inst->enabled_known_instance_extensions.khr_external_memory_capabilities) {
         fpGetPhysicalDeviceExternalBufferProperties = icd_term->dispatch.GetPhysicalDeviceExternalBufferPropertiesKHR;
     }
 
@@ -547,7 +552,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalSemaphoreProperti
         fpGetPhysicalDeviceExternalSemaphoreProperties = icd_term->dispatch.GetPhysicalDeviceExternalSemaphoreProperties;
     }
     if (fpGetPhysicalDeviceExternalSemaphoreProperties == NULL &&
-        inst->enabled_known_extensions.khr_external_semaphore_capabilities) {
+        inst->enabled_known_instance_extensions.khr_external_semaphore_capabilities) {
         fpGetPhysicalDeviceExternalSemaphoreProperties = icd_term->dispatch.GetPhysicalDeviceExternalSemaphorePropertiesKHR;
     }
 
@@ -593,7 +598,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalFenceProperties(
     if (loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version)) {
         fpGetPhysicalDeviceExternalFenceProperties = icd_term->dispatch.GetPhysicalDeviceExternalFenceProperties;
     }
-    if (fpGetPhysicalDeviceExternalFenceProperties == NULL && inst->enabled_known_extensions.khr_external_fence_capabilities) {
+    if (fpGetPhysicalDeviceExternalFenceProperties == NULL &&
+        inst->enabled_known_instance_extensions.khr_external_fence_capabilities) {
         fpGetPhysicalDeviceExternalFenceProperties = icd_term->dispatch.GetPhysicalDeviceExternalFencePropertiesKHR;
     }
 

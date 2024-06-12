@@ -205,6 +205,14 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumerateDeviceExtensionProperties(VkPhysi
         return VK_SUCCESS;
     }
 
+    // Cannot let physical devices that this layer added pass down the chain
+    if (std::find_if(layer.added_physical_devices.begin(), layer.added_physical_devices.end(), [physicalDevice](auto& handle) {
+            return handle.handle == physicalDevice;
+        }) != layer.added_physical_devices.end()) {
+        *pPropertyCount = 0;
+        return VK_SUCCESS;
+    }
+
     uint32_t hardware_prop_count = 0;
     if (pProperties) {
         hardware_prop_count = *pPropertyCount - static_cast<uint32_t>(layer.injected_device_extensions.size());
@@ -248,6 +256,9 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkCreateInstance(const VkInstanceCreateInfo*
     if (fpCreateInstance == NULL) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
+
+    VkLayerInstanceCreateInfo* data_callback = get_chain_info(pCreateInfo, VK_LOADER_DATA_CALLBACK);
+    layer.pfn_setInstanceLoaderData = data_callback->u.pfnSetInstanceLoaderData;
 
     if (layer.call_create_device_while_create_device_is_called) {
         auto* createDeviceCallback = get_chain_info(pCreateInfo, VK_LOADER_LAYER_CREATE_DEVICE_CALLBACK);
@@ -521,15 +532,17 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumeratePhysicalDevices(VkInstance instan
             if (layer.add_phys_devs) {
                 // Insert a new device in the beginning, middle, and end
                 uint32_t middle = static_cast<uint32_t>(tmp_vector.size() / 2);
-                VkPhysicalDevice new_phys_dev = reinterpret_cast<VkPhysicalDevice>((size_t)(0xABCD0000));
-                layer.added_physical_devices.push_back(new_phys_dev);
-                tmp_vector.insert(tmp_vector.begin(), new_phys_dev);
-                new_phys_dev = reinterpret_cast<VkPhysicalDevice>((size_t)(0xBADC0000));
-                layer.added_physical_devices.push_back(new_phys_dev);
-                tmp_vector.insert(tmp_vector.begin() + middle, new_phys_dev);
-                new_phys_dev = reinterpret_cast<VkPhysicalDevice>((size_t)(0xDCBA0000));
-                layer.added_physical_devices.push_back(new_phys_dev);
-                tmp_vector.push_back(new_phys_dev);
+                layer.added_physical_devices.emplace_back(DispatchableHandle<VkPhysicalDevice>());
+                layer.pfn_setInstanceLoaderData(instance, layer.added_physical_devices.back().handle);
+                tmp_vector.insert(tmp_vector.begin(), layer.added_physical_devices.back().handle);
+
+                layer.added_physical_devices.emplace_back(DispatchableHandle<VkPhysicalDevice>());
+                layer.pfn_setInstanceLoaderData(instance, layer.added_physical_devices.back().handle);
+                tmp_vector.insert(tmp_vector.begin() + middle, layer.added_physical_devices.back().handle);
+
+                layer.added_physical_devices.emplace_back(DispatchableHandle<VkPhysicalDevice>());
+                layer.pfn_setInstanceLoaderData(instance, layer.added_physical_devices.back().handle);
+                tmp_vector.push_back(layer.added_physical_devices.back().handle);
             }
 
             if (layer.reorder_phys_devs) {
@@ -571,7 +584,8 @@ VKAPI_ATTR void VKAPI_CALL test_vkGetPhysicalDeviceProperties(VkPhysicalDevice p
         layer.removed_physical_devices.end()) {
         // Should not get here since the application should not know about those devices
         assert(false);
-    } else if (std::find(layer.added_physical_devices.begin(), layer.added_physical_devices.end(), physicalDevice) !=
+    } else if (std::find_if(layer.added_physical_devices.begin(), layer.added_physical_devices.end(),
+                            [physicalDevice](auto& handle) { return handle.handle == physicalDevice; }) !=
                layer.added_physical_devices.end()) {
         // Added device so put in some placeholder info we can test against
         pProperties->apiVersion = VK_API_VERSION_1_2;
@@ -637,7 +651,7 @@ VKAPI_ATTR VkResult VKAPI_CALL test_vkEnumeratePhysicalDeviceGroups(
                 for (uint32_t dev = 0; dev < layer.added_physical_devices.size(); ++dev) {
                     VkPhysicalDeviceGroupProperties props{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES};
                     props.physicalDeviceCount = 1;
-                    props.physicalDevices[0] = layer.added_physical_devices[dev];
+                    props.physicalDevices[0] = layer.added_physical_devices[dev].handle;
                     tmp_vector.push_back(props);
                     layer.added_physical_device_groups.push_back(props);
                 }

@@ -989,7 +989,8 @@ TEST(LoaderHandleValidTests, BadPhysDevGetXlibPresentSupportKHR) {
 }
 #endif  // VK_USE_PLATFORM_XLIB_KHR
 
-InstWrapper setup_BadPhysDev_env(FrameworkEnvironment& env, std::vector<const char*> exts) {
+InstWrapper setup_BadPhysDev_env(FrameworkEnvironment& env, std::vector<const char*> const& exts,
+                                 std::vector<Extension> const& device_exts = {}) {
     std::vector<Extension> ext_modified;
     for (const auto& ext : exts) {
         ext_modified.push_back(Extension{ext});
@@ -997,7 +998,7 @@ InstWrapper setup_BadPhysDev_env(FrameworkEnvironment& env, std::vector<const ch
     env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2))
         .add_instance_extensions(ext_modified)
         .setup_WSI()
-        .add_physical_device("physical_device_0");
+        .add_physical_device(PhysicalDevice{"physical_device_0"}.add_extensions(device_exts).finish());
 
     InstWrapper instance(env.vulkan_functions);
     instance.create_info.add_extensions(exts);
@@ -1162,7 +1163,7 @@ TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevSurfaceFormats2KHR) {
 
 TEST(LoaderHandleValidTests, BadPhysDevEnumPhysDevQueueFamilyPerfQueryCountersKHR) {
     FrameworkEnvironment env{};
-    auto instance = setup_BadPhysDev_env(env, {});
+    auto instance = setup_BadPhysDev_env(env, {}, {"VK_KHR_performance_query"});
 
     auto bad_physical_dev = get_bad_handle<VkPhysicalDevice>();
     uint32_t count = 0;
@@ -1176,7 +1177,7 @@ TEST(LoaderHandleValidTests, BadPhysDevEnumPhysDevQueueFamilyPerfQueryCountersKH
 
 TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevQueueFamilyPerfQueryPassesKHR) {
     FrameworkEnvironment env{};
-    auto instance = setup_BadPhysDev_env(env, {});
+    auto instance = setup_BadPhysDev_env(env, {}, {"VK_KHR_performance_query"});
 
     auto bad_physical_dev = get_bad_handle<VkPhysicalDevice>();
     VkQueryPoolPerformanceCreateInfoKHR create_info = {};
@@ -1193,7 +1194,7 @@ TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevQueueFamilyPerfQueryPassesKHR) 
 
 TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevFragmentShadingRatesKHR) {
     FrameworkEnvironment env{};
-    auto instance = setup_BadPhysDev_env(env, {});
+    auto instance = setup_BadPhysDev_env(env, {}, {"VK_KHR_fragment_shading_rate"});
 
     auto bad_physical_dev = get_bad_handle<VkPhysicalDevice>();
     uint32_t count = 0;
@@ -1206,7 +1207,7 @@ TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevFragmentShadingRatesKHR) {
 
 TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevMSPropsEXT) {
     FrameworkEnvironment env{};
-    auto instance = setup_BadPhysDev_env(env, {});
+    auto instance = setup_BadPhysDev_env(env, {}, {"VK_EXT_sample_locations"});
 
     auto bad_physical_dev = get_bad_handle<VkPhysicalDevice>();
     VkMultisamplePropertiesEXT props = {};
@@ -1301,7 +1302,7 @@ TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevSurfacePresentModes2EXT) {
 
 TEST(LoaderHandleValidTests, BadPhysDevGetPhysDevToolPropertiesEXT) {
     FrameworkEnvironment env{};
-    auto instance = setup_BadPhysDev_env(env, {});
+    auto instance = setup_BadPhysDev_env(env, {}, {"VK_EXT_tooling_info"});
 
     auto bad_physical_dev = get_bad_handle<VkPhysicalDevice>();
     PFN_vkGetPhysicalDeviceToolPropertiesEXT pfn = instance.load("vkGetPhysicalDeviceToolPropertiesEXT");

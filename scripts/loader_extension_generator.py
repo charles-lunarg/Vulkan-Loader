@@ -183,7 +183,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
         self.ext_commands = []                # List of CommandData records for extension Vulkan commands
         self.CommandParam = namedtuple('CommandParam', ['type', 'name', 'cdecl'])
         self.CommandData = namedtuple('CommandData', ['name', 'ext_name', 'ext_type', 'require', 'protect', 'return_type', 'handle_type', 'params', 'cdecl'])
-        self.instanceExtensions = []
+        self.extensions = []
         self.ExtensionData = namedtuple('ExtensionData', ['name', 'type', 'protect', 'define', 'num_commands'])
 
     #
@@ -263,7 +263,8 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
             file_data += self.OutputPrototypesInHeader()
             file_data += self.OutputLoaderTerminators()
             file_data += self.OutputIcdDispatchTable()
-            file_data += self.OutputIcdExtensionEnableUnion()
+            file_data += self.OutputInstanceExtensionEnableUnion()
+            file_data += self.OutputDeviceExtensionEnableUnion()
             file_data += self.OutputDeviceFunctionTerminatorDispatchTable()
 
         elif self.genOpts.filename == 'vk_loader_extensions.c':
@@ -275,7 +276,8 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
             file_data += self.OutputLoaderLookupFunc()
             file_data += self.CreateTrampTermFuncs()
             file_data += self.InstExtensionGPA()
-            file_data += self.InstantExtensionCreate()
+            file_data += self.GenPopulateEnabledInstanceExtensionsList()
+            file_data += self.GenPopulateAvailableDeviceExtensionList()
             file_data += self.DeviceExtensionGetTerminator()
             file_data += self.InitInstLoaderExtensionDispatchTable()
             file_data += self.OutputInstantExtensionWhitelistArray()
@@ -327,7 +329,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
     def endFeature(self):
 
         if 'android' not in self.currentExtension:
-            self.instanceExtensions.append(self.ExtensionData(name=self.currentExtension,
+            self.extensions.append(self.ExtensionData(name=self.currentExtension,
                                                               type=self.type,
                                                               protect=self.featureExtraProtect,
                                                               define=self.name_definition,
@@ -492,7 +494,10 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
         protos += '// Extension interception for vkCreateInstance function, so we can properly\n'
         protos += '// detect and enable any instance extension information for extensions we know\n'
         protos += '// about.\n'
-        protos += 'void extensions_create_instance(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo);\n'
+        protos += 'void populate_enabled_instance_extensions(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo);\n'
+        protos += '\n'
+        protos += '// Fill out the loader_instance with the available device extensions that were passed in. \n'
+        protos += 'void populate_available_device_extensions(struct loader_instance *ptr_instance, uint32_t extension_count, VkExtensionProperties *extension_props);\n'
         protos += '\n'
         protos += '// Extension interception for vkGetDeviceProcAddr function, so we can return\n'
         protos += '// an appropriate terminator if this is one of those few device commands requiring\n'
@@ -770,17 +775,27 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
 
     #
     # Create the extension enable union
-    def OutputIcdExtensionEnableUnion(self):
-        extensions = self.instanceExtensions
-
+    def OutputInstanceExtensionEnableUnion(self):
         union = ''
         union += 'struct loader_instance_extension_enables {\n'
-        for ext in extensions:
+        for ext in self.extensions:
             if (self.getAPIVersion(ext.name) or ext.name in WSI_EXT_NAMES or
                 ext.type == 'device' or ext.num_commands == 0):
                 continue
 
             union += '    uint8_t %s;\n' % ext.name[3:].lower()
+
+        union += '};\n\n'
+        return union
+
+        #
+    # Create the extension enable union
+    def OutputDeviceExtensionEnableUnion(self):
+        union = ''
+        union += 'struct loader_device_extension_enables {\n'
+        for ext in self.extensions:
+            if ext.type == 'device' and ext.num_commands > 0:
+                union += '    uint8_t %s;\n' % ext.name[3:].lower()
 
         union += '};\n\n'
         return union
@@ -1437,7 +1452,6 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
     #
     # Create a function for the extension GPA call
     def InstExtensionGPA(self):
-        entries = []
         gpa_func = ''
         cur_extension_name = ''
 
@@ -1462,20 +1476,16 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
             #base_name = cur_cmd.name[2:]
             base_name = SHARED_ALIASES[cur_cmd.name] if cur_cmd.name in SHARED_ALIASES else cur_cmd.name[2:]
 
-            if (cur_cmd.ext_type == 'instance'):
-                gpa_func += '    if (!strcmp("%s", name)) {\n' % (cur_cmd.name)
-                gpa_func += '        *addr = (ptr_instance->enabled_known_extensions.'
-                gpa_func += cur_cmd.ext_name[3:].lower()
-                gpa_func += ' == 1)\n'
-                gpa_func += '                     ? (void *)%s\n' % (base_name)
-                gpa_func += '                     : NULL;\n'
-                gpa_func += '        return true;\n'
-                gpa_func += '    }\n'
+            gpa_func += f'    if (!strcmp("{cur_cmd.name}", name)) {{\n'
+            if cur_cmd.ext_type == 'instance':
+                gpa_func += '        *addr = (ptr_instance->enabled_known_instance_extensions.'
             else:
-                gpa_func += '    if (!strcmp("%s", name)) {\n' % (cur_cmd.name)
-                gpa_func += '        *addr = (void *)%s;\n' % (base_name)
-                gpa_func += '        return true;\n'
-                gpa_func += '    }\n'
+                gpa_func += '        *addr = (ptr_instance->available_device_extensions.'
+            gpa_func += cur_cmd.ext_name[3:].lower()
+            gpa_func += ' == 1)\n'
+            gpa_func += f'                     ? (void *){base_name} : NULL;\n'
+            gpa_func += '        return true;\n'
+            gpa_func += '    }\n'
 
             if cur_cmd.protect is not None:
                 gpa_func += '#endif // %s\n' % cur_cmd.protect
@@ -1487,46 +1497,85 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
 
     #
     # Create the extension name init function
-    def InstantExtensionCreate(self):
-        entries = []
-        entries = self.instanceExtensions
+    def GenPopulateEnabledInstanceExtensionsList(self):
         count = 0
         cur_extension_name = ''
 
-        create_func = ''
-        create_func += '// A function that can be used to query enabled extensions during a vkCreateInstance call\n'
-        create_func += 'void extensions_create_instance(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo) {\n'
-        create_func += '    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {\n'
-        for ext in entries:
+        out = ''
+        out += '// A function that can be used to query enabled instance extensions during a vkCreateInstance call\n'
+        out += 'void populate_enabled_instance_extensions(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo) {\n'
+        out += '    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {\n'
+        for ext in self.extensions:
             if (self.getAPIVersion(ext.name) or ext.name in WSI_EXT_NAMES or
                 ext.name in AVOID_EXT_NAMES or ext.name in AVOID_CMD_NAMES or
                 ext.type == 'device' or ext.num_commands == 0):
                 continue
 
             if ext.name != cur_extension_name:
-                create_func += '\n    // ---- %s extension commands\n' % ext.name
+                out += f'\n    // ---- {ext.name} extension commands\n'
                 cur_extension_name = ext.name
 
             if ext.protect is not None:
-                create_func += '#if defined(%s)\n' % ext.protect
+                out += f'#if defined({ext.protect})\n'
             if count == 0:
-                create_func += '        if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i], '
+                out += '        if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i], '
             else:
-                create_func += '        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i], '
+                out += '        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i], '
 
-            create_func += ext.define + ')) {\n'
-            create_func += '            ptr_instance->enabled_known_extensions.'
-            create_func += ext.name[3:].lower()
-            create_func += ' = 1;\n'
+            out += ext.define + ')) {\n'
+            out += '            ptr_instance->enabled_known_instance_extensions.'
+
+            out += ext.name[3:].lower()
+            out += ' = 1;\n'
 
             if ext.protect is not None:
-                create_func += '#endif // %s\n' % ext.protect
+                out += f'#endif // {ext.protect}\n'
             count += 1
 
-        create_func += '        }\n'
-        create_func += '    }\n'
-        create_func += '}\n\n'
-        return create_func
+        out += '        }\n'
+        out += '    }\n'
+        out += '}\n\n'
+        return out
+
+    #
+    # Create the extension name init function
+    def GenPopulateAvailableDeviceExtensionList(self):
+        count = 0
+        cur_extension_name = ''
+
+        out = ''
+        out += '// A function that can be used to query available device extensions during a vkCreateInstance call\n'
+        out += 'void populate_available_device_extensions(struct loader_instance *ptr_instance, uint32_t extension_count, VkExtensionProperties *extension_props) {\n'
+        out += '    for (uint32_t i = 0; i < extension_count; i++) {\n'
+        for ext in self.extensions:
+            if self.getAPIVersion(ext.name) or ext.name in WSI_EXT_NAMES or ext.name in AVOID_EXT_NAMES or ext.name in AVOID_CMD_NAMES or ext.type != 'device' or ext.num_commands == 0:
+                continue
+
+            if ext.name != cur_extension_name:
+                out += f'\n    // ---- {ext.name} extension commands\n'
+                cur_extension_name = ext.name
+
+            if ext.protect is not None:
+                out += f'#if defined({ext.protect})\n'
+            if count == 0:
+                out += '        if (0 == strcmp(extension_props[i].extensionName, '
+            else:
+                out += '        } else if (0 == strcmp(extension_props[i].extensionName, '
+
+            out += ext.define + ')) {\n'
+            out += '            ptr_instance->available_device_extensions.'
+
+            out += ext.name[3:].lower()
+            out += ' = 1;\n'
+
+            if ext.protect is not None:
+                out += f'#endif // {ext.protect}\n'
+            count += 1
+
+        out += '        }\n'
+        out += '    }\n'
+        out += '}\n\n'
+        return out
 
     #
     # Create code to initialize a dispatch table from the appropriate list of
@@ -1731,7 +1780,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
     #
     # Create the extension name whitelist array
     def OutputInstantExtensionWhitelistArray(self):
-        extensions = self.instanceExtensions
+        extensions = self.extensions
 
         table = ''
         table += '// A null-terminated list of all of the instance extensions supported by the loader.\n'

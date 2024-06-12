@@ -345,7 +345,11 @@ struct loader_instance {
     VkInstance instance;  // layers/ICD instance returned to trampoline
 
     struct loader_extension_list ext_list;  // icds and loaders extensions
-    struct loader_instance_extension_enables enabled_known_extensions;
+    struct loader_instance_extension_enables enabled_known_instance_extensions;
+
+    // aggregated list of device extensions from all drivers - necessary to let vkGetInstanceProcAddr return NULL for non-available
+    // device functions
+    struct loader_device_extension_enables available_device_extensions;
 
     // Indicates which indices in the array are in-use and which are free to be reused
     struct loader_used_object_list surfaces_list;

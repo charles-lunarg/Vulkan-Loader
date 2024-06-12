@@ -43,7 +43,10 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance, const char *na
 // Extension interception for vkCreateInstance function, so we can properly
 // detect and enable any instance extension information for extensions we know
 // about.
-void extensions_create_instance(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo);
+void populate_enabled_instance_extensions(struct loader_instance *ptr_instance, const VkInstanceCreateInfo *pCreateInfo);
+
+// Fill out the loader_instance with the available device extensions that were passed in. 
+void populate_available_device_extensions(struct loader_instance *ptr_instance, uint32_t extension_count, VkExtensionProperties *extension_props);
 
 // Extension interception for vkGetDeviceProcAddr function, so we can return
 // an appropriate terminator if this is one of those few device commands requiring
@@ -485,6 +488,125 @@ struct loader_instance_extension_enables {
     uint8_t ext_display_surface_counter;
     uint8_t ext_debug_utils;
     uint8_t ext_acquire_drm_display;
+};
+
+struct loader_device_extension_enables {
+    uint8_t khr_swapchain;
+    uint8_t khr_display_swapchain;
+    uint8_t khr_video_queue;
+    uint8_t khr_video_decode_queue;
+    uint8_t khr_dynamic_rendering;
+    uint8_t khr_device_group;
+    uint8_t khr_maintenance1;
+    uint8_t khr_external_memory_win32;
+    uint8_t khr_external_memory_fd;
+    uint8_t khr_external_semaphore_win32;
+    uint8_t khr_external_semaphore_fd;
+    uint8_t khr_push_descriptor;
+    uint8_t khr_descriptor_update_template;
+    uint8_t khr_create_renderpass2;
+    uint8_t khr_shared_presentable_image;
+    uint8_t khr_external_fence_win32;
+    uint8_t khr_external_fence_fd;
+    uint8_t khr_performance_query;
+    uint8_t khr_get_memory_requirements2;
+    uint8_t khr_sampler_ycbcr_conversion;
+    uint8_t khr_bind_memory2;
+    uint8_t khr_maintenance3;
+    uint8_t khr_draw_indirect_count;
+    uint8_t khr_timeline_semaphore;
+    uint8_t khr_fragment_shading_rate;
+    uint8_t khr_dynamic_rendering_local_read;
+    uint8_t khr_present_wait;
+    uint8_t khr_buffer_device_address;
+    uint8_t khr_deferred_host_operations;
+    uint8_t khr_pipeline_executable_properties;
+    uint8_t khr_map_memory2;
+    uint8_t khr_video_encode_queue;
+    uint8_t khr_synchronization2;
+    uint8_t khr_copy_commands2;
+    uint8_t khr_ray_tracing_maintenance1;
+    uint8_t khr_maintenance4;
+    uint8_t khr_maintenance5;
+    uint8_t khr_cooperative_matrix;
+    uint8_t khr_line_rasterization;
+    uint8_t khr_calibrated_timestamps;
+    uint8_t khr_maintenance6;
+    uint8_t ext_debug_marker;
+    uint8_t ext_transform_feedback;
+    uint8_t nvx_binary_import;
+    uint8_t nvx_image_view_handle;
+    uint8_t amd_draw_indirect_count;
+    uint8_t amd_shader_info;
+    uint8_t nv_external_memory_win32;
+    uint8_t ext_conditional_rendering;
+    uint8_t nv_clip_space_w_scaling;
+    uint8_t ext_display_control;
+    uint8_t google_display_timing;
+    uint8_t ext_discard_rectangles;
+    uint8_t ext_hdr_metadata;
+    uint8_t amdx_shader_enqueue;
+    uint8_t ext_sample_locations;
+    uint8_t ext_image_drm_format_modifier;
+    uint8_t ext_validation_cache;
+    uint8_t nv_shading_rate_image;
+    uint8_t nv_ray_tracing;
+    uint8_t ext_external_memory_host;
+    uint8_t amd_buffer_marker;
+    uint8_t ext_calibrated_timestamps;
+    uint8_t nv_mesh_shader;
+    uint8_t nv_scissor_exclusive;
+    uint8_t nv_device_diagnostic_checkpoints;
+    uint8_t intel_performance_query;
+    uint8_t amd_display_native_hdr;
+    uint8_t ext_buffer_device_address;
+    uint8_t ext_tooling_info;
+    uint8_t nv_cooperative_matrix;
+    uint8_t nv_coverage_reduction_mode;
+    uint8_t ext_full_screen_exclusive;
+    uint8_t ext_line_rasterization;
+    uint8_t ext_host_query_reset;
+    uint8_t ext_extended_dynamic_state;
+    uint8_t ext_host_image_copy;
+    uint8_t ext_swapchain_maintenance1;
+    uint8_t nv_device_generated_commands;
+    uint8_t ext_depth_bias_control;
+    uint8_t ext_private_data;
+    uint8_t nv_cuda_kernel_launch;
+    uint8_t ext_metal_objects;
+    uint8_t ext_descriptor_buffer;
+    uint8_t nv_fragment_shading_rate_enums;
+    uint8_t ext_device_fault;
+    uint8_t nv_acquire_winrt_display;
+    uint8_t ext_vertex_input_dynamic_state;
+    uint8_t fuchsia_external_memory;
+    uint8_t fuchsia_external_semaphore;
+    uint8_t fuchsia_buffer_collection;
+    uint8_t huawei_subpass_shading;
+    uint8_t huawei_invocation_mask;
+    uint8_t nv_external_memory_rdma;
+    uint8_t ext_pipeline_properties;
+    uint8_t ext_extended_dynamic_state2;
+    uint8_t ext_color_write_enable;
+    uint8_t ext_multi_draw;
+    uint8_t ext_opacity_micromap;
+    uint8_t huawei_cluster_culling_shader;
+    uint8_t ext_pageable_device_local_memory;
+    uint8_t valve_descriptor_set_host_mapping;
+    uint8_t nv_copy_memory_indirect;
+    uint8_t nv_memory_decompression;
+    uint8_t nv_device_generated_commands_compute;
+    uint8_t ext_extended_dynamic_state3;
+    uint8_t ext_shader_module_identifier;
+    uint8_t nv_optical_flow;
+    uint8_t ext_shader_object;
+    uint8_t qcom_tile_properties;
+    uint8_t nv_low_latency2;
+    uint8_t ext_attachment_feedback_loop_dynamic_state;
+    uint8_t qnx_external_memory_screen_buffer;
+    uint8_t khr_acceleration_structure;
+    uint8_t khr_ray_tracing_pipeline;
+    uint8_t ext_mesh_shader;
 };
 
 // Functions that required a terminator need to have a separate dispatch table which contains their corresponding

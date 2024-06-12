@@ -1287,6 +1287,74 @@ out:
     return res;
 }
 
+VkResult loader_populate_available_device_extensions_in_all_drivers(struct loader_instance *inst) {
+    VkResult res = VK_SUCCESS;
+    uint32_t physical_device_count = 0;
+    VkPhysicalDevice *physical_devices = NULL;
+    VkExtensionProperties *scratch_extension_properties = NULL;
+
+    // Get the physical devices present - this whole function mimics the behavior of the vkEnumeratePhysicalDevices trampoline
+    // function
+    res = inst->disp->layer_inst_disp.EnumeratePhysicalDevices(inst->instance, &physical_device_count, NULL);
+    if (VK_SUCCESS != res) {
+        goto out;
+    }
+    physical_devices = loader_stack_alloc(sizeof(VkPhysicalDevice) * physical_device_count);
+    if (NULL == physical_devices) {
+        res = VK_ERROR_OUT_OF_HOST_MEMORY;
+        goto out;
+    }
+
+    res = inst->disp->layer_inst_disp.EnumeratePhysicalDevices(inst->instance, &physical_device_count, physical_devices);
+    if (VK_SUCCESS != res) {
+        goto out;
+    }
+
+    // In case a layer added a physical device, we need to wrap it.
+    res = setup_loader_tramp_phys_devs(inst, physical_device_count, physical_devices);
+    if (VK_SUCCESS != res) {
+        goto out;
+    }
+
+    // For each physical device, get the list of device extensions and update the loader_instance struct with available extensions
+    for (uint32_t i = 0; i < physical_device_count; i++) {
+        // Must unwrap the physical device handle before calling down
+        struct loader_physical_device_tramp *phys_dev = (struct loader_physical_device_tramp *)physical_devices[i];
+
+        uint32_t extension_count = 0;
+        res = inst->disp->layer_inst_disp.EnumerateDeviceExtensionProperties(phys_dev->phys_dev, NULL, &extension_count, NULL);
+        if (res != VK_SUCCESS) {
+            goto out;
+        }
+        if (extension_count == 0) {
+            continue;
+        }
+
+        scratch_extension_properties = loader_stack_alloc(extension_count * sizeof(VkExtensionProperties));
+        if (!scratch_extension_properties) {
+            res = VK_ERROR_OUT_OF_HOST_MEMORY;
+            goto out;
+        }
+
+        res = inst->disp->layer_inst_disp.EnumerateDeviceExtensionProperties(phys_dev->phys_dev, NULL, &extension_count,
+                                                                             scratch_extension_properties);
+        if (res != VK_SUCCESS) {
+            return res;
+        }
+
+        populate_available_device_extensions(inst, extension_count, scratch_extension_properties);
+    }
+
+out:
+    if (res != VK_SUCCESS) {
+        // Failed to enumerate physical devices, enumerate device extensions, or allocate stack memory.
+        // Fall back to assuming all device functions are 'available'
+        memset(&(inst->available_device_extensions), 1, sizeof(struct loader_device_extension_enables));
+    }
+
+    return res;
+}
+
 struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev) {
     VkLayerDispatchTable *dispatch_table_device = loader_get_dispatch(device);
     if (NULL == dispatch_table_device) {
@@ -4113,36 +4181,44 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL loader_gpa_instance_terminator(VkInstan
     // These functions need a terminator to handle the case of a driver not supporting VK_EXT_debug_utils when there are layers
     // present which not check for NULL before calling the function.
     if (!strcmp(pName, "vkSetDebugUtilsObjectNameEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_SetDebugUtilsObjectNameEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_SetDebugUtilsObjectNameEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkSetDebugUtilsObjectTagEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_SetDebugUtilsObjectTagEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_SetDebugUtilsObjectTagEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkQueueBeginDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_QueueBeginDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_QueueBeginDebugUtilsLabelEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkQueueEndDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_QueueEndDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_QueueEndDebugUtilsLabelEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkQueueInsertDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_QueueInsertDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_QueueInsertDebugUtilsLabelEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkCmdBeginDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_CmdBeginDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_CmdBeginDebugUtilsLabelEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkCmdEndDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_CmdEndDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_CmdEndDebugUtilsLabelEXT
+                   : NULL;
     }
     if (!strcmp(pName, "vkCmdInsertDebugUtilsLabelEXT")) {
-        return loader_inst->enabled_known_extensions.ext_debug_utils ? (PFN_vkVoidFunction)terminator_CmdInsertDebugUtilsLabelEXT
-                                                                     : NULL;
+        return loader_inst->enabled_known_instance_extensions.ext_debug_utils
+                   ? (PFN_vkVoidFunction)terminator_CmdInsertDebugUtilsLabelEXT
+                   : NULL;
     }
 
     if (loader_inst->instance_finished_creation) {
@@ -5629,7 +5705,7 @@ out:
         // trampoline.
         wsi_create_instance(ptr_instance, pCreateInfo);
         check_for_enabled_debug_extensions(ptr_instance, pCreateInfo);
-        extensions_create_instance(ptr_instance, pCreateInfo);
+        populate_enabled_instance_extensions(ptr_instance, pCreateInfo);
     }
 
     return res;
@@ -5787,7 +5863,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
     // Before we continue, If KHX_device_group is the list of enabled and viable extensions, then we then need to look for the
     // corresponding VkDeviceGroupDeviceCreateInfo struct in the device list and replace all the physical device values (which
     // are really loader physical device terminator values) with the ICD versions.
-    // if (icd_term->this_instance->enabled_known_extensions.khr_device_group_creation == 1) {
+    // if (icd_term->this_instance->enabled_known_instance_extensions.khr_device_group_creation == 1) {
     {
         VkBaseOutStructure *pNext = (VkBaseOutStructure *)localCreateInfo.pNext;
         VkBaseOutStructure *pPrev = (VkBaseOutStructure *)&localCreateInfo;
@@ -5850,7 +5926,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
                                    icd_term->scanned_icd->lib_name);
 
                         // Verify that VK_KHR_get_physical_device_properties2 is enabled
-                        if (icd_term->this_instance->enabled_known_extensions.khr_get_physical_device_properties2) {
+                        if (icd_term->this_instance->enabled_known_instance_extensions.khr_get_physical_device_properties2) {
                             localCreateInfo.pEnabledFeatures = &features->features;
                         }
                     }
@@ -5941,8 +6017,8 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
             dev->should_ignore_device_commands_from_newer_version = true;
         }
     }
-    dev->layer_extensions.ext_debug_utils_enabled = icd_term->this_instance->enabled_known_extensions.ext_debug_utils;
-    dev->driver_extensions.ext_debug_utils_enabled = icd_term->this_instance->enabled_known_extensions.ext_debug_utils;
+    dev->layer_extensions.ext_debug_utils_enabled = icd_term->this_instance->enabled_known_instance_extensions.ext_debug_utils;
+    dev->driver_extensions.ext_debug_utils_enabled = icd_term->this_instance->enabled_known_instance_extensions.ext_debug_utils;
 
     VkPhysicalDeviceProperties properties;
     icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev_term->phys_dev, &properties);
@@ -7029,7 +7105,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroups(
         cur_icd_group_count = 0;
 
         // Get the function pointer to use to call into the ICD. This could be the core or KHR version
-        if (inst->enabled_known_extensions.khr_device_group_creation) {
+        if (inst->enabled_known_instance_extensions.khr_device_group_creation) {
             fpEnumeratePhysicalDeviceGroups = icd_term->dispatch.EnumeratePhysicalDeviceGroupsKHR;
         } else {
             fpEnumeratePhysicalDeviceGroups = icd_term->dispatch.EnumeratePhysicalDeviceGroups;
@@ -7101,7 +7177,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroups(
             uint32_t count_this_time = total_count - cur_icd_group_count;
 
             // Get the function pointer to use to call into the ICD. This could be the core or KHR version
-            if (inst->enabled_known_extensions.khr_device_group_creation) {
+            if (inst->enabled_known_instance_extensions.khr_device_group_creation) {
                 fpEnumeratePhysicalDeviceGroups = icd_term->dispatch.EnumeratePhysicalDeviceGroupsKHR;
             } else {
                 fpEnumeratePhysicalDeviceGroups = icd_term->dispatch.EnumeratePhysicalDeviceGroups;

@@ -1163,14 +1163,22 @@ VKAPI_ATTR void VKAPI_CALL test_vkCmdSetSampleLocationsEXT(VkCommandBuffer, cons
 VKAPI_ATTR void VKAPI_CALL test_vkGetPhysicalDeviceMultisamplePropertiesEXT(VkPhysicalDevice, VkSampleCountFlagBits,
                                                                             VkMultisamplePropertiesEXT*) {}
 // Entry-points associated with the VK_EXT_calibrated_timestamps extension
-VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT(VkPhysicalDevice, uint32_t*, VkTimeDomainEXT*) {
+VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT(VkPhysicalDevice, uint32_t*, VkTimeDomainKHR*) {
     return VK_SUCCESS;
 }
 VKAPI_ATTR VkResult VKAPI_CALL test_vkGetCalibratedTimestampsEXT(VkDevice, uint32_t, const VkCalibratedTimestampInfoEXT*, uint64_t*,
                                                                  uint64_t*) {
     return VK_SUCCESS;
 }
+// Entry-points associated with the VK_KHR_calibrated_timestamps extension
 
+VKAPI_ATTR VkResult VKAPI_CALL test_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR(VkPhysicalDevice, uint32_t*, VkTimeDomainKHR*) {
+    return VK_SUCCESS;
+}
+VKAPI_ATTR VkResult VKAPI_CALL test_vkGetCalibratedTimestampsKHR(VkDevice, uint32_t, const VkCalibratedTimestampInfoKHR*, uint64_t*,
+                                                                 uint64_t*) {
+    return VK_SUCCESS;
+}
 #if defined(WIN32)
 VKAPI_ATTR VkResult VKAPI_CALL test_vk_icdEnumerateAdapterPhysicalDevices(VkInstance instance, LUID adapterLUID,
                                                                           uint32_t* pPhysicalDeviceCount,
@@ -1457,6 +1465,11 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL get_physical_device_func([[maybe_unused
         if (string_eq(pName, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"))
             return to_vkVoidFunction(test_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT);
         if (string_eq(pName, "vkGetCalibratedTimestampsEXT")) return to_vkVoidFunction(test_vkGetCalibratedTimestampsEXT);
+    }
+    if (IsPhysicalDeviceExtensionAvailable(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME)) {
+        if (string_eq(pName, "vkGetPhysicalDeviceCalibrateableTimeDomainsKHR"))
+            return to_vkVoidFunction(test_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR);
+        if (string_eq(pName, "vkGetCalibratedTimestampsKHR")) return to_vkVoidFunction(test_vkGetCalibratedTimestampsKHR);
     }
 
     if (icd.icd_api_version >= VK_MAKE_API_VERSION(0, 1, 1, 0)) {

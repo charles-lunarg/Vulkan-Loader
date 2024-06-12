@@ -178,6 +178,80 @@ TEST(GetProcAddr, GlobalFunctions) {
     }
 }
 
+TEST(vkGetPhysicalDeviceCalibrateableTimeDomains, NoFuncsAvailable) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA)).add_physical_device({"physical_device_0"});
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.CheckCreate();
+
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR pfn_khr = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsKHR");
+    handle_assert_null(pfn_khr);
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT pfn_ext = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    handle_assert_null(pfn_ext);
+
+    auto physical_device = inst.GetPhysDev();
+    ASSERT_DEATH(pfn_khr(physical_device, nullptr, nullptr), "");
+    ASSERT_DEATH(pfn_ext(physical_device, nullptr, nullptr), "");
+}
+
+TEST(vkGetPhysicalDeviceCalibrateableTimeDomains, KHRAvailable) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA))
+        .add_physical_device(PhysicalDevice{"physical_device_1"}.add_extension("VK_KHR_calibrated_timestamps").finish());
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.CheckCreate();
+
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR pfn_khr = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsKHR");
+    handle_assert_has_value(pfn_khr);
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT pfn_ext = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    handle_assert_null(pfn_ext);
+
+    auto physical_device = inst.GetPhysDev();
+    pfn_khr(physical_device, nullptr, nullptr);
+    ASSERT_DEATH(pfn_ext(physical_device, nullptr, nullptr), "");
+}
+
+TEST(vkGetPhysicalDeviceCalibrateableTimeDomains, EXTAvailable) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA))
+        .add_physical_device(PhysicalDevice{"physical_device_1"}.add_extension("VK_EXT_calibrated_timestamps").finish());
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.CheckCreate();
+
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR pfn_khr = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsKHR");
+    handle_assert_null(pfn_khr);
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT pfn_ext = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    handle_assert_has_value(pfn_ext);
+
+    auto physical_device = inst.GetPhysDev();
+    ASSERT_DEATH(pfn_khr(physical_device, nullptr, nullptr), "");
+    pfn_ext(physical_device, nullptr, nullptr);
+}
+
+TEST(vkGetPhysicalDeviceCalibrateableTimeDomains, AllAvailable) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA))
+        .add_physical_device(PhysicalDevice{"physical_device_3"}
+                                 .add_extension("VK_KHR_calibrated_timestamps")
+                                 .add_extension("VK_EXT_calibrated_timestamps")
+                                 .finish());
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.CheckCreate();
+
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR pfn_khr = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsKHR");
+    handle_assert_has_value(pfn_khr);
+    PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT pfn_ext = inst.load("vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    handle_assert_has_value(pfn_ext);
+
+    auto physical_device = inst.GetPhysDev();
+    pfn_khr(physical_device, nullptr, nullptr);
+    pfn_ext(physical_device, nullptr, nullptr);
+}
+
 TEST(GetProcAddr, Verify10FunctionsFailToLoadWithSingleDriver) {
     FrameworkEnvironment env{};
     env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2)).add_physical_device({}).set_can_query_GetPhysicalDeviceFuncs(false);
