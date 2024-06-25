@@ -166,6 +166,7 @@ VkResult loader_scan_for_implicit_layers(struct loader_instance *inst, struct lo
                                          const struct loader_envvar_all_filters *layer_filters);
 VkResult loader_get_icd_loader_instance_extensions(const struct loader_instance *inst, struct loader_icd_tramp_list *icd_tramp_list,
                                                    struct loader_extension_list *inst_exts);
+bool loader_check_if_device_extension_is_available(const struct loader_instance *inst, const char *pName);
 struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev);
 struct loader_instance *loader_get_instance(const VkInstance instance);
 struct loader_device *loader_create_logical_device(const struct loader_instance *inst, const VkAllocationCallbacks *pAllocator);

@@ -1437,7 +1437,6 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
     #
     # Create a function for the extension GPA call
     def InstExtensionGPA(self):
-        entries = []
         gpa_func = ''
         cur_extension_name = ''
 
@@ -1474,7 +1473,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
             else:
                 gpa_func += '    if (!strcmp("%s", name)) {\n' % (cur_cmd.name)
                 gpa_func += '        *addr = (void *)%s;\n' % (base_name)
-                gpa_func += '        return true;\n'
+                gpa_func += '        return loader_check_if_device_extension_is_available(ptr_instance, name);\n'
                 gpa_func += '    }\n'
 
             if cur_cmd.protect is not None:

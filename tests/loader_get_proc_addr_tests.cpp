@@ -312,6 +312,33 @@ TEST(GetProcAddr, PreserveLayerGettingVkCreateDeviceWithNullInstance) {
     dev.CheckCreate(phys_dev);
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL test_impl_vkGetPhysicalDeviceVideoCapabilitiesKHR(
+    [[maybe_unused]] VkPhysicalDevice physicalDevice, [[maybe_unused]] const VkVideoProfileInfoKHR* pVideoProfile,
+    [[maybe_unused]] VkVideoCapabilitiesKHR* pCapabilities) {
+    return VK_SUCCESS;
+}
+
+TEST(GetProcAddr, OnlyQueryAvailableDeviceExtensions) {
+    FrameworkEnvironment env{};
+    env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2_EXPORT_ICD_GPDPA)).add_physical_device("physical_device_0");
+    env.get_test_icd()
+        .physical_devices.back()
+        .add_extension("VK_KHR_video_queue")
+        .add_custom_physical_device_function(VulkanFunction{"vkGetPhysicalDeviceVideoCapabilitiesKHR",
+                                                            to_vkVoidFunction(test_impl_vkGetPhysicalDeviceVideoCapabilitiesKHR)});
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.create_info.set_api_version(VK_API_VERSION_1_1);
+    inst.CheckCreate();
+
+    PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR null_GetPhysicalDeviceVideoCapabilitiesKHR =
+        inst.load("vkGetPhysicalDeviceVideoCapabilitiesKHR");
+    handle_assert_has_value(null_GetPhysicalDeviceVideoCapabilitiesKHR);
+
+    PFN_vkCmdBeginRenderingKHR null_CmdBeginRenderingKHR = inst.load("vkCmdBeginRenderingKHR");
+    handle_assert_null(null_CmdBeginRenderingKHR);
+}
+
 // The following tests - AppQueries11FunctionsWhileOnlyEnabling10, AppQueries12FunctionsWhileOnlyEnabling11, and
 // AppQueries13FunctionsWhileOnlyEnabling12 - check that vkGetDeviceProcAddr only returning functions from core versions up to
 // the apiVersion declared in VkApplicationInfo. Function querying should succeed if VK_KHR_maintenance_5 is not enabled, and they

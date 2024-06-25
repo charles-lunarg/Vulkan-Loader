@@ -1287,6 +1287,11 @@ out:
     return res;
 }
 
+// Call down the chain and see if any drivers or layers return non-NULL, indicating that the function is available.
+bool loader_check_if_device_extension_is_available(const struct loader_instance *inst, const char *pName) {
+    return inst->disp->layer_inst_disp.GetInstanceProcAddr(inst->instance, pName);
+}
+
 struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev) {
     VkLayerDispatchTable *dispatch_table_device = loader_get_dispatch(device);
     if (NULL == dispatch_table_device) {
