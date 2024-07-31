@@ -69,7 +69,7 @@
 vkPhysDevExtTramp\num:
     BTI_C
     ldr     x9, [x0]                                                 // Load the loader_instance_dispatch_table* into x9
-    ldr     x0, [x0, PHYS_DEV_OFFSET_PHYS_DEV_TRAMP]                 // Load the unwrapped VkPhysicalDevice into x0
+    ldr     x0, [x0, PHYS_DEV_OFFSET_PHYS_DEV]                 // Load the unwrapped VkPhysicalDevice into x0
     mov     x10, (PHYS_DEV_OFFSET_INST_DISPATCH + (PTR_SIZE * \num)) // Put the offset of the entry in the dispatch table for the function
     ldr     x16, [x9, x10]                                           // Load the address to branch to out of the dispatch table
     br      x16                                                      // Branch to the next member of the dispatch chain
@@ -84,11 +84,11 @@ vkPhysDevExtTramp\num:
 .balign 4
 vkPhysDevExtTermin\num:
     BTI_C
-    ldr     x9, [x0, ICD_TERM_OFFSET_PHYS_DEV_TERM]             // Load the loader_icd_term* in x9
+    ldr     x9, [x0, ICD_TERM_OFFSET_PHYS_DEV]             // Load the loader_icd_term* in x9
     mov     x11, (DISPATCH_OFFSET_ICD_TERM + (PTR_SIZE * \num)) // Put the offset into the dispatch table in x11
     ldr     x16, [x9, x11]                                      // Load the address of the next function in the dispatch chain
     cbz     x16, terminError\num                                // Go to the error section if the next function in the chain is NULL
-    ldr     x0, [x0, PHYS_DEV_OFFSET_PHYS_DEV_TERM]             // Unwrap the VkPhysicalDevice in x0
+    ldr     x0, [x0, PHYS_DEV_OFFSET_PHYS_DEV]             // Unwrap the VkPhysicalDevice in x0
     br      x16                                           // Jump to the next function in the chain
 terminError\num:
     BTI_J
@@ -129,7 +129,7 @@ vkdev_ext\num:
 vkPhysDevExtTrampDispatchEntry\num: .word PHYS_DEV_OFFSET_INST_DISPATCH + (PTR_SIZE * \num)
 vkPhysDevExtTramp\num:
     ldr     r4, [r0]                                                 // Load the loader_instance_dispatch_table* into r4
-    ldr     r0, [r0, #PHYS_DEV_OFFSET_PHYS_DEV_TRAMP]                 // Load the unwrapped VkPhysicalDevice into r0
+    ldr     r0, [r0, #PHYS_DEV_OFFSET_PHYS_DEV]                 // Load the unwrapped VkPhysicalDevice into r0
     ldr     r5, vkPhysDevExtTrampDispatchEntry\num // Put the offset of the entry in the dispatch table for the function
     ldr     r6, [r4, r5]                                           // Load the address to branch to out of the dispatch table
     bx      r6                                                      // Branch to the next member of the dispatch chain
@@ -145,12 +145,12 @@ vkPhysDevExtTramp\num:
 vkPhysDevExtTerminDispatchEntry\num: .word DISPATCH_OFFSET_ICD_TERM + (PTR_SIZE * \num)
 vkPhysDevExtTerminFunctionNameEntry\num: .word FUNCTION_OFFSET_INSTANCE + (CHAR_PTR_SIZE * \num)
 vkPhysDevExtTermin\num:
-    ldr     r4, [r0, #ICD_TERM_OFFSET_PHYS_DEV_TERM] // Load the loader_icd_term* in r4
+    ldr     r4, [r0, #ICD_TERM_OFFSET_PHYS_DEV] // Load the loader_icd_term* in r4
     ldr     r6, vkPhysDevExtTerminDispatchEntry\num // Put the offset into the dispatch table in r6
     ldr     r5, [r4, r6]                           // Load the address of the next function in the dispatch chain
     cmp     r5, #0
     beq     terminError\num                          // Go to the error section if the next function in the chain is NULL
-    ldr     r0, [r0, #PHYS_DEV_OFFSET_PHYS_DEV_TERM] // Unwrap the VkPhysicalDevice in r0
+    ldr     r0, [r0, #PHYS_DEV_OFFSET_PHYS_DEV] // Unwrap the VkPhysicalDevice in r0
     bx      r5                                      // Jump to the next function in the chain
 terminError\num:
     ldr     r5, vkPhysDevExtTerminFunctionNameEntry\num // Offset of the function name string in the instance

@@ -952,7 +952,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                 tables += '    name += 2;\n'
                 tables += '    *found_name = true;\n'
                 tables += '    struct loader_device* dev = (struct loader_device *)table;\n'
-                tables += '    const struct loader_instance* inst = dev->phys_dev_term->this_icd_term->this_instance;\n'
+                tables += '    const struct loader_instance* inst = dev->phys_dev->this_icd_term->this_instance;\n'
                 tables += '    uint32_t api_version = VK_MAKE_API_VERSION(0, inst->app_api_version.major, inst->app_api_version.minor, inst->app_api_version.patch);\n'
                 tables += '\n'
             else:
@@ -1119,7 +1119,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                     phys_dev_var_name = param.name
                     always_use_param_name = False
                     physdev_type_to_replace = 'VkPhysicalDevice'
-                    physdev_name_replacement = 'phys_dev_term->phys_dev'
+                    physdev_name_replacement = 'phys_dev->phys_dev'
                 if param.type == 'VkInstance':
                     requires_terminator = 1
                     instance_var_name = param.name
@@ -1139,15 +1139,14 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                 funcs += tramp_header
 
                 if ext_cmd.handle_type == 'VkPhysicalDevice':
-                    funcs += '    const VkLayerInstanceDispatchTable *disp;\n'
-                    funcs += '    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(%s);\n' % (phys_dev_var_name)
-                    funcs += '    if (VK_NULL_HANDLE == unwrapped_phys_dev) {\n'
+                    funcs += '    struct loader_physical_device* phys_dev = loader_get_physical_device(%s);\n' % (phys_dev_var_name)
+                    funcs += '    if (VK_NULL_HANDLE == phys_dev) {\n'
                     funcs += '        loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,\n'
                     funcs += '                   "%s: Invalid %s "\n' % (ext_cmd.name, phys_dev_var_name)
                     funcs += '                   "[VUID-%s-%s-parameter]");\n' % (ext_cmd.name, phys_dev_var_name)
                     funcs += '        abort(); /* Intentionally fail so user can correct issue. */\n'
                     funcs += '    }\n'
-                    funcs += '    disp = loader_get_instance_layer_dispatch(%s);\n' % (phys_dev_var_name)
+                    funcs += '    const VkLayerInstanceDispatchTable *disp = (const VkLayerInstanceDispatchTable *)(&phys_dev->this_instance->disp->layer_inst_disp);\n'
                 elif ext_cmd.handle_type == 'VkInstance':
                     funcs += '    struct loader_instance *inst = loader_get_instance(%s);\n' % (instance_var_name)
                     funcs += '    if (NULL == inst) {\n'
@@ -1172,49 +1171,50 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                     funcs += '    VkDebugMarkerObjectNameInfoEXT local_name_info;\n'
                     funcs += '    memcpy(&local_name_info, pNameInfo, sizeof(VkDebugMarkerObjectNameInfoEXT));\n'
                     funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
-                    funcs += '    if (pNameInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n'
-                    funcs += '        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pNameInfo->object;\n'
-                    funcs += '        local_name_info.object = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n'
-                    funcs += '    }\n'
                     funcs += '    if (pNameInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT) {\n'
                     funcs += '        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pNameInfo->object;\n'
                     funcs += '        local_name_info.object = (uint64_t)(uintptr_t)instance->instance;\n'
+                    funcs += '    }\n'
+                    funcs += '    else if (pNameInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n'
+                    funcs += '        struct loader_physical_device *phys_dev = loader_get_physical_device((VkPhysicalDevice)(uintptr_t)pNameInfo->object);\n'
+                    funcs += '        local_name_info.object = (uint64_t)(uintptr_t)phys_dev->wrapped_phys_dev;\n'
                     funcs += '    }\n'
                 elif 'DebugMarkerSetObjectTag' in ext_cmd.name:
                     funcs += '    VkDebugMarkerObjectTagInfoEXT local_tag_info;\n'
                     funcs += '    memcpy(&local_tag_info, pTagInfo, sizeof(VkDebugMarkerObjectTagInfoEXT));\n'
                     funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
-                    funcs += '    if (pTagInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n'
-                    funcs += '        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pTagInfo->object;\n'
-                    funcs += '        local_tag_info.object = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n'
-                    funcs += '    }\n'
                     funcs += '    if (pTagInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT) {\n'
                     funcs += '        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pTagInfo->object;\n'
                     funcs += '        local_tag_info.object = (uint64_t)(uintptr_t)instance->instance;\n'
+                    funcs += '    }\n'
+                    funcs += '    else if (pTagInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n'
+                    funcs += '        struct loader_physical_device *phys_dev = loader_get_physical_device((VkPhysicalDevice)(uintptr_t)pTagInfo->object);\n'
+                    funcs += '        local_tag_info.object = (uint64_t)(uintptr_t)phys_dev->wrapped_phys_dev;\n'
                     funcs += '    }\n'
                 elif 'SetDebugUtilsObjectName' in ext_cmd.name:
                     funcs += '    VkDebugUtilsObjectNameInfoEXT local_name_info;\n'
                     funcs += '    memcpy(&local_name_info, pNameInfo, sizeof(VkDebugUtilsObjectNameInfoEXT));\n'
                     funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
-                    funcs += '    if (pNameInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n'
-                    funcs += '        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pNameInfo->objectHandle;\n'
-                    funcs += '        local_name_info.objectHandle = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n'
-                    funcs += '    }\n'
                     funcs += '    if (pNameInfo->objectType == VK_OBJECT_TYPE_INSTANCE) {\n'
                     funcs += '        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pNameInfo->objectHandle;\n'
                     funcs += '        local_name_info.objectHandle = (uint64_t)(uintptr_t)instance->instance;\n'
+                    funcs += '    }\n'
+                    funcs += '    else if (pNameInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n'
+                    funcs += '        struct loader_physical_device *phys_dev = loader_get_physical_device((VkPhysicalDevice)(uintptr_t)pNameInfo->objectHandle);\n'
+                    funcs += '        local_name_info.objectHandle = (uint64_t)(uintptr_t)phys_dev->wrapped_phys_dev;\n'
                     funcs += '    }\n'
                 elif 'SetDebugUtilsObjectTag' in ext_cmd.name:
                     funcs += '    VkDebugUtilsObjectTagInfoEXT local_tag_info;\n'
                     funcs += '    memcpy(&local_tag_info, pTagInfo, sizeof(VkDebugUtilsObjectTagInfoEXT));\n'
                     funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
-                    funcs += '    if (pTagInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n'
-                    funcs += '        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pTagInfo->objectHandle;\n'
-                    funcs += '        local_tag_info.objectHandle = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n'
-                    funcs += '    }\n'
                     funcs += '    if (pTagInfo->objectType == VK_OBJECT_TYPE_INSTANCE) {\n'
                     funcs += '        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pTagInfo->objectHandle;\n'
                     funcs += '        local_tag_info.objectHandle = (uint64_t)(uintptr_t)instance->instance;\n'
+                    funcs += '    }\n'
+                    funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
+                    funcs += '    else if (pTagInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n'
+                    funcs += '        struct loader_physical_device *phys_dev = loader_get_physical_device((VkPhysicalDevice)(uintptr_t)pTagInfo->objectHandle);\n'
+                    funcs += '        local_tag_info.objectHandle = (uint64_t)(uintptr_t)phys_dev->wrapped_phys_dev;\n'
                     funcs += '    }\n'
 
                 if ext_cmd.ext_name in NULL_CHECK_EXT_NAMES:
@@ -1232,7 +1232,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                         funcs += ', '
 
                     if param.type == 'VkPhysicalDevice':
-                        funcs += 'unwrapped_phys_dev'
+                        funcs += 'phys_dev->wrapped_phys_dev'
                     elif ('DebugMarkerSetObject' in ext_cmd.name or 'SetDebugUtilsObject' in ext_cmd.name) and param.name == 'pNameInfo':
                             funcs += '&local_name_info'
                     elif ('DebugMarkerSetObject' in ext_cmd.name or 'SetDebugUtilsObject' in ext_cmd.name) and param.name == 'pTagInfo':
@@ -1251,8 +1251,8 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
 
                 funcs += term_header
                 if ext_cmd.handle_type == 'VkPhysicalDevice':
-                    funcs += '    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)%s;\n' % (phys_dev_var_name)
-                    funcs += '    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;\n'
+                    funcs += '    struct loader_physical_device *phys_dev = loader_get_physical_device(%s);\n' % (phys_dev_var_name)
+                    funcs += '    struct loader_icd_term *icd_term = phys_dev->this_icd_term;\n'
                     funcs += '    if (NULL == icd_term->dispatch.'
                     funcs += base_name
                     funcs += ') {\n'
@@ -1312,7 +1312,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                             funcs += ', '
 
                         if param.type == 'VkPhysicalDevice':
-                            funcs += 'phys_dev_term->phys_dev'
+                            funcs += 'phys_dev->phys_dev'
                         else:
                             funcs += param.name
 
@@ -1336,7 +1336,6 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                         debug_struct_name = ext_cmd.params[1].name
                         local_struct = 'local_name_info' if 'ObjectName' in ext_cmd.name else 'local_tag_info'
                         member_name = 'objectHandle' if is_debug_utils else 'object'
-                        phys_dev_check = 'VK_OBJECT_TYPE_PHYSICAL_DEVICE' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT'
                         surf_check = 'VK_OBJECT_TYPE_SURFACE_KHR' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT'
                         inst_check = 'VK_OBJECT_TYPE_INSTANCE' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT'
                         funcs += '    struct loader_device *dev;\n'
@@ -1347,12 +1346,8 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                         funcs += '    }\n'
                         funcs += f'    { ext_cmd.params[1].type} {local_struct};\n'
                         funcs += f'    memcpy(&{local_struct}, {debug_struct_name}, sizeof({ ext_cmd.params[1].type}));\n'
-                        funcs += '    // If this is a physical device, we have to replace it with the proper one for the next call.\n'
-                        funcs += f'    if ({debug_struct_name}->objectType == {phys_dev_check}) {{\n'
-                        funcs += f'        struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)(uintptr_t){debug_struct_name}->{member_name};\n'
-                        funcs += f'        {local_struct}.{member_name} = (uint64_t)(uintptr_t)phys_dev_term->phys_dev;\n'
                         funcs += '    // If this is a KHR_surface, and the ICD has created its own, we have to replace it with the proper one for the next call.\n'
-                        funcs += f'    }} else if ({debug_struct_name}->objectType == {surf_check}) {{\n'
+                        funcs += f'    if ({debug_struct_name}->objectType == {surf_check}) {{\n'
                         funcs += '        if (NULL != dev && NULL != dev->loader_dispatch.core_dispatch.CreateSwapchainKHR) {\n'
                         funcs += f'            VkIcdSurface *icd_surface = (VkIcdSurface *)(uintptr_t){debug_struct_name}->{member_name};\n'
                         funcs += '            if (NULL != icd_term->surface_list.list && icd_term->surface_list.capacity > icd_surface->surface_index * sizeof(VkSurfaceKHR)\n'
@@ -1387,7 +1382,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
                             funcs += ', '
 
                         if param.type == 'VkPhysicalDevice':
-                            funcs += 'phys_dev_term->phys_dev'
+                            funcs += 'phys_dev->phys_dev'
                         elif param.type == 'VkSurfaceKHR':
                             funcs += 'icd_term->surface_list[icd_surface->surface_index]'
                         elif ('DebugMarkerSetObject' in ext_cmd.name or 'SetDebugUtilsObject' in ext_cmd.name) and param.name == 'pNameInfo':
@@ -1655,7 +1650,7 @@ class LoaderExtensionOutputGenerator(OutputGenerator):
         term_func += '// device function. This is used in the terminators themselves.\n'
         term_func += 'void init_extension_device_proc_terminator_dispatch(struct loader_device *dev) {\n'
         term_func += '    struct loader_device_terminator_dispatch* dispatch = &dev->loader_dispatch.extension_terminator_dispatch;\n'
-        term_func += '    PFN_vkGetDeviceProcAddr gpda = (PFN_vkGetDeviceProcAddr)dev->phys_dev_term->this_icd_term->dispatch.GetDeviceProcAddr;\n'
+        term_func += '    PFN_vkGetDeviceProcAddr gpda = (PFN_vkGetDeviceProcAddr)dev->phys_dev->this_icd_term->dispatch.GetDeviceProcAddr;\n'
         last_protect = None
         last_ext = None
         for ext_cmd in self.ext_commands:

@@ -35,49 +35,6 @@
 // Declare the once_init variable
 LOADER_PLATFORM_THREAD_ONCE_EXTERN_DEFINITION(once_init)
 
-static inline VkPhysicalDevice loader_unwrap_physical_device(VkPhysicalDevice physicalDevice) {
-    struct loader_physical_device_tramp *phys_dev = (struct loader_physical_device_tramp *)physicalDevice;
-    if (PHYS_TRAMP_MAGIC_NUMBER != phys_dev->magic) {
-        return VK_NULL_HANDLE;
-    }
-    return phys_dev->phys_dev;
-}
-
-static inline void loader_set_dispatch(void *obj, const void *data) { *((const void **)obj) = data; }
-
-static inline VkLayerDispatchTable *loader_get_dispatch(const void *obj) {
-    if (VK_NULL_HANDLE == obj) {
-        return NULL;
-    }
-    VkLayerDispatchTable *disp = *((VkLayerDispatchTable **)obj);
-    if (VK_NULL_HANDLE == disp || DEVICE_DISP_TABLE_MAGIC_NUMBER != disp->magic) {
-        return NULL;
-    }
-    return disp;
-}
-
-static inline struct loader_dev_dispatch_table *loader_get_dev_dispatch(const void *obj) {
-    return *((struct loader_dev_dispatch_table **)obj);
-}
-
-static inline VkLayerInstanceDispatchTable *loader_get_instance_layer_dispatch(const void *obj) {
-    return *((VkLayerInstanceDispatchTable **)obj);
-}
-
-static inline struct loader_instance_dispatch_table *loader_get_instance_dispatch(const void *obj) {
-    return *((struct loader_instance_dispatch_table **)obj);
-}
-
-static inline void loader_init_dispatch(void *obj, const void *data) {
-#if defined(DEBUG)
-    assert(valid_loader_magic_value(obj) &&
-           "Incompatible ICD, first dword must be initialized to "
-           "ICD_LOADER_MAGIC. See loader/README.md for details.");
-#endif
-
-    loader_set_dispatch(obj, data);
-}
-
 // Global variables used across files
 extern struct loader_struct loader;
 extern loader_platform_thread_mutex loader_lock;
@@ -170,8 +127,16 @@ VkResult loader_scan_for_implicit_layers(struct loader_instance *inst, struct lo
                                          const struct loader_envvar_all_filters *layer_filters);
 VkResult loader_get_icd_loader_instance_extensions(const struct loader_instance *inst, struct loader_icd_tramp_list *icd_tramp_list,
                                                    struct loader_extension_list *inst_exts);
-struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev);
+
+VkLayerDispatchTable *loader_get_dispatch(const void *obj);
+void loader_set_dispatch(void *obj, const void *data);
+void loader_set_and_check_dispatch(void *obj, const void *data);
 struct loader_instance *loader_get_instance(const VkInstance instance);
+VkLayerInstanceDispatchTable *loader_get_instance_layer_dispatch(const void *obj);
+struct loader_physical_device *loader_get_physical_device(VkPhysicalDevice physicalDevice);
+struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev);
+struct loader_dev_dispatch_table *loader_get_dev_dispatch(const void *obj);
+
 struct loader_device *loader_create_logical_device(const struct loader_instance *inst, const VkAllocationCallbacks *pAllocator);
 void loader_add_logical_device(struct loader_icd_term *icd_term, struct loader_device *found_dev);
 void loader_remove_logical_device(struct loader_icd_term *icd_term, struct loader_device *found_dev,

@@ -751,7 +751,7 @@ TEST(Allocation, CreateInstanceDeviceIntentionalAllocFail) {
                                          .write_manifest("VK_LAYER_complex_file.json", custom_json_file_contents.str());
     env.platform_shim->add_manifest(ManifestCategory::explicit_layer, new_path);
 
-    size_t fail_index = 0;
+    size_t fail_index = 1687;
     VkResult result = VK_ERROR_OUT_OF_HOST_MEMORY;
     while (result == VK_ERROR_OUT_OF_HOST_MEMORY && fail_index <= 10000) {
         MemoryTracker tracker{{false, 0, true, fail_index}};

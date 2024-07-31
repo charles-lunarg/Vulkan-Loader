@@ -219,7 +219,7 @@ struct loader_device {
     struct loader_dev_dispatch_table loader_dispatch;
     VkDevice chain_device;  // device object from the dispatch chain
     VkDevice icd_device;    // device object from the icd
-    struct loader_physical_device_term *phys_dev_term;
+    struct loader_physical_device *phys_dev;
 
     VkAllocationCallbacks alloc_callbacks;
 
@@ -306,10 +306,8 @@ struct loader_instance {
     // re-queries the information, we don't want to delete old data or
     // create new data unless necessary.
     uint32_t total_gpu_count;
-    uint32_t phys_dev_count_term;
-    struct loader_physical_device_term **phys_devs_term;
-    uint32_t phys_dev_count_tramp;
-    struct loader_physical_device_tramp **phys_devs_tramp;
+    uint32_t phys_dev_count;
+    struct loader_physical_device **phys_devs;
 
     // We also need to manually track physical device groups, but we don't need
     // loader specific structures since we have that content in the physical
@@ -430,22 +428,15 @@ struct loader_instance {
 // code that passes a VkPhysicalDevice should unwrap it.
 
 // Unique identifier for physical devices
-#define PHYS_TRAMP_MAGIC_NUMBER 0x10ADED020210ADEDUL
+#define PHYSICAL_DEVICE_MAGIC_NUMBER 0x10ADED020210ADEDUL
 
-// Per enumerated PhysicalDevice structure, used to wrap in trampoline code and
-// also same structure used to wrap in terminator code
-struct loader_physical_device_tramp {
+struct loader_physical_device {
     struct loader_instance_dispatch_table *disp;  // must be first entry in structure
+    uint64_t magic;                               // Should be PHYSICAL_DEVICE_MAGIC_NUMBER
     struct loader_instance *this_instance;
-    uint64_t magic;             // Should be PHYS_TRAMP_MAGIC_NUMBER
-    VkPhysicalDevice phys_dev;  // object from layers/loader terminator
-};
-
-// Per enumerated PhysicalDevice structure, used to wrap in terminator code
-struct loader_physical_device_term {
-    struct loader_instance_dispatch_table *disp;  // must be first entry in structure
     struct loader_icd_term *this_icd_term;
-    VkPhysicalDevice phys_dev;  // object from ICD
+    VkPhysicalDevice phys_dev;          // object from ICD
+    VkPhysicalDevice wrapped_phys_dev;  // object from top of layer chain - in case the handle is wrapp
 };
 
 #if defined(LOADER_ENABLE_LINUX_SORT)

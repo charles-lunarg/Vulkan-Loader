@@ -43,26 +43,24 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage,
     VkImageCreateFlags flags, VkExternalMemoryHandleTypeFlagsNV externalHandleType,
     VkExternalImageFormatPropertiesNV *pExternalImageFormatProperties) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkGetPhysicalDeviceExternalImageFormatPropertiesNV: Invalid physicalDevice "
                    "[VUID-vkGetPhysicalDeviceExternalImageFormatPropertiesNV-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
 
-    return disp->GetPhysicalDeviceExternalImageFormatPropertiesNV(unwrapped_phys_dev, format, type, tiling, usage, flags,
-                                                                  externalHandleType, pExternalImageFormatProperties);
+    return phys_dev->this_instance->disp->layer_inst_disp.GetPhysicalDeviceExternalImageFormatPropertiesNV(
+        phys_dev->wrapped_phys_dev, format, type, tiling, usage, flags, externalHandleType, pExternalImageFormatProperties);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage,
     VkImageCreateFlags flags, VkExternalMemoryHandleTypeFlagsNV externalHandleType,
     VkExternalImageFormatPropertiesNV *pExternalImageFormatProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     if (!icd_term->dispatch.GetPhysicalDeviceExternalImageFormatPropertiesNV) {
         if (externalHandleType) {
@@ -77,48 +75,47 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceExternalImageFormatPr
         pExternalImageFormatProperties->exportFromImportedHandleTypes = 0;
         pExternalImageFormatProperties->compatibleHandleTypes = 0;
 
-        return icd_term->dispatch.GetPhysicalDeviceImageFormatProperties(
-            phys_dev_term->phys_dev, format, type, tiling, usage, flags, &pExternalImageFormatProperties->imageFormatProperties);
+        return icd_term->dispatch.GetPhysicalDeviceImageFormatProperties(phys_dev->phys_dev, format, type, tiling, usage, flags,
+                                                                         &pExternalImageFormatProperties->imageFormatProperties);
     }
 
     return icd_term->dispatch.GetPhysicalDeviceExternalImageFormatPropertiesNV(
-        phys_dev_term->phys_dev, format, type, tiling, usage, flags, externalHandleType, pExternalImageFormatProperties);
+        phys_dev->phys_dev, format, type, tiling, usage, flags, externalHandleType, pExternalImageFormatProperties);
 }
 
 // ---- VK_EXT_display_surface_counter extension trampoline/terminators
 
 VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceSurfaceCapabilities2EXT(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                         VkSurfaceCapabilities2EXT *pSurfaceCapabilities) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkGetPhysicalDeviceExternalImageFormatPropertiesNV: Invalid physicalDevice "
                    "[VUID-vkGetPhysicalDeviceSurfaceCapabilities2EXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->GetPhysicalDeviceSurfaceCapabilities2EXT(unwrapped_phys_dev, surface, pSurfaceCapabilities);
+    return phys_dev->this_instance->disp->layer_inst_disp.GetPhysicalDeviceSurfaceCapabilities2EXT(phys_dev->wrapped_phys_dev,
+                                                                                                   surface, pSurfaceCapabilities);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceSurfaceCapabilities2EXT(
     VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilities2EXT *pSurfaceCapabilities) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     VkIcdSurface *icd_surface = (VkIcdSurface *)(uintptr_t)(surface);
 
     // Unwrap the surface if needed
     VkSurfaceKHR unwrapped_surface = surface;
-    if (NULL != phys_dev_term->this_icd_term->surface_list.list &&
-        phys_dev_term->this_icd_term->surface_list.capacity > icd_surface->surface_index * sizeof(VkSurfaceKHR) &&
-        phys_dev_term->this_icd_term->surface_list.list[icd_surface->surface_index]) {
-        unwrapped_surface = phys_dev_term->this_icd_term->surface_list.list[icd_surface->surface_index];
+    if (NULL != phys_dev->this_icd_term->surface_list.list &&
+        phys_dev->this_icd_term->surface_list.capacity > icd_surface->surface_index * sizeof(VkSurfaceKHR) &&
+        phys_dev->this_icd_term->surface_list.list[icd_surface->surface_index]) {
+        unwrapped_surface = phys_dev->this_icd_term->surface_list.list[icd_surface->surface_index];
     }
 
     if (NULL != icd_term->dispatch.GetPhysicalDeviceSurfaceCapabilities2EXT) {
         // Pass the call to the driver
-        return icd_term->dispatch.GetPhysicalDeviceSurfaceCapabilities2EXT(phys_dev_term->phys_dev, unwrapped_surface,
+        return icd_term->dispatch.GetPhysicalDeviceSurfaceCapabilities2EXT(phys_dev->phys_dev, unwrapped_surface,
                                                                            pSurfaceCapabilities);
     } else {
         // Emulate the call
@@ -129,7 +126,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceSurfaceCapabilities2E
 
         VkSurfaceCapabilitiesKHR surface_caps;
         VkResult res =
-            icd_term->dispatch.GetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev_term->phys_dev, unwrapped_surface, &surface_caps);
+            icd_term->dispatch.GetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev->phys_dev, unwrapped_surface, &surface_caps);
         pSurfaceCapabilities->minImageCount = surface_caps.minImageCount;
         pSurfaceCapabilities->maxImageCount = surface_caps.maxImageCount;
         pSurfaceCapabilities->currentExtent = surface_caps.currentExtent;
@@ -155,20 +152,18 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceSurfaceCapabilities2E
 // ---- VK_EXT_direct_mode_display extension trampoline/terminators
 
 VKAPI_ATTR VkResult VKAPI_CALL ReleaseDisplayEXT(VkPhysicalDevice physicalDevice, VkDisplayKHR display) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkReleaseDisplayEXT: Invalid physicalDevice [VUID-vkReleaseDisplayEXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->ReleaseDisplayEXT(unwrapped_phys_dev, display);
+    return phys_dev->this_instance->disp->layer_inst_disp.ReleaseDisplayEXT(phys_dev->wrapped_phys_dev, display);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_ReleaseDisplayEXT(VkPhysicalDevice physicalDevice, VkDisplayKHR display) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     if (icd_term->dispatch.ReleaseDisplayEXT == NULL) {
         loader_log(icd_term->this_instance, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT, 0,
@@ -177,32 +172,30 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_ReleaseDisplayEXT(VkPhysicalDevice phy
                    icd_term->scanned_icd->lib_name);
         abort();
     }
-    return icd_term->dispatch.ReleaseDisplayEXT(phys_dev_term->phys_dev, display);
+    return icd_term->dispatch.ReleaseDisplayEXT(phys_dev->phys_dev, display);
 }
 
 // ---- VK_EXT_acquire_xlib_display extension trampoline/terminators
 
 #if defined(VK_USE_PLATFORM_XLIB_XRANDR_EXT)
 VKAPI_ATTR VkResult VKAPI_CALL AcquireXlibDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, VkDisplayKHR display) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkAcquireXlibDisplayEXT: Invalid physicalDevice [VUID-vkAcquireXlibDisplayEXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->AcquireXlibDisplayEXT(unwrapped_phys_dev, dpy, display);
+    return phys_dev->this_instance->disp->layer_inst_disp.AcquireXlibDisplayEXT(phys_dev->wrapped_phys_dev, dpy, display);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_AcquireXlibDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy,
                                                                 VkDisplayKHR display) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     if (icd_term->dispatch.AcquireXlibDisplayEXT != NULL) {
         // Pass the call to the driver
-        return icd_term->dispatch.AcquireXlibDisplayEXT(phys_dev_term->phys_dev, dpy, display);
+        return icd_term->dispatch.AcquireXlibDisplayEXT(phys_dev->phys_dev, dpy, display);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -215,25 +208,24 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_AcquireXlibDisplayEXT(VkPhysicalDevice
 
 VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
                                                         VkDisplayKHR *pDisplay) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkGetRandROutputDisplayEXT: Invalid physicalDevice [VUID-vkGetRandROutputDisplayEXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->GetRandROutputDisplayEXT(unwrapped_phys_dev, dpy, rrOutput, pDisplay);
+    return phys_dev->this_instance->disp->layer_inst_disp.GetRandROutputDisplayEXT(phys_dev->wrapped_phys_dev, dpy, rrOutput,
+                                                                                   pDisplay);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
                                                                    VkDisplayKHR *pDisplay) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     if (icd_term->dispatch.GetRandROutputDisplayEXT != NULL) {
         // Pass the call to the driver
-        return icd_term->dispatch.GetRandROutputDisplayEXT(phys_dev_term->phys_dev, dpy, rrOutput, pDisplay);
+        return icd_term->dispatch.GetRandROutputDisplayEXT(phys_dev->phys_dev, dpy, rrOutput, pDisplay);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -253,23 +245,22 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceSurfacePresentModes2EXT(VkPhysic
                                                                         const VkPhysicalDeviceSurfaceInfo2KHR *pSurfaceInfo,
                                                                         uint32_t *pPresentModeCount,
                                                                         VkPresentModeKHR *pPresentModes) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkGetPhysicalDeviceSurfacePresentModes2EXT: Invalid physicalDevice "
                    "[VUID-vkGetPhysicalDeviceSurfacePresentModes2EXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->GetPhysicalDeviceSurfacePresentModes2EXT(unwrapped_phys_dev, pSurfaceInfo, pPresentModeCount, pPresentModes);
+    return phys_dev->this_instance->disp->layer_inst_disp.GetPhysicalDeviceSurfacePresentModes2EXT(
+        phys_dev->wrapped_phys_dev, pSurfaceInfo, pPresentModeCount, pPresentModes);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceSurfacePresentModes2EXT(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *pSurfaceInfo, uint32_t *pPresentModeCount,
     VkPresentModeKHR *pPresentModes) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL == icd_term->dispatch.GetPhysicalDeviceSurfacePresentModes2EXT) {
         loader_log(icd_term->this_instance, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT, 0,
                    "ICD associated with VkPhysicalDevice does not support GetPhysicalDeviceSurfacePresentModes2EXT");
@@ -283,10 +274,10 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceSurfacePresentModes2E
         surface_info_copy.sType = pSurfaceInfo->sType;
         surface_info_copy.pNext = pSurfaceInfo->pNext;
         surface_info_copy.surface = icd_term->surface_list.list[icd_surface->surface_index];
-        return icd_term->dispatch.GetPhysicalDeviceSurfacePresentModes2EXT(phys_dev_term->phys_dev, &surface_info_copy,
+        return icd_term->dispatch.GetPhysicalDeviceSurfacePresentModes2EXT(phys_dev->phys_dev, &surface_info_copy,
                                                                            pPresentModeCount, pPresentModes);
     }
-    return icd_term->dispatch.GetPhysicalDeviceSurfacePresentModes2EXT(phys_dev_term->phys_dev, pSurfaceInfo, pPresentModeCount,
+    return icd_term->dispatch.GetPhysicalDeviceSurfacePresentModes2EXT(phys_dev->phys_dev, pSurfaceInfo, pPresentModeCount,
                                                                        pPresentModes);
 }
 
@@ -342,22 +333,21 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetDeviceGroupSurfacePresentModes2EXT(
 
 VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceToolPropertiesEXT(VkPhysicalDevice physicalDevice, uint32_t *pToolCount,
                                                                   VkPhysicalDeviceToolPropertiesEXT *pToolProperties) {
-    const VkLayerInstanceDispatchTable *disp;
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
-    if (VK_NULL_HANDLE == unwrapped_phys_dev) {
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    if (VK_NULL_HANDLE == phys_dev) {
         loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
                    "vkGetPhysicalDeviceToolPropertiesEXT: Invalid physicalDevice "
                    "[VUID-vkGetPhysicalDeviceToolPropertiesEXT-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    disp = loader_get_instance_layer_dispatch(physicalDevice);
-    return disp->GetPhysicalDeviceToolPropertiesEXT(unwrapped_phys_dev, pToolCount, pToolProperties);
+    return phys_dev->this_instance->disp->layer_inst_disp.GetPhysicalDeviceToolPropertiesEXT(phys_dev->wrapped_phys_dev, pToolCount,
+                                                                                             pToolProperties);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolPropertiesEXT(VkPhysicalDevice physicalDevice, uint32_t *pToolCount,
                                                                              VkPhysicalDeviceToolPropertiesEXT *pToolProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     bool tooling_info_supported = false;
     uint32_t ext_count = 0;
@@ -365,7 +355,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolPropertiesEXT(VkP
     VkResult res = VK_SUCCESS;
     VkResult enumerate_res = VK_SUCCESS;
 
-    enumerate_res = icd_term->dispatch.EnumerateDeviceExtensionProperties(phys_dev_term->phys_dev, NULL, &ext_count, NULL);
+    enumerate_res = icd_term->dispatch.EnumerateDeviceExtensionProperties(phys_dev->phys_dev, NULL, &ext_count, NULL);
     if (enumerate_res != VK_SUCCESS) {
         goto out;
     }
@@ -377,7 +367,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolPropertiesEXT(VkP
         goto out;
     }
 
-    enumerate_res = icd_term->dispatch.EnumerateDeviceExtensionProperties(phys_dev_term->phys_dev, NULL, &ext_count, ext_props);
+    enumerate_res = icd_term->dispatch.EnumerateDeviceExtensionProperties(phys_dev->phys_dev, NULL, &ext_count, ext_props);
     if (enumerate_res != VK_SUCCESS) {
         goto out;
     }
@@ -390,7 +380,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolPropertiesEXT(VkP
     }
 
     if (tooling_info_supported && icd_term->dispatch.GetPhysicalDeviceToolPropertiesEXT) {
-        res = icd_term->dispatch.GetPhysicalDeviceToolPropertiesEXT(phys_dev_term->phys_dev, pToolCount, pToolProperties);
+        res = icd_term->dispatch.GetPhysicalDeviceToolPropertiesEXT(phys_dev->phys_dev, pToolCount, pToolProperties);
     }
 
 out:

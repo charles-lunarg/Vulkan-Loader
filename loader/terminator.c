@@ -40,47 +40,47 @@
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
                                                                   VkPhysicalDeviceProperties *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceProperties) {
-        icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev_term->phys_dev, pProperties);
+        icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev->phys_dev, pProperties);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice,
                                                                              uint32_t *pQueueFamilyPropertyCount,
                                                                              VkQueueFamilyProperties *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties) {
-        icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev_term->phys_dev, pQueueFamilyPropertyCount, pProperties);
+        icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev->phys_dev, pQueueFamilyPropertyCount, pProperties);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
                                                                         VkPhysicalDeviceMemoryProperties *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceMemoryProperties) {
-        icd_term->dispatch.GetPhysicalDeviceMemoryProperties(phys_dev_term->phys_dev, pProperties);
+        icd_term->dispatch.GetPhysicalDeviceMemoryProperties(phys_dev->phys_dev, pProperties);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
                                                                 VkPhysicalDeviceFeatures *pFeatures) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceFeatures) {
-        icd_term->dispatch.GetPhysicalDeviceFeatures(phys_dev_term->phys_dev, pFeatures);
+        icd_term->dispatch.GetPhysicalDeviceFeatures(phys_dev->phys_dev, pFeatures);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice, VkFormat format,
                                                                         VkFormatProperties *pFormatInfo) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceFormatProperties) {
-        icd_term->dispatch.GetPhysicalDeviceFormatProperties(phys_dev_term->phys_dev, format, pFormatInfo);
+        icd_term->dispatch.GetPhysicalDeviceFormatProperties(phys_dev->phys_dev, format, pFormatInfo);
     }
 }
 
@@ -88,15 +88,15 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceImageFormatProperties
                                                                                  VkImageType type, VkImageTiling tiling,
                                                                                  VkImageUsageFlags usage, VkImageCreateFlags flags,
                                                                                  VkImageFormatProperties *pImageFormatProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL == icd_term->dispatch.GetPhysicalDeviceImageFormatProperties) {
         loader_log(
             icd_term->this_instance, VULKAN_LOADER_ERROR_BIT, 0,
             "The icd's vkGetPhysicalDeviceImageFormatProperties was null, returning with VK_ERROR_INITIALIZATION_FAILED instead.");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
-    return icd_term->dispatch.GetPhysicalDeviceImageFormatProperties(phys_dev_term->phys_dev, format, type, tiling, usage, flags,
+    return icd_term->dispatch.GetPhysicalDeviceImageFormatProperties(phys_dev->phys_dev, format, type, tiling, usage, flags,
                                                                      pImageFormatProperties);
 }
 
@@ -105,11 +105,11 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
                                                                                    VkImageUsageFlags usage, VkImageTiling tiling,
                                                                                    uint32_t *pNumProperties,
                                                                                    VkSparseImageFormatProperties *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     if (NULL != icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties) {
-        icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties(phys_dev_term->phys_dev, format, type, samples, usage,
-                                                                        tiling, pNumProperties, pProperties);
+        icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties(phys_dev->phys_dev, format, type, samples, usage, tiling,
+                                                                        pNumProperties, pProperties);
     }
 }
 
@@ -117,8 +117,8 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumerateDeviceLayerProperties(VkPhysi
                                                                          VkLayerProperties *pProperties) {
     (void)pPropertyCount;
     (void)pProperties;
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     loader_log(icd_term->this_instance, VULKAN_LOADER_ERROR_BIT, 0,
                "Encountered the vkEnumerateDeviceLayerProperties terminator.  This means a layer improperly continued.");
     // Should never get here this call isn't dispatched down the chain
@@ -129,8 +129,8 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumerateDeviceLayerProperties(VkPhysi
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
                                                                  VkPhysicalDeviceFeatures2 *pFeatures) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -146,7 +146,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevic
 
     if (fpGetPhysicalDeviceFeatures2 != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceFeatures2(phys_dev_term->phys_dev, pFeatures);
+        fpGetPhysicalDeviceFeatures2(phys_dev->phys_dev, pFeatures);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -154,7 +154,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevic
                    icd_term->scanned_icd->lib_name);
 
         // Write to the VkPhysicalDeviceFeatures2 struct
-        icd_term->dispatch.GetPhysicalDeviceFeatures(phys_dev_term->phys_dev, &pFeatures->features);
+        icd_term->dispatch.GetPhysicalDeviceFeatures(phys_dev->phys_dev, &pFeatures->features);
 
         const VkBaseInStructure *pNext = pFeatures->pNext;
         while (pNext != NULL) {
@@ -185,8 +185,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevic
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
                                                                    VkPhysicalDeviceProperties2 *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -202,7 +202,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDev
 
     if (fpGetPhysicalDeviceProperties2 != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceProperties2(phys_dev_term->phys_dev, pProperties);
+        fpGetPhysicalDeviceProperties2(phys_dev->phys_dev, pProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -210,7 +210,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDev
                    icd_term->scanned_icd->lib_name);
 
         // Write to the VkPhysicalDeviceProperties2 struct
-        icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev_term->phys_dev, &pProperties->properties);
+        icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev->phys_dev, &pProperties->properties);
 
         const VkBaseInStructure *pNext = pProperties->pNext;
         while (pNext != NULL) {
@@ -248,8 +248,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2(VkPhysicalDev
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2(VkPhysicalDevice physicalDevice, VkFormat format,
                                                                          VkFormatProperties2 *pFormatProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -265,7 +265,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2(VkPhysi
 
     if (fpGetPhysicalDeviceFormatProperties2 != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceFormatProperties2(phys_dev_term->phys_dev, format, pFormatProperties);
+        fpGetPhysicalDeviceFormatProperties2(phys_dev->phys_dev, format, pFormatProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -273,7 +273,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2(VkPhysi
                    icd_term->scanned_icd->lib_name);
 
         // Write to the VkFormatProperties2 struct
-        icd_term->dispatch.GetPhysicalDeviceFormatProperties(phys_dev_term->phys_dev, format, &pFormatProperties->formatProperties);
+        icd_term->dispatch.GetPhysicalDeviceFormatProperties(phys_dev->phys_dev, format, &pFormatProperties->formatProperties);
 
         if (pFormatProperties->pNext != NULL) {
             loader_log(icd_term->this_instance, VULKAN_LOADER_WARN_BIT, 0,
@@ -286,8 +286,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2(VkPhysi
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceImageFormatProperties2(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
     VkImageFormatProperties2 *pImageFormatProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -303,7 +303,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceImageFormatProperties
 
     if (fpGetPhysicalDeviceImageFormatProperties2 != NULL) {
         // Pass the call to the driver
-        return fpGetPhysicalDeviceImageFormatProperties2(phys_dev_term->phys_dev, pImageFormatInfo, pImageFormatProperties);
+        return fpGetPhysicalDeviceImageFormatProperties2(phys_dev->phys_dev, pImageFormatInfo, pImageFormatProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -318,16 +318,16 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceImageFormatProperties
 
         // Write to the VkImageFormatProperties2KHR struct
         return icd_term->dispatch.GetPhysicalDeviceImageFormatProperties(
-            phys_dev_term->phys_dev, pImageFormatInfo->format, pImageFormatInfo->type, pImageFormatInfo->tiling,
-            pImageFormatInfo->usage, pImageFormatInfo->flags, &pImageFormatProperties->imageFormatProperties);
+            phys_dev->phys_dev, pImageFormatInfo->format, pImageFormatInfo->type, pImageFormatInfo->tiling, pImageFormatInfo->usage,
+            pImageFormatInfo->flags, &pImageFormatProperties->imageFormatProperties);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(VkPhysicalDevice physicalDevice,
                                                                               uint32_t *pQueueFamilyPropertyCount,
                                                                               VkQueueFamilyProperties2 *pQueueFamilyProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -343,7 +343,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(Vk
 
     if (fpGetPhysicalDeviceQueueFamilyProperties2 != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceQueueFamilyProperties2(phys_dev_term->phys_dev, pQueueFamilyPropertyCount, pQueueFamilyProperties);
+        fpGetPhysicalDeviceQueueFamilyProperties2(phys_dev->phys_dev, pQueueFamilyPropertyCount, pQueueFamilyProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -353,7 +353,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(Vk
 
         if (pQueueFamilyProperties == NULL || *pQueueFamilyPropertyCount == 0) {
             // Write to pQueueFamilyPropertyCount
-            icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev_term->phys_dev, pQueueFamilyPropertyCount, NULL);
+            icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev->phys_dev, pQueueFamilyPropertyCount, NULL);
         } else {
             // Allocate a temporary array for the output of the old function
             VkQueueFamilyProperties *properties = loader_stack_alloc(*pQueueFamilyPropertyCount * sizeof(VkQueueFamilyProperties));
@@ -365,8 +365,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(Vk
                 return;
             }
 
-            icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev_term->phys_dev, pQueueFamilyPropertyCount,
-                                                                      properties);
+            icd_term->dispatch.GetPhysicalDeviceQueueFamilyProperties(phys_dev->phys_dev, pQueueFamilyPropertyCount, properties);
             for (uint32_t i = 0; i < *pQueueFamilyPropertyCount; ++i) {
                 // Write to the VkQueueFamilyProperties2KHR struct
                 memcpy(&pQueueFamilyProperties[i].queueFamilyProperties, &properties[i], sizeof(VkQueueFamilyProperties));
@@ -384,8 +383,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceQueueFamilyProperties2(Vk
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2(VkPhysicalDevice physicalDevice,
                                                                          VkPhysicalDeviceMemoryProperties2 *pMemoryProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -401,15 +400,15 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2(VkPhysi
 
     if (fpGetPhysicalDeviceMemoryProperties2 != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceMemoryProperties2(phys_dev_term->phys_dev, pMemoryProperties);
+        fpGetPhysicalDeviceMemoryProperties2(phys_dev->phys_dev, pMemoryProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
                    "vkGetPhysicalDeviceMemoryProperties2: Emulating call in ICD \"%s\" using vkGetPhysicalDeviceMemoryProperties",
                    icd_term->scanned_icd->lib_name);
 
-        // Write to the VkPhysicalDeviceMemoryProperties2 struct
-        icd_term->dispatch.GetPhysicalDeviceMemoryProperties(phys_dev_term->phys_dev, &pMemoryProperties->memoryProperties);
+        // Write to the VkPhysicalDeviceMemoryProperties2 strphys_dev->phys_dev
+        icd_term->dispatch.GetPhysicalDeviceMemoryProperties(phys_dev->phys_dev, &pMemoryProperties->memoryProperties);
 
         if (pMemoryProperties->pNext != NULL) {
             loader_log(icd_term->this_instance, VULKAN_LOADER_WARN_BIT, 0,
@@ -422,8 +421,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2(VkPhysi
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperties2(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo, uint32_t *pPropertyCount,
     VkSparseImageFormatProperties2KHR *pProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -439,8 +438,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
     }
 
     if (fpGetPhysicalDeviceSparseImageFormatProperties2 != NULL) {
-        // Pass the call to the driver
-        fpGetPhysicalDeviceSparseImageFormatProperties2(phys_dev_term->phys_dev, pFormatInfo, pPropertyCount, pProperties);
+        // Pass the call to the driverphys_dev->phys_dev
+        fpGetPhysicalDeviceSparseImageFormatProperties2(phys_dev->phys_dev, pFormatInfo, pPropertyCount, pProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -457,7 +456,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
         if (pProperties == NULL || *pPropertyCount == 0) {
             // Write to pPropertyCount
             icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties(
-                phys_dev_term->phys_dev, pFormatInfo->format, pFormatInfo->type, pFormatInfo->samples, pFormatInfo->usage,
+                phys_dev->phys_dev, pFormatInfo->format, pFormatInfo->type, pFormatInfo->samples, pFormatInfo->usage,
                 pFormatInfo->tiling, pPropertyCount, NULL);
         } else {
             // Allocate a temporary array for the output of the old function
@@ -472,7 +471,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
             }
 
             icd_term->dispatch.GetPhysicalDeviceSparseImageFormatProperties(
-                phys_dev_term->phys_dev, pFormatInfo->format, pFormatInfo->type, pFormatInfo->samples, pFormatInfo->usage,
+                phys_dev->phys_dev, pFormatInfo->format, pFormatInfo->type, pFormatInfo->samples, pFormatInfo->usage,
                 pFormatInfo->tiling, pPropertyCount, properties);
             for (uint32_t i = 0; i < *pPropertyCount; ++i) {
                 // Write to the VkSparseImageFormatProperties2KHR struct
@@ -492,8 +491,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceSparseImageFormatProperti
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalBufferProperties(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalBufferInfo *pExternalBufferInfo,
     VkExternalBufferProperties *pExternalBufferProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -509,7 +508,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalBufferProperties(
 
     if (fpGetPhysicalDeviceExternalBufferProperties != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceExternalBufferProperties(phys_dev_term->phys_dev, pExternalBufferInfo, pExternalBufferProperties);
+        fpGetPhysicalDeviceExternalBufferProperties(phys_dev->phys_dev, pExternalBufferInfo, pExternalBufferProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -535,8 +534,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalBufferProperties(
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalSemaphoreProperties(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalSemaphoreInfo *pExternalSemaphoreInfo,
     VkExternalSemaphoreProperties *pExternalSemaphoreProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -553,8 +552,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalSemaphoreProperti
 
     if (fpGetPhysicalDeviceExternalSemaphoreProperties != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceExternalSemaphoreProperties(phys_dev_term->phys_dev, pExternalSemaphoreInfo,
-                                                       pExternalSemaphoreProperties);
+        fpGetPhysicalDeviceExternalSemaphoreProperties(phys_dev->phys_dev, pExternalSemaphoreInfo, pExternalSemaphoreProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -582,8 +580,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalSemaphoreProperti
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalFenceProperties(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalFenceInfo *pExternalFenceInfo,
     VkExternalFenceProperties *pExternalFenceProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
     const struct loader_instance *inst = icd_term->this_instance;
 
     assert(inst != NULL);
@@ -599,7 +597,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalFenceProperties(
 
     if (fpGetPhysicalDeviceExternalFenceProperties != NULL) {
         // Pass the call to the driver
-        fpGetPhysicalDeviceExternalFenceProperties(phys_dev_term->phys_dev, pExternalFenceInfo, pExternalFenceProperties);
+        fpGetPhysicalDeviceExternalFenceProperties(phys_dev->phys_dev, pExternalFenceInfo, pExternalFenceProperties);
     } else {
         // Emulate the call
         loader_log(icd_term->this_instance, VULKAN_LOADER_INFO_BIT, 0,
@@ -628,8 +626,8 @@ VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceExternalFenceProperties(
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolProperties(VkPhysicalDevice physicalDevice, uint32_t *pToolCount,
                                                                           VkPhysicalDeviceToolProperties *pToolProperties) {
-    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)physicalDevice;
-    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    struct loader_physical_device *phys_dev = loader_get_physical_device(physicalDevice);
+    struct loader_icd_term *icd_term = phys_dev->this_icd_term;
 
     if (NULL == icd_term->dispatch.GetPhysicalDeviceToolProperties) {
         loader_log(icd_term->this_instance, VULKAN_LOADER_ERROR_BIT, 0,
@@ -638,10 +636,10 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDeviceToolProperties(VkPhys
     } else {
         VkPhysicalDeviceProperties properties;
         if (icd_term->dispatch.GetPhysicalDeviceProperties) {
-            icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev_term->phys_dev, &properties);
+            icd_term->dispatch.GetPhysicalDeviceProperties(phys_dev->phys_dev, &properties);
 
             if (VK_API_VERSION_MINOR(properties.apiVersion) >= 3) {
-                return icd_term->dispatch.GetPhysicalDeviceToolProperties(phys_dev_term->phys_dev, pToolCount, pToolProperties);
+                return icd_term->dispatch.GetPhysicalDeviceToolProperties(phys_dev->phys_dev, pToolCount, pToolProperties);
             }
         }
     }

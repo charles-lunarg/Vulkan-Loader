@@ -234,7 +234,7 @@ void linux_env_var_default_device(struct loader_instance *inst, uint32_t device_
 // This function allocates an array in sorted_devices which must be freed by the caller if not null
 VkResult linux_read_sorted_physical_devices(struct loader_instance *inst, uint32_t icd_count,
                                             struct loader_icd_physical_devices *icd_devices, uint32_t phys_dev_count,
-                                            struct loader_physical_device_term **sorted_device_term) {
+                                            struct loader_physical_device **sorted_device_term) {
     VkResult res = VK_SUCCESS;
     bool app_is_vulkan_1_1 = loader_check_version_meets_required(LOADER_VERSION_1_1_0, inst->app_api_version);
 
@@ -328,9 +328,14 @@ VkResult linux_read_sorted_physical_devices(struct loader_instance *inst, uint32
 
     // Add all others after (they've already been sorted)
     for (uint32_t dev = 0; dev < phys_dev_count; ++dev) {
+        loader_set_dispatch(sorted_device_info[dev].physical_device, sorted_device_term[dev]);
+        sorted_device_term[dev]->disp = inst->disp;
+        sorted_device_term[dev]->magic = PHYSICAL_DEVICE_MAGIC_NUMBER;
+        sorted_device_term[dev]->this_instance = inst;
         sorted_device_term[dev]->this_icd_term = sorted_device_info[dev].icd_term;
         sorted_device_term[dev]->phys_dev = sorted_device_info[dev].physical_device;
-        loader_set_dispatch((void *)sorted_device_term[dev], inst->disp);
+        sorted_device_term[dev]->wrapped_phys_dev = sorted_device_info[dev].physical_device;
+
         loader_log(inst, VULKAN_LOADER_INFO_BIT | VULKAN_LOADER_DRIVER_BIT, 0, "           [%u] %s  %s", dev,
                    sorted_device_info[dev].device_name, (sorted_device_info[dev].default_device ? "[default]" : ""));
     }

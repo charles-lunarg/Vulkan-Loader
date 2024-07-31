@@ -40,9 +40,8 @@ void produce_asm_define() {
     __asm__("# CHAR_PTR_SIZE = %c0" : : "i"(sizeof(char *)));
     __asm__("# FUNCTION_OFFSET_INSTANCE = %c0" : : "i"(offsetof(struct loader_instance, phys_dev_ext_disp_functions)));
     __asm__("# PHYS_DEV_OFFSET_INST_DISPATCH = %c0" : : "i"(offsetof(struct loader_instance_dispatch_table, phys_dev_ext)));
-    __asm__("# PHYS_DEV_OFFSET_PHYS_DEV_TRAMP = %c0" : : "i"(offsetof(struct loader_physical_device_tramp, phys_dev)));
-    __asm__("# ICD_TERM_OFFSET_PHYS_DEV_TERM = %c0" : : "i"(offsetof(struct loader_physical_device_term, this_icd_term)));
-    __asm__("# PHYS_DEV_OFFSET_PHYS_DEV_TERM = %c0" : : "i"(offsetof(struct loader_physical_device_term, phys_dev)));
+    __asm__("# PHYS_DEV_OFFSET_PHYS_DEV = %c0" : : "i"(offsetof(struct loader_physical_device, phys_dev)));
+    __asm__("# ICD_TERM_OFFSET_PHYS_DEV = %c0" : : "i"(offsetof(struct loader_physical_device, this_icd_term)));
     __asm__("# INSTANCE_OFFSET_ICD_TERM = %c0" : : "i"(offsetof(struct loader_icd_term, this_instance)));
     __asm__("# DISPATCH_OFFSET_ICD_TERM = %c0" : : "i"(offsetof(struct loader_icd_term, phys_dev_ext)));
     __asm__("# EXT_OFFSET_DEVICE_DISPATCH = %c0" : : "i"(offsetof(struct loader_dev_dispatch_table, ext_dispatch)));
@@ -54,9 +53,8 @@ static const uint32_t PTR_SIZE = sizeof(void *);
 static const uint32_t CHAR_PTR_SIZE = sizeof(char *);
 static const uint32_t FUNCTION_OFFSET_INSTANCE = offsetof(struct loader_instance, phys_dev_ext_disp_functions);
 static const uint32_t PHYS_DEV_OFFSET_INST_DISPATCH = offsetof(struct loader_instance_dispatch_table, phys_dev_ext);
-static const uint32_t PHYS_DEV_OFFSET_PHYS_DEV_TRAMP = offsetof(struct loader_physical_device_tramp, phys_dev);
-static const uint32_t ICD_TERM_OFFSET_PHYS_DEV_TERM = offsetof(struct loader_physical_device_term, this_icd_term);
-static const uint32_t PHYS_DEV_OFFSET_PHYS_DEV_TERM = offsetof(struct loader_physical_device_term, phys_dev);
+static const uint32_t PHYS_DEV_OFFSET_PHYS_DEV = offsetof(struct loader_physical_device, phys_dev);
+static const uint32_t ICD_TERM_OFFSET_PHYS_DEV = offsetof(struct loader_physical_device, this_icd_term);
 static const uint32_t INSTANCE_OFFSET_ICD_TERM = offsetof(struct loader_icd_term, this_instance);
 static const uint32_t DISPATCH_OFFSET_ICD_TERM = offsetof(struct loader_icd_term, phys_dev_ext);
 static const uint32_t EXT_OFFSET_DEVICE_DISPATCH = offsetof(struct loader_dev_dispatch_table, ext_dispatch);
@@ -114,12 +112,10 @@ int main(int argc, char **argv) {
             .comment = "The offset of 'phys_dev_ext_disp_functions' within a 'loader_instance' struct" },
         { .name = "PHYS_DEV_OFFSET_INST_DISPATCH", .value = offsetof(struct loader_instance_dispatch_table, phys_dev_ext),
             .comment = "The offset of 'phys_dev_ext' within in 'loader_instance_dispatch_table' struct" },
-        { .name = "PHYS_DEV_OFFSET_PHYS_DEV_TRAMP", .value = offsetof(struct loader_physical_device_tramp, phys_dev),
-            .comment = "The offset of 'phys_dev' within a 'loader_physical_device_tramp' struct" },
-        { .name = "ICD_TERM_OFFSET_PHYS_DEV_TERM", .value = offsetof(struct loader_physical_device_term, this_icd_term),
-            .comment = "The offset of 'this_icd_term' within a 'loader_physical_device_term' struct" },
-        { .name = "PHYS_DEV_OFFSET_PHYS_DEV_TERM", .value = offsetof(struct loader_physical_device_term, phys_dev),
-            .comment = "The offset of 'phys_dev' within a 'loader_physical_device_term' struct" },
+        { .name = "PHYS_DEV_OFFSET_PHYS_DEV", .value = offsetof(struct loader_physical_device, phys_dev),
+            .comment = "The offset of 'phys_dev' within a 'loader_physical_device' struct" },
+        { .name = "ICD_TERM_OFFSET_PHYS_DEV", .value = offsetof(struct loader_physical_device, this_icd_term),
+            .comment = "The offset of 'this_icd_term' within a 'loader_physical_device' struct" },
         { .name = "INSTANCE_OFFSET_ICD_TERM", .value = offsetof(struct loader_icd_term, this_instance),
             .comment = "The offset of 'this_instance' within a 'loader_icd_term' struct" },
         { .name = "DISPATCH_OFFSET_ICD_TERM", .value = offsetof(struct loader_icd_term, phys_dev_ext),
