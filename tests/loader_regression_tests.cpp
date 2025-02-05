@@ -4863,3 +4863,71 @@ TEST(DriverUnloadingFromZeroPhysDevs, HandleRecreation) {
 
     ASSERT_EQ(120U + 1U, log.count(data.pMessage));
 }
+
+TEST(argh, groups) {
+    FrameworkEnvironment env{};
+    auto& driver1 = env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2, VK_API_VERSION_1_1))
+                        .set_min_icd_interface_version(5)
+                        .set_icd_api_version(VK_API_VERSION_1_1);
+
+    auto& driver2 = env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2, VK_API_VERSION_1_2))
+                        .set_min_icd_interface_version(5)
+                        .set_icd_api_version(VK_API_VERSION_1_2);
+
+    auto& driver3 = env.add_icd(TestICDDetails(TEST_ICD_PATH_VERSION_2, VK_API_VERSION_1_2))
+                        .set_min_icd_interface_version(5)
+                        .set_icd_api_version(VK_API_VERSION_1_2);
+
+    driver1.physical_device_groups.emplace_back();
+    driver2.physical_device_groups.emplace_back();
+    driver3.physical_device_groups.emplace_back();
+
+    for (uint32_t i = 0; i < 32; i++) {
+        driver1.add_physical_device({"physical_device_1_" + std::to_string(i)});
+        driver2.add_physical_device({"physical_device_2_" + std::to_string(i)});
+        driver3.add_physical_device({"physical_device_3_" + std::to_string(i)});
+    }
+    for (uint32_t i = 0; i < 32; i++) {
+        driver1.physical_device_groups.back().physical_device_handles.push_back(&driver1.physical_devices.back());
+        driver2.physical_device_groups.back().physical_device_handles.push_back(&driver2.physical_devices.back());
+        driver3.physical_device_groups.back().physical_device_handles.push_back(&driver3.physical_devices.back());
+    }
+    // Core function
+    {
+        InstWrapper inst{env.vulkan_functions};
+        inst.create_info.set_api_version(VK_API_VERSION_1_1);
+        inst.CheckCreate();
+
+        auto physical_devices = inst.GetPhysDevs();
+
+        uint32_t returned_group_count = 0;
+        ASSERT_EQ(VK_SUCCESS, inst->vkEnumeratePhysicalDeviceGroups(inst, &returned_group_count, nullptr));
+
+        std::vector<VkPhysicalDeviceGroupProperties> group_props{};
+        group_props.resize(returned_group_count,
+                           VkPhysicalDeviceGroupProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES});
+        ASSERT_EQ(VK_SUCCESS, inst->vkEnumeratePhysicalDeviceGroups(inst, &returned_group_count, group_props.data()));
+
+        // Make sure each physical device shows up in a group, but only once
+        for (auto& group : group_props) {
+            for (uint32_t i = 0; i < group.physicalDeviceCount; i++) {
+                VkDeviceGroupDeviceCreateInfo group_info{};
+                group_info.sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO;
+                group_info.physicalDeviceCount = group.physicalDeviceCount;
+                group_info.pPhysicalDevices = &group.physicalDevices[0];
+
+                DeviceWrapper dev{inst};
+                dev.create_info.dev.pNext = &group_info;
+                dev.CheckCreate(group.physicalDevices[i]);
+                // if (group.physicalDeviceCount > 1) {
+                //     VkPhysicalDevice reversed[2] = {group.physicalDevices[1], group.physicalDevices[0]};
+                //     group_info.pPhysicalDevices = reversed;
+
+                //     DeviceWrapper dev2{inst};
+                //     dev2.create_info.dev.pNext = &group_info;
+                //     dev2.CheckCreate(group.physicalDevices[i]);
+                // }
+            }
+        }
+    }
+}
