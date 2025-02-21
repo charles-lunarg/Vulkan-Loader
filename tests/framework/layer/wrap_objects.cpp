@@ -61,23 +61,8 @@
 #endif
 #endif
 
-struct wrapped_phys_dev_obj {
-    VkLayerInstanceDispatchTable *loader_disp;
-    struct wrapped_inst_obj *inst;  // parent instance object
-    void *obj;
-};
-
-struct wrapped_inst_obj {
-    VkLayerInstanceDispatchTable *loader_disp;
-    VkLayerInstanceDispatchTable layer_disp;  // this layer's dispatch table
-    PFN_vkSetInstanceLoaderData pfn_inst_init;
-    struct wrapped_phys_dev_obj *ptr_phys_devs;  // any enumerated phys devs
-    VkInstance obj;
-    bool layer_is_implicit;
-    bool direct_display_enabled;
-    bool display_surf_counter_enabled;
-    bool debug_utils_enabled;
-};
+struct wrapped_phys_dev_obj;
+struct wrapped_inst_obj;
 
 struct wrapped_dev_obj {
     VkLayerDispatchTable *loader_disp;
@@ -85,6 +70,7 @@ struct wrapped_dev_obj {
     PFN_vkSetDeviceLoaderData pfn_dev_init;
     PFN_vkGetDeviceProcAddr pfn_get_dev_proc_addr;
     VkDevice obj;
+    wrapped_phys_dev_obj *phys_dev;  // parent physical device object
     bool maintanence_1_enabled;
     bool present_image_enabled;
     bool debug_utils_enabled;
@@ -92,16 +78,33 @@ struct wrapped_dev_obj {
     bool debug_marker_enabled;
 };
 
+struct wrapped_phys_dev_obj {
+    VkLayerInstanceDispatchTable *loader_disp;
+    wrapped_inst_obj *inst;  // parent instance object
+    void *obj;
+    std::vector<wrapped_dev_obj *> saved_devices;  // any created devices
+};
+
 struct wrapped_debug_util_mess_obj {
-    VkInstance inst;
     VkDebugUtilsMessengerEXT obj;
+    wrapped_inst_obj *inst;  // parent instance object
+};
+
+struct wrapped_inst_obj {
+    VkLayerInstanceDispatchTable *loader_disp;
+    VkLayerInstanceDispatchTable layer_disp;  // this layer's dispatch table
+    PFN_vkSetInstanceLoaderData pfn_inst_init;
+    std::vector<wrapped_phys_dev_obj *> saved_phys_devs;                     // any enumerated phys devs
+    std::vector<wrapped_debug_util_mess_obj *> saved_debug_util_messengers;  // any created messengers
+    VkInstance obj;
+    bool layer_is_implicit;
+    bool direct_display_enabled;
+    bool display_surf_counter_enabled;
+    bool debug_utils_enabled;
 };
 
 struct saved_wrapped_handles_storage {
     std::vector<wrapped_inst_obj *> instances;
-    std::vector<wrapped_phys_dev_obj *> physical_devices;
-    std::vector<wrapped_dev_obj *> devices;
-    std::vector<wrapped_debug_util_mess_obj *> debug_util_messengers;
 };
 
 saved_wrapped_handles_storage saved_wrapped_handles;
@@ -114,22 +117,17 @@ VkInstance unwrap_instance(const VkInstance instance, wrapped_inst_obj **inst) {
 
 VkPhysicalDevice unwrap_phys_dev(const VkPhysicalDevice physical_device, wrapped_phys_dev_obj **phys_dev) {
     *phys_dev = reinterpret_cast<wrapped_phys_dev_obj *>(physical_device);
-    auto it = std::find(saved_wrapped_handles.physical_devices.begin(), saved_wrapped_handles.physical_devices.end(), *phys_dev);
-    return (it == saved_wrapped_handles.physical_devices.end()) ? VK_NULL_HANDLE
-                                                                : reinterpret_cast<VkPhysicalDevice>((*phys_dev)->obj);
+    return reinterpret_cast<VkPhysicalDevice>((*phys_dev)->obj);
 }
 
 VkDevice unwrap_device(const VkDevice device, wrapped_dev_obj **dev) {
     *dev = reinterpret_cast<wrapped_dev_obj *>(device);
-    auto it = std::find(saved_wrapped_handles.devices.begin(), saved_wrapped_handles.devices.end(), *dev);
-    return (it == saved_wrapped_handles.devices.end()) ? VK_NULL_HANDLE : (*dev)->obj;
+    return (*dev)->obj;
 }
 
 VkDebugUtilsMessengerEXT unwrap_debug_util_messenger(const VkDebugUtilsMessengerEXT messenger, wrapped_debug_util_mess_obj **mess) {
     *mess = reinterpret_cast<wrapped_debug_util_mess_obj *>(messenger);
-    auto it =
-        std::find(saved_wrapped_handles.debug_util_messengers.begin(), saved_wrapped_handles.debug_util_messengers.end(), *mess);
-    return (it == saved_wrapped_handles.debug_util_messengers.end()) ? VK_NULL_HANDLE : (*mess)->obj;
+    return (*mess)->obj;
 }
 
 VkLayerInstanceCreateInfo *get_chain_info(const VkInstanceCreateInfo *pCreateInfo, VkLayerFunction func) {
@@ -229,8 +227,18 @@ VKAPI_ATTR void VKAPI_CALL wrap_vkDestroyInstance(VkInstance instance, const VkA
     wrapped_inst_obj *inst;
     auto vk_inst = unwrap_instance(instance, &inst);
     VkLayerInstanceDispatchTable *pDisp = &inst->layer_disp;
+    for (auto &pd : inst->saved_phys_devs) {
+        for (auto &d : pd->saved_devices) {
+            delete d;
+        }
+        delete pd;
+    }
+    for (auto &m : inst->saved_debug_util_messengers) {
+        delete m;
+    }
+    saved_wrapped_handles.instances.erase(
+        std::find(saved_wrapped_handles.instances.begin(), saved_wrapped_handles.instances.end(), inst));
     pDisp->DestroyInstance(vk_inst, pAllocator);
-    if (inst->ptr_phys_devs) delete[] inst->ptr_phys_devs;
     delete inst;
 }
 
@@ -244,9 +252,10 @@ VKAPI_ATTR VkResult VKAPI_CALL wrap_vkCreateDebugUtilsMessengerEXT(VkInstance in
     VkResult result = pDisp->CreateDebugUtilsMessengerEXT(vk_inst, pCreateInfo, pAllocator, pMessenger);
     auto mess = new wrapped_debug_util_mess_obj;
     if (!mess) return VK_ERROR_OUT_OF_HOST_MEMORY;
-    saved_wrapped_handles.debug_util_messengers.push_back(mess);
+    inst->saved_debug_util_messengers.push_back(mess);
     memset(mess, 0, sizeof(*mess));
     mess->obj = (*pMessenger);
+    mess->inst = inst;
     *pMessenger = reinterpret_cast<VkDebugUtilsMessengerEXT>(mess);
     return result;
 }
@@ -258,6 +267,8 @@ VKAPI_ATTR void VKAPI_CALL wrap_vkDestroyDebugUtilsMessengerEXT(VkInstance insta
     VkLayerInstanceDispatchTable *pDisp = &inst->layer_disp;
     wrapped_debug_util_mess_obj *mess;
     auto vk_mess = unwrap_debug_util_messenger(messenger, &mess);
+    mess->inst->saved_debug_util_messengers.erase(
+        std::find(mess->inst->saved_debug_util_messengers.begin(), mess->inst->saved_debug_util_messengers.end(), mess));
     pDisp->DestroyDebugUtilsMessengerEXT(vk_inst, vk_mess, pAllocator);
     delete mess;
 }
@@ -392,21 +403,61 @@ VKAPI_ATTR VkResult VKAPI_CALL wrap_vkEnumeratePhysicalDevices(VkInstance instan
 
     if (pPhysicalDevices != NULL) {
         assert(pPhysicalDeviceCount);
-        auto phys_devs = new wrapped_phys_dev_obj[*pPhysicalDeviceCount];
-        if (!phys_devs) return VK_ERROR_OUT_OF_HOST_MEMORY;
-        saved_wrapped_handles.physical_devices.push_back(phys_devs);
-        if (inst->ptr_phys_devs) delete[] inst->ptr_phys_devs;
-        inst->ptr_phys_devs = phys_devs;
+
         for (uint32_t i = 0; i < *pPhysicalDeviceCount; i++) {
+            auto phys_dev = new wrapped_phys_dev_obj;
+            if (!phys_dev) return VK_ERROR_OUT_OF_HOST_MEMORY;
+            inst->saved_phys_devs.push_back(phys_dev);
             if (inst->pfn_inst_init == NULL) {
-                phys_devs[i].loader_disp = *(reinterpret_cast<VkLayerInstanceDispatchTable **>(pPhysicalDevices[i]));
+                phys_dev->loader_disp = *(reinterpret_cast<VkLayerInstanceDispatchTable **>(pPhysicalDevices[i]));
             } else {
-                result = inst->pfn_inst_init(vk_inst, reinterpret_cast<void *>(&phys_devs[i]));
+                result = inst->pfn_inst_init(vk_inst, reinterpret_cast<void *>(phys_dev));
                 if (VK_SUCCESS != result) return result;
             }
-            phys_devs[i].obj = reinterpret_cast<void *>(pPhysicalDevices[i]);
-            phys_devs[i].inst = inst;
-            pPhysicalDevices[i] = reinterpret_cast<VkPhysicalDevice>(&phys_devs[i]);
+            phys_dev->obj = reinterpret_cast<void *>(pPhysicalDevices[i]);
+            phys_dev->inst = inst;
+            pPhysicalDevices[i] = reinterpret_cast<VkPhysicalDevice>(phys_dev);
+        }
+    }
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL wrap_vkEnumeratePhysicalDeviceGroups(
+    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupProperties *pPhysicalDeviceGroupProperties) {
+    wrapped_inst_obj *inst;
+    auto vk_inst = unwrap_instance(instance, &inst);
+    VkResult result =
+        inst->layer_disp.EnumeratePhysicalDeviceGroups(vk_inst, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+
+    if (VK_SUCCESS != result) return result;
+
+    if (pPhysicalDeviceGroupProperties != NULL) {
+        assert(pPhysicalDeviceGroupCount);
+
+        for (uint32_t i = 0; i < *pPhysicalDeviceGroupCount; i++) {
+            uint32_t pd_count = VK_MAX_DEVICE_GROUP_SIZE;
+            for (uint32_t j = 0; j < VK_MAX_DEVICE_GROUP_SIZE; j++) {
+                if (pPhysicalDeviceGroupProperties[i].physicalDevices[j] == nullptr) {
+                    pd_count = j;
+                    break;
+                }
+            }
+
+            for (uint32_t j = 0; j < pd_count; j++) {
+                auto phys_dev = new wrapped_phys_dev_obj;
+                if (!phys_dev) return VK_ERROR_OUT_OF_HOST_MEMORY;
+                inst->saved_phys_devs.push_back(phys_dev);
+                if (inst->pfn_inst_init == NULL) {
+                    phys_dev->loader_disp =
+                        *(reinterpret_cast<VkLayerInstanceDispatchTable **>(pPhysicalDeviceGroupProperties[i].physicalDevices[j]));
+                } else {
+                    result = inst->pfn_inst_init(vk_inst, reinterpret_cast<void *>(phys_dev));
+                    if (VK_SUCCESS != result) return result;
+                }
+                phys_dev->obj = reinterpret_cast<void *>(pPhysicalDeviceGroupProperties[i].physicalDevices[j]);
+                phys_dev->inst = inst;
+                pPhysicalDeviceGroupProperties[i].physicalDevices[j] = reinterpret_cast<VkPhysicalDevice>(phys_dev);
+            }
         }
     }
     return result;
@@ -507,8 +558,9 @@ VKAPI_ATTR VkResult VKAPI_CALL wrap_vkCreateDevice(VkPhysicalDevice physicalDevi
     if (!dev) {
         return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
-    saved_wrapped_handles.devices.push_back(dev);
+    phys_dev->saved_devices.push_back(dev);
     memset(dev, 0, sizeof(*dev));
+    dev->phys_dev = phys_dev;
     dev->obj = *pDevice;
     dev->pfn_get_dev_proc_addr = pfn_get_dev_proc_addr;
     *pDevice = reinterpret_cast<VkDevice>(dev);
@@ -551,6 +603,7 @@ VKAPI_ATTR VkResult VKAPI_CALL wrap_vkCreateDevice(VkPhysicalDevice physicalDevi
 VKAPI_ATTR void VKAPI_CALL wrap_vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator) {
     wrapped_dev_obj *dev;
     auto vk_dev = unwrap_device(device, &dev);
+    dev->phys_dev->saved_devices.erase(std::find(dev->phys_dev->saved_devices.begin(), dev->phys_dev->saved_devices.end(), dev));
     dev->disp.DestroyDevice(vk_dev, pAllocator);
     delete dev;
 }
@@ -723,6 +776,7 @@ PFN_vkVoidFunction layer_intercept_instance_proc(wrapped_inst_obj *inst, const c
     if (!strcmp(name, "DestroyInstance")) return (PFN_vkVoidFunction)wrap_vkDestroyInstance;
     if (!strcmp(name, "CreateDevice")) return (PFN_vkVoidFunction)wrap_vkCreateDevice;
     if (!strcmp(name, "EnumeratePhysicalDevices")) return (PFN_vkVoidFunction)wrap_vkEnumeratePhysicalDevices;
+    if (!strcmp(name, "EnumeratePhysicalDeviceGroups")) return (PFN_vkVoidFunction)wrap_vkEnumeratePhysicalDeviceGroups;
 
     if (!strcmp(name, "EnumerateDeviceExtensionProperties")) return (PFN_vkVoidFunction)wrap_vkEnumerateDeviceExtensionProperties;
 
