@@ -4939,7 +4939,7 @@ VkResult loader_create_device_chain(const VkPhysicalDevice pd, const VkDeviceCre
     VkLayerDeviceLink *layer_device_link_info;
     VkLayerDeviceCreateInfo chain_info;
     VkDeviceCreateInfo loader_create_info;
-    VkDeviceGroupDeviceCreateInfo *original_device_group_create_info_struct = NULL;
+    const VkPhysicalDevice *original_device_group_physical_devices = NULL;
     VkResult res;
 
     PFN_vkGetDeviceProcAddr fpGDPA = NULL, nextGDPA = loader_gpa_device_terminator;
@@ -4980,18 +4980,15 @@ VkResult loader_create_device_chain(const VkPhysicalDevice pd, const VkDeviceCre
     // need to replace all the incoming physical device values (which are really loader trampoline physical device values)
     // with the layer/ICD version.
     {
-        VkBaseOutStructure *pNext = (VkBaseOutStructure *)loader_create_info.pNext;
-        VkBaseOutStructure *pPrev = (VkBaseOutStructure *)&loader_create_info;
+        const void *pNext = loader_create_info.pNext;
         while (NULL != pNext) {
-            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO == pNext->sType) {
+            VkBaseOutStructure out_structure = {0};
+            memcpy(&out_structure, pNext, sizeof(VkBaseOutStructure));
+            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO == out_structure.sType) {
                 VkDeviceGroupDeviceCreateInfo *cur_struct = (VkDeviceGroupDeviceCreateInfo *)pNext;
                 if (0 < cur_struct->physicalDeviceCount && NULL != cur_struct->pPhysicalDevices) {
-                    VkDeviceGroupDeviceCreateInfo *temp_struct = loader_stack_alloc(sizeof(VkDeviceGroupDeviceCreateInfo));
                     VkPhysicalDevice *phys_dev_array = NULL;
-                    if (NULL == temp_struct) {
-                        return VK_ERROR_OUT_OF_HOST_MEMORY;
-                    }
-                    memcpy(temp_struct, cur_struct, sizeof(VkDeviceGroupDeviceCreateInfo));
+
                     phys_dev_array = loader_stack_alloc(sizeof(VkPhysicalDevice) * cur_struct->physicalDeviceCount);
                     if (NULL == phys_dev_array) {
                         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -5004,18 +5001,16 @@ VkResult loader_create_device_chain(const VkPhysicalDevice pd, const VkDeviceCre
                         cur_tramp = (struct loader_physical_device_tramp *)cur_struct->pPhysicalDevices[phys_dev];
                         phys_dev_array[phys_dev] = cur_tramp->phys_dev;
                     }
-                    temp_struct->pPhysicalDevices = phys_dev_array;
+                    // Save original pointer so we can overwrite it now and restore it after the call down to the ICD
+                    original_device_group_physical_devices = cur_struct->pPhysicalDevices;
 
-                    original_device_group_create_info_struct = (VkDeviceGroupDeviceCreateInfo *)pPrev->pNext;
-
-                    // Replace the old struct in the pNext chain with this one.
-                    pPrev->pNext = (VkBaseOutStructure *)temp_struct;
+                    // Replace pointer with array containing unwrapped VkPhysicalDevices
+                    cur_struct->pPhysicalDevices = phys_dev_array;
                 }
                 break;
             }
 
-            pPrev = pNext;
-            pNext = pNext->pNext;
+            pNext = out_structure.pNext;
         }
     }
     if (inst->expanded_activated_layer_list.count > 0) {
@@ -5160,21 +5155,20 @@ VkResult loader_create_device_chain(const VkPhysicalDevice pd, const VkDeviceCre
         }
         dev->chain_device = created_device;
 
-        // Because we changed the pNext chain to use our own VkDeviceGroupDeviceCreateInfo, we need to fixup the chain to
-        // point back at the original VkDeviceGroupDeviceCreateInfo.
-        VkBaseOutStructure *pNext = (VkBaseOutStructure *)loader_create_info.pNext;
-        VkBaseOutStructure *pPrev = (VkBaseOutStructure *)&loader_create_info;
+        // Because we changed the pNext chain to use our own VkPhysicalDevice array, we need to fixup the pointer to
+        // point back at the original VkPhysicalDevice array.
+        const void *pNext = loader_create_info.pNext;
         while (NULL != pNext) {
-            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO == pNext->sType) {
+            VkBaseOutStructure out_structure = {0};
+            memcpy(&out_structure, pNext, sizeof(VkBaseOutStructure));
+            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO == out_structure.sType) {
                 VkDeviceGroupDeviceCreateInfo *cur_struct = (VkDeviceGroupDeviceCreateInfo *)pNext;
                 if (0 < cur_struct->physicalDeviceCount && NULL != cur_struct->pPhysicalDevices) {
-                    pPrev->pNext = (VkBaseOutStructure *)original_device_group_create_info_struct;
+                    cur_struct->pPhysicalDevices = original_device_group_physical_devices;
                 }
                 break;
             }
-
-            pPrev = pNext;
-            pNext = pNext->pNext;
+            pNext = out_structure.pNext;
         }
 
     } else {
