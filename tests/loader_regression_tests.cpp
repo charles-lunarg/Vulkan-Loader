@@ -1928,13 +1928,12 @@ TEST(EnumeratePhysicalDeviceGroups, OneCall) {
             ASSERT_EQ(true, found[dev]);
         }
         for (auto& group : group_props) {
-            VkDeviceGroupDeviceCreateInfo group_info{};
-            group_info.sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO;
-            group_info.physicalDeviceCount = group.physicalDeviceCount;
-            group_info.pPhysicalDevices = &group.physicalDevices[0];
-            VkBaseInStructure spacer_structure{};
-            spacer_structure.sType = static_cast<VkStructureType>(100000);
-            spacer_structure.pNext = reinterpret_cast<const VkBaseInStructure*>(&group_info);
+            const VkDeviceGroupDeviceCreateInfo group_info{VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO, nullptr,
+                                                           group.physicalDeviceCount, &group.physicalDevices[0]};
+
+            const VkBaseInStructure spacer_structure{static_cast<VkStructureType>(100000),
+                                                     reinterpret_cast<const VkBaseInStructure*>(&group_info)};
+
             DeviceWrapper dev{inst};
             dev.create_info.dev.pNext = &spacer_structure;
             dev.CheckCreate(group.physicalDevices[0]);
@@ -1943,15 +1942,18 @@ TEST(EnumeratePhysicalDeviceGroups, OneCall) {
             // While not expected for applications to iterate over this chain, since it is const it is important to make sure
             // that the chain didn't change somehow, and especially so that iterating it doesn't crash.
             int count = 0;
-            const VkBaseInStructure* pNext = reinterpret_cast<const VkBaseInStructure*>(dev.create_info.dev.pNext);
+            const void* pNext = dev.create_info.dev.pNext;
             while (pNext != nullptr) {
-                if (pNext->sType == VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO) {
+                VkBaseInStructure base_in_structure{};
+                memcpy(&base_in_structure, pNext, sizeof(VkBaseInStructure));
+
+                if (base_in_structure.sType == VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO) {
                     ASSERT_EQ(&group_info, reinterpret_cast<const VkDeviceGroupDeviceCreateInfo*>(pNext));
                 }
-                if (pNext->sType == 100000) {
+                if (base_in_structure.sType == 100000) {
                     ASSERT_EQ(&spacer_structure, pNext);
                 }
-                pNext = pNext->pNext;
+                pNext = base_in_structure.pNext;
                 count++;
             }
             ASSERT_EQ(count, 2);

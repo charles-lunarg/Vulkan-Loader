@@ -857,7 +857,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                     phys_dev_var_name = param.name
                     always_use_param_name = False
                     physdev_type_to_replace = 'VkPhysicalDevice'
-                    physdev_name_replacement = 'phys_dev_term->phys_dev'
+                    physdev_name_replacement = 'physicalDevice'
                 if param.type == 'VkInstance':
                     requires_terminator = 1
                     instance_var_name = param.name
@@ -877,15 +877,13 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                 out.append(tramp_header)
 
                 if command.params[0].type == 'VkPhysicalDevice':
-                    out.append('    const VkLayerInstanceDispatchTable *disp;\n')
-                    out.append(f'    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device({phys_dev_var_name});\n')
-                    out.append('    if (VK_NULL_HANDLE == unwrapped_phys_dev) {\n')
+                    out.append(f'    const VkLayerInstanceDispatchTable *disp = loader_get_instance_layer_dispatch({phys_dev_var_name});\n')
+                    out.append('    if (VK_NULL_HANDLE == disp) {\n')
                     out.append('        loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,\n')
                     out.append(f'                   "{command.name}: Invalid {phys_dev_var_name} "\n')
                     out.append(f'                   "[VUID-{command.name}-{phys_dev_var_name}-parameter]");\n')
                     out.append('        abort(); /* Intentionally fail so user can correct issue. */\n')
                     out.append('    }\n')
-                    out.append(f'    disp = loader_get_instance_layer_dispatch({phys_dev_var_name});\n')
                 elif command.params[0].type == 'VkInstance':
                     out.append(f'    struct loader_instance *inst = loader_get_instance({instance_var_name});\n')
                     out.append('    if (NULL == inst) {\n')
@@ -909,11 +907,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                 if 'DebugMarkerSetObjectName' in command.name:
                     out.append('    VkDebugMarkerObjectNameInfoEXT local_name_info;\n')
                     out.append('    memcpy(&local_name_info, pNameInfo, sizeof(VkDebugMarkerObjectNameInfoEXT));\n')
-                    out.append('    // If this is a physical device, we have to replace it with the proper one for the next call.\n')
-                    out.append('    if (pNameInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n')
-                    out.append('        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pNameInfo->object;\n')
-                    out.append('        local_name_info.object = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n')
-                    out.append('    }\n')
                     out.append('    if (pNameInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT) {\n')
                     out.append('        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pNameInfo->object;\n')
                     out.append('        local_name_info.object = (uint64_t)(uintptr_t)instance->instance;\n')
@@ -921,11 +914,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                 elif 'DebugMarkerSetObjectTag' in command.name:
                     out.append('    VkDebugMarkerObjectTagInfoEXT local_tag_info;\n')
                     out.append('    memcpy(&local_tag_info, pTagInfo, sizeof(VkDebugMarkerObjectTagInfoEXT));\n')
-                    out.append('    // If this is a physical device, we have to replace it with the proper one for the next call.\n')
-                    out.append('    if (pTagInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {\n')
-                    out.append('        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pTagInfo->object;\n')
-                    out.append('        local_tag_info.object = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n')
-                    out.append('    }\n')
                     out.append('    if (pTagInfo->objectType == VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT) {\n')
                     out.append('        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pTagInfo->object;\n')
                     out.append('        local_tag_info.object = (uint64_t)(uintptr_t)instance->instance;\n')
@@ -933,11 +921,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                 elif 'SetDebugUtilsObjectName' in command.name:
                     out.append('    VkDebugUtilsObjectNameInfoEXT local_name_info;\n')
                     out.append('    memcpy(&local_name_info, pNameInfo, sizeof(VkDebugUtilsObjectNameInfoEXT));\n')
-                    out.append('    // If this is a physical device, we have to replace it with the proper one for the next call.\n')
-                    out.append('    if (pNameInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n')
-                    out.append('        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pNameInfo->objectHandle;\n')
-                    out.append('        local_name_info.objectHandle = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n')
-                    out.append('    }\n')
                     out.append('    if (pNameInfo->objectType == VK_OBJECT_TYPE_INSTANCE) {\n')
                     out.append('        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pNameInfo->objectHandle;\n')
                     out.append('        local_name_info.objectHandle = (uint64_t)(uintptr_t)instance->instance;\n')
@@ -945,11 +928,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                 elif 'SetDebugUtilsObjectTag' in command.name:
                     out.append('    VkDebugUtilsObjectTagInfoEXT local_tag_info;\n')
                     out.append('    memcpy(&local_tag_info, pTagInfo, sizeof(VkDebugUtilsObjectTagInfoEXT));\n')
-                    out.append('    // If this is a physical device, we have to replace it with the proper one for the next call.\n')
-                    out.append('    if (pTagInfo->objectType == VK_OBJECT_TYPE_PHYSICAL_DEVICE) {\n')
-                    out.append('        struct loader_physical_device_tramp *phys_dev_tramp = (struct loader_physical_device_tramp *)(uintptr_t)pTagInfo->objectHandle;\n')
-                    out.append('        local_tag_info.objectHandle = (uint64_t)(uintptr_t)phys_dev_tramp->phys_dev;\n')
-                    out.append('    }\n')
                     out.append('    if (pTagInfo->objectType == VK_OBJECT_TYPE_INSTANCE) {\n')
                     out.append('        struct loader_instance* instance = (struct loader_instance *)(uintptr_t)pTagInfo->objectHandle;\n')
                     out.append('        local_tag_info.objectHandle = (uint64_t)(uintptr_t)instance->instance;\n')
@@ -970,7 +948,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                         out.append(', ')
 
                     if param.type == 'VkPhysicalDevice':
-                        out.append('unwrapped_phys_dev')
+                        out.append(phys_dev_var_name)
                     elif ('DebugMarkerSetObject' in command.name or 'SetDebugUtilsObject' in command.name) and param.name == 'pNameInfo':
                         out.append('&local_name_info')
                     elif ('DebugMarkerSetObject' in command.name or 'SetDebugUtilsObject' in command.name) and param.name == 'pTagInfo':
@@ -989,7 +967,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
 
                 out.append(term_header)
                 if command.params[0].type == 'VkPhysicalDevice':
-                    out.append(f'    struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *){phys_dev_var_name};\n')
+                    out.append(f'    struct loader_physical_device_term *phys_dev_term = loader_get_physical_device_terminator({phys_dev_var_name});\n')
                     out.append('    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;\n')
                     out.append('    if (NULL == icd_term->dispatch.')
                     out.append(base_name)
@@ -1051,7 +1029,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                             out.append(', ')
 
                         if param.type == 'VkPhysicalDevice':
-                            out.append('phys_dev_term->phys_dev')
+                            out.append('physicalDevice')
                         else:
                             out.append(param.name)
 
@@ -1075,7 +1053,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                         debug_struct_name = command.params[1].name
                         local_struct = 'local_name_info' if 'ObjectName' in command.name else 'local_tag_info'
                         member_name = 'objectHandle' if is_debug_utils else 'object'
-                        phys_dev_check = 'VK_OBJECT_TYPE_PHYSICAL_DEVICE' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT'
                         surf_check = 'VK_OBJECT_TYPE_SURFACE_KHR' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT'
                         inst_check = 'VK_OBJECT_TYPE_INSTANCE' if is_debug_utils else 'VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT'
                         out.append('    struct loader_device *dev;\n')
@@ -1086,12 +1063,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                         out.append('    }\n')
                         out.append(f'    { command.params[1].type} {local_struct};\n')
                         out.append(f'    memcpy(&{local_struct}, {debug_struct_name}, sizeof({ command.params[1].type}));\n')
-                        out.append('    // If this is a physical device, we have to replace it with the proper one for the next call.\n')
-                        out.append(f'    if ({debug_struct_name}->objectType == {phys_dev_check}) {{\n')
-                        out.append(f'        struct loader_physical_device_term *phys_dev_term = (struct loader_physical_device_term *)(uintptr_t){debug_struct_name}->{member_name};\n')
-                        out.append(f'        {local_struct}.{member_name} = (uint64_t)(uintptr_t)phys_dev_term->phys_dev;\n')
                         out.append('    // If this is a KHR_surface, and the ICD has created its own, we have to replace it with the proper one for the next call.\n')
-                        out.append(f'    }} else if ({debug_struct_name}->objectType == {surf_check}) {{\n')
+                        out.append(f'    if ({debug_struct_name}->objectType == {surf_check}) {{\n')
                         out.append('        if (NULL != dev && NULL != dev->loader_dispatch.core_dispatch.CreateSwapchainKHR) {\n')
                         out.append(f'            VkSurfaceKHR surface = (VkSurfaceKHR)(uintptr_t){debug_struct_name}->{member_name};\n')
                         out.append('            if (wsi_unwrap_icd_surface(icd_term, &surface) == VK_SUCCESS) {\n')
@@ -1125,7 +1098,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
                             out.append(', ')
 
                         if param.type == 'VkPhysicalDevice':
-                            out.append('phys_dev_term->phys_dev')
+                            out.append('physicalDevice')
                         elif param.type == 'VkSurfaceKHR':
                             out.append( 'unwrapped_surface')
                         elif ('DebugMarkerSetObject' in command.name or 'SetDebugUtilsObject' in command.name) and param.name == 'pNameInfo':

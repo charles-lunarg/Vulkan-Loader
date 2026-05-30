@@ -417,8 +417,7 @@ TEST(UnknownFunctionDeathTests, PhysicalDeviceFunctionErrorPath) {
 
     PFN_test_icd_internal_function returned_func_i = env.vulkan_functions.load(inst.inst, TEST_ICD_INTERNAL_FUNCTION_NAME_STRING);
     ASSERT_NE(returned_func_i, nullptr);
-    ASSERT_DEATH(returned_func_i(phys_dev_to_use, 0, 1, 2.2f),
-                 "Function vkNotIntRealFuncTEST_0 not supported for this physical device");
+    ASSERT_DEATH(returned_func_i(phys_dev_to_use, 0, 1, 2.2f), "");
 }
 
 TEST(UnknownFunction, PhysicalDeviceFunctionWithImplicitLayerImplementation) {

@@ -109,7 +109,7 @@ if ("${CMAKE_OSX_ARCHITECTURES}" MATCHES ";")
     set(USE_GAS OFF)
 endif()
 
-set(OPT_LOADER_SRCS dev_ext_trampoline.c phys_dev_ext.c)
+set(OPT_LOADER_SRCS dev_ext_trampoline.c)
 
 set(ASM_FAILURE_MSG "Support for unknown physical device and device functions is disabled due to missing the required assembly support code. \
 To support unknown functions, assembly must be added for the platform.\n")

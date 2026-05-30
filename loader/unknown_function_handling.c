@@ -58,7 +58,6 @@ void *loader_phys_dev_ext_gpa_term(struct loader_instance *inst, const char *fun
 }
 
 void loader_free_dev_ext_table(struct loader_instance *inst) { (void)inst; }
-void loader_free_phys_dev_ext_table(struct loader_instance *inst) { (void)inst; }
 
 #else
 
@@ -220,153 +219,46 @@ void *loader_dev_ext_gpa_term(struct loader_instance *inst, const char *funcName
 
 // Physical Device function handling
 
-bool loader_check_icds_for_phys_dev_ext_address(struct loader_instance *inst, const char *funcName) {
-    struct loader_icd_term *icd_term;
-    icd_term = inst->icd_terms;
-    while (NULL != icd_term) {
-        if (icd_term->scanned_icd->interface_version >= MIN_PHYS_DEV_EXTENSION_ICD_INTERFACE_VERSION &&
-            icd_term->scanned_icd->GetPhysicalDeviceProcAddr &&
-            icd_term->scanned_icd->GetPhysicalDeviceProcAddr(icd_term->instance, funcName))
-            // this icd supports funcName
-            return true;
-        icd_term = icd_term->next;
-    }
+// This function finds and returns the function address for any unknown physical device extension commands.
+// Unlike unknown device extension commands, unknown physical device extension commands can always be
+// directly returned since there is no indirection between calling the function and dispatching down the chain.
+// Thus, the behavior of this function is to, if is_tramp is true, find the first layer that reports support for
+// it and returns it, then if no layer supports it, find if any ICD's support it and return that.
 
-    return false;
-}
-
-bool loader_check_layer_list_for_phys_dev_ext_address(struct loader_instance *inst, const char *funcName) {
-    for (uint32_t layer = 0; layer < inst->expanded_activated_layer_list.count; layer++) {
-        struct loader_layer_properties *layer_prop_list = inst->expanded_activated_layer_list.list[layer];
-        // Find the first layer in the call chain which supports vk_layerGetPhysicalDeviceProcAddr
-        // and call that, returning whether it found a valid pointer for this function name.
-        // We return if the topmost layer supports GPDPA since the layer should call down the chain for us.
-        if (layer_prop_list->interface_version > 1) {
-            const struct loader_layer_functions *const functions = &(layer_prop_list->functions);
-            if (NULL != functions->get_physical_device_proc_addr) {
-                return NULL != functions->get_physical_device_proc_addr((VkInstance)inst->instance, funcName);
-            }
-        }
-    }
-    return false;
-}
-
-void loader_free_phys_dev_ext_table(struct loader_instance *inst) {
-    for (uint32_t i = 0; i < MAX_NUM_UNKNOWN_EXTS; i++) {
-        loader_instance_heap_free(inst, inst->phys_dev_ext_disp_functions[i]);
-    }
-    memset(inst->phys_dev_ext_disp_functions, 0, sizeof(inst->phys_dev_ext_disp_functions));
-}
-
-// This function returns a generic trampoline or terminator function
-// address for any unknown physical device extension commands.  An array
-// is used to keep a list of unknown entry points and their
-// mapping to the physical device extension dispatch table (struct
-// loader_phys_dev_ext_dispatch_table).
-// For a given entry point string (funcName), if an existing mapping is
-// found, then the address for that mapping is returned. The is_tramp
-// parameter is used to decide whether to return a trampoline or terminator
-// If it has not been seen before check if a layer or and ICD supports it.
-// If so then a new entry in the function name array is added.
-// Null is returned if discovered layer or ICD returns a non-NULL GetProcAddr for it
-// or if the function name table is full.
 void *loader_phys_dev_ext_gpa_impl(struct loader_instance *inst, const char *funcName, bool is_tramp) {
     assert(NULL != inst);
 
-    // We should always check to see if any ICD supports it.
-    if (!loader_check_icds_for_phys_dev_ext_address(inst, funcName)) {
-        // If we're not checking layers, or we are and it's not in a layer, just
-        // return
-        if (!is_tramp || !loader_check_layer_list_for_phys_dev_ext_address(inst, funcName)) {
-            return NULL;
-        }
-    }
-
-    bool has_found = false;
-    uint32_t new_function_index = 0;
-    // Linearly look through already added functions to make sure we haven't seen it before
-    // if we have, return the function at the index found
-    for (uint32_t i = 0; i < inst->phys_dev_ext_disp_function_count; i++) {
-        if (inst->phys_dev_ext_disp_functions[i] && !strcmp(inst->phys_dev_ext_disp_functions[i], funcName)) {
-            has_found = true;
-            new_function_index = i;
-            break;
-        }
-    }
-
-    // A never before seen function name, store it in the array
-    if (!has_found) {
-        if (inst->phys_dev_ext_disp_function_count >= MAX_NUM_UNKNOWN_EXTS) {
-            loader_log(inst, VULKAN_LOADER_ERROR_BIT, 0,
-                       "loader_dev_ext_gpa: Exhausted the unknown physical device function array!");
-            return NULL;
-        }
-
-        loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0,
-                   "loader_phys_dev_ext_gpa: Adding unknown physical function %s to internal store at index %u", funcName,
-                   inst->phys_dev_ext_disp_function_count);
-
-        // add found function to phys_dev_ext_disp_functions;
-        size_t funcName_len = strlen(funcName) + 1;
-        inst->phys_dev_ext_disp_functions[inst->phys_dev_ext_disp_function_count] =
-            (char *)loader_instance_heap_alloc(inst, funcName_len, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-        if (NULL == inst->phys_dev_ext_disp_functions[inst->phys_dev_ext_disp_function_count]) {
-            // failed to allocate memory, return NULL
-            return NULL;
-        }
-        loader_strncpy(inst->phys_dev_ext_disp_functions[inst->phys_dev_ext_disp_function_count], funcName_len, funcName,
-                       funcName_len);
-
-        new_function_index = inst->phys_dev_ext_disp_function_count;
-        // increment the count so that the subsequent logic includes the newly added entry point when searching for functions
-        inst->phys_dev_ext_disp_function_count++;
-    }
-
-    // Setup the ICD function pointers
-    struct loader_icd_term *icd_term = inst->icd_terms;
-    while (NULL != icd_term) {
-        if (MIN_PHYS_DEV_EXTENSION_ICD_INTERFACE_VERSION <= icd_term->scanned_icd->interface_version &&
-            NULL != icd_term->scanned_icd->GetPhysicalDeviceProcAddr) {
-            icd_term->phys_dev_ext[new_function_index] =
-                (PFN_PhysDevExt)icd_term->scanned_icd->GetPhysicalDeviceProcAddr(icd_term->instance, funcName);
-            if (NULL != icd_term->phys_dev_ext[new_function_index]) {
-                // Make sure we set the instance dispatch to point to the loader's terminator now since we can at least handle
-                // it in one ICD.
-                inst->disp->phys_dev_ext[new_function_index] = loader_get_phys_dev_ext_termin(new_function_index);
-
-                loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0, "loader_phys_dev_ext_gpa: Driver %s returned ptr %p for %s",
-                           icd_term->scanned_icd->lib_name, inst->disp->phys_dev_ext[new_function_index], funcName);
-            }
-        } else {
-            icd_term->phys_dev_ext[new_function_index] = NULL;
-        }
-
-        icd_term = icd_term->next;
-    }
-
-    // Now if this is being run in the trampoline, search for the first layer attached and query using it to get the first entry
-    // point. Only set the instance dispatch table to it if it isn't NULL.
+    // Only check the layers if this function is being called from the vkGetInstanceProcAddr trampoline function
     if (is_tramp) {
-        for (uint32_t i = 0; i < inst->expanded_activated_layer_list.count; i++) {
-            struct loader_layer_properties *layer_prop = inst->expanded_activated_layer_list.list[i];
-            if (layer_prop->interface_version > 1 && NULL != layer_prop->functions.get_physical_device_proc_addr) {
-                void *layer_ret_function =
-                    (PFN_PhysDevExt)layer_prop->functions.get_physical_device_proc_addr(inst->instance, funcName);
-                if (NULL != layer_ret_function) {
-                    inst->disp->phys_dev_ext[new_function_index] = layer_ret_function;
-                    loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0, "loader_phys_dev_ext_gpa: Layer %s returned ptr %p for %s",
-                               layer_prop->info.layerName, inst->disp->phys_dev_ext[new_function_index], funcName);
-                    break;
+        for (uint32_t layer = 0; layer < inst->expanded_activated_layer_list.count; layer++) {
+            struct loader_layer_properties *layer_prop_list = inst->expanded_activated_layer_list.list[layer];
+            // Find the first layer in the call chain which supports vk_layerGetPhysicalDeviceProcAddr
+            // and call that, returning whether a valid pointer for this function name if it does.
+            // We return if the topmost layer supports GPDPA since the layer should call down the chain for us.
+            if (layer_prop_list->interface_version > 1) {
+                const struct loader_layer_functions *const functions = &(layer_prop_list->functions);
+                if (NULL != functions->get_physical_device_proc_addr) {
+                    void *unknown_function = functions->get_physical_device_proc_addr((VkInstance)inst->instance, funcName);
+                    if (NULL != unknown_function) {
+                        return unknown_function;
+                    }
                 }
             }
         }
     }
-
-    if (is_tramp) {
-        return loader_get_phys_dev_ext_tramp(new_function_index);
-    } else {
-        return loader_get_phys_dev_ext_termin(new_function_index);
+    struct loader_icd_term *icd_term;
+    icd_term = inst->icd_terms;
+    while (NULL != icd_term) {
+        if (icd_term->scanned_icd->interface_version >= MIN_PHYS_DEV_EXTENSION_ICD_INTERFACE_VERSION &&
+            icd_term->scanned_icd->GetPhysicalDeviceProcAddr) {
+            void *unknown_function = icd_term->scanned_icd->GetPhysicalDeviceProcAddr(icd_term->instance, funcName);
+            if (NULL != unknown_function) {
+                return unknown_function;
+            }
+        }
+        icd_term = icd_term->next;
     }
+    return NULL;
 }
 // Main interface functions, makes it clear whether it is getting a terminator or trampoline
 void *loader_phys_dev_ext_gpa_tramp(struct loader_instance *inst, const char *funcName) {

@@ -47,15 +47,7 @@ if destination_file is None or source_asm_file is None or assembler_type is None
     print("Required command line arguments were not provided")
     sys.exit(1)
 
-defines = ["VULKAN_LOADER_ERROR_BIT",
-            "PTR_SIZE",
-            "CHAR_PTR_SIZE",
-            "FUNCTION_OFFSET_INSTANCE",
-            "PHYS_DEV_OFFSET_INST_DISPATCH",
-            "PHYS_DEV_OFFSET_PHYS_DEV_TRAMP",
-            "ICD_TERM_OFFSET_PHYS_DEV_TERM",
-            "PHYS_DEV_OFFSET_PHYS_DEV_TERM",
-            "INSTANCE_OFFSET_ICD_TERM",
+defines = [ "PTR_SIZE",
             "DISPATCH_OFFSET_ICD_TERM",
             "EXT_OFFSET_DEVICE_DISPATCH" ]
 

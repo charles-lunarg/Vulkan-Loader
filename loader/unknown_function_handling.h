@@ -34,4 +34,3 @@ void *loader_phys_dev_ext_gpa_tramp(struct loader_instance *inst, const char *fu
 void *loader_phys_dev_ext_gpa_term(struct loader_instance *inst, const char *funcName);
 
 void loader_free_dev_ext_table(struct loader_instance *inst);
-void loader_free_phys_dev_ext_table(struct loader_instance *inst);

@@ -35,17 +35,6 @@
 // Declare the once_init variable
 LOADER_PLATFORM_THREAD_ONCE_EXTERN_DEFINITION(once_init)
 
-static inline VkPhysicalDevice loader_unwrap_physical_device(VkPhysicalDevice physicalDevice) {
-    if (VK_NULL_HANDLE == physicalDevice) {
-        return VK_NULL_HANDLE;
-    }
-    struct loader_physical_device_tramp *phys_dev = (struct loader_physical_device_tramp *)physicalDevice;
-    if (PHYS_TRAMP_MAGIC_NUMBER != phys_dev->magic) {
-        return VK_NULL_HANDLE;
-    }
-    return phys_dev->phys_dev;
-}
-
 static inline void loader_set_dispatch(void *obj, const void *data) { *((const void **)obj) = data; }
 
 static inline VkLayerDispatchTable *loader_get_dispatch(const void *obj) {
@@ -181,6 +170,9 @@ VkResult loader_get_icd_loader_instance_extensions(const struct loader_instance 
 struct loader_icd_term *loader_get_icd_and_device(const void *device, struct loader_device **found_dev);
 struct loader_instance *loader_get_instance(const VkInstance instance);
 loader_platform_dl_handle loader_open_layer_file(const struct loader_instance *inst, struct loader_layer_properties *prop);
+struct loader_instance *loader_get_instance_from_physical_device(VkPhysicalDevice physicalDevice);
+struct loader_physical_device_term *loader_get_physical_device_terminator(VkPhysicalDevice physicalDevice);
+
 struct loader_device *loader_create_logical_device(const struct loader_instance *inst, const VkAllocationCallbacks *pAllocator);
 void loader_add_logical_device(struct loader_icd_term *icd_term, struct loader_device *found_dev);
 void loader_remove_logical_device(struct loader_icd_term *icd_term, struct loader_device *found_dev,
@@ -214,9 +206,6 @@ VkResult loader_validate_device_extensions(struct loader_instance *this_instance
                                            const struct loader_pointer_layer_list *activated_device_layers,
                                            const struct loader_extension_list *icd_exts, const VkDeviceCreateInfo *pCreateInfo);
 
-VkResult setup_loader_tramp_phys_devs(struct loader_instance *inst, uint32_t phys_dev_count, VkPhysicalDevice *phys_devs);
-VkResult setup_loader_tramp_phys_dev_groups(struct loader_instance *inst, uint32_t group_count,
-                                            VkPhysicalDeviceGroupProperties *groups);
 void unload_drivers_without_physical_devices(struct loader_instance *inst);
 
 VkResult loader_apply_settings_device_configurations(struct loader_instance *inst, uint32_t *pPhysicalDeviceCount,

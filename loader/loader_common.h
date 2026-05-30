@@ -320,8 +320,6 @@ struct loader_instance {
     uint32_t total_gpu_count;
     uint32_t phys_dev_count_term;
     struct loader_physical_device_term **phys_devs_term;
-    uint32_t phys_dev_count_tramp;
-    struct loader_physical_device_tramp **phys_devs_tramp;
 
     // We also need to manually track physical device groups, but we don't need
     // loader specific structures since we have that content in the physical
@@ -396,19 +394,7 @@ struct loader_instance {
 // trampoline code wraps the VkPhysicalDevice this means all loader trampoline
 // code that passes a VkPhysicalDevice should unwrap it.
 
-// Unique identifier for physical devices
-#define PHYS_TRAMP_MAGIC_NUMBER 0x10ADED020210ADEDUL
-
-// Per enumerated PhysicalDevice structure, used to wrap in trampoline code and
-// also same structure used to wrap in terminator code
-struct loader_physical_device_tramp {
-    struct loader_instance_dispatch_table *disp;  // must be first entry in structure
-    struct loader_instance *this_instance;
-    uint64_t magic;             // Should be PHYS_TRAMP_MAGIC_NUMBER
-    VkPhysicalDevice phys_dev;  // object from layers/loader terminator
-};
-
-// Per enumerated PhysicalDevice structure, used to wrap in terminator code
+// Per enumerated PhysicalDevice structure
 struct loader_physical_device_term {
     struct loader_instance_dispatch_table *disp;  // must be first entry in structure
     struct loader_icd_term *this_icd_term;
