@@ -193,6 +193,9 @@ void *loader_dev_ext_gpa_impl(struct loader_instance *inst, const char *funcName
         loader_log(inst, VULKAN_LOADER_ERROR_BIT, 0, "loader_dev_ext_gpa: Exhausted the unknown device function array!");
         return NULL;
     }
+    loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0,
+               "loader_dev_ext_gpa_impl: Adding unknown device function %s to internal store at index %u", funcName,
+               inst->dev_ext_disp_function_count);
 
     // add found function to dev_ext_disp_functions;
     size_t funcName_len = strlen(funcName) + 1;
