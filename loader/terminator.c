@@ -127,6 +127,16 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumerateDeviceLayerProperties(VkPhysi
     return VK_ERROR_INITIALIZATION_FAILED;
 }
 
+VKAPI_ATTR void VKAPI_CALL terminator_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    disp = loader_get_dispatch(device);
+    if (NULL == disp) {
+        loader_log(NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
+                   "vkDestroyDevice: Invalid device [VUID-vkDestroyDevice-device-parameter]");
+        abort(); /* Intentionally fail so user can correct issue. */
+    }
+    loader_layer_destroy_device(device, pAllocator, disp->DestroyDevice);
+}
 // Terminators for 1.1 functions
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,

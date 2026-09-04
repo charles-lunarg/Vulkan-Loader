@@ -92,6 +92,13 @@ VKAPI_ATTR void VKAPI_CALL loader_init_instance_extension_dispatch_table(VkLayer
 // Device command lookup function
 VKAPI_ATTR void* VKAPI_CALL loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table, const char *name, bool* name_found);
 
+// Device terminator command lookup function
+void* loader_lookup_device_terminator_dispatch(const char *name, bool *found_name);
+
+// Forward declarations that are used in loader_lookup_device_terminator_dispatch
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL loader_gpa_device_terminator(VkDevice device, const char *pName);
+VKAPI_ATTR void VKAPI_CALL terminator_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator);
+
 // Instance command lookup function
 VKAPI_ATTR void* VKAPI_CALL loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table, const char *name,
                                                                   bool *found_name);

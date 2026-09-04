@@ -4617,6 +4617,11 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL loader_gpa_instance_terminator(VkInstan
         return addr;
     }
 
+    addr = loader_lookup_device_terminator_dispatch(pName, &found_name);
+    if (found_name) {
+        return addr;
+    }
+
     // Check if it is an unknown physical device function, to see if any drivers support it.
     addr = loader_phys_dev_ext_gpa_term(loader_get_instance(inst), pName);
     if (addr) {

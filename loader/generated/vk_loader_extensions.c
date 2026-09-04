@@ -14526,6 +14526,2257 @@ VKAPI_ATTR void VKAPI_CALL CmdDrawMeshTasksIndirectCountEXT(
     disp->CmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
 }
 
+void* loader_lookup_device_terminator_dispatch(const char *name, bool *found_name) {
+    if (!name || name[0] != 'v' || name[1] != 'k') {
+        *found_name = false;
+        return NULL;
+    }
+    name += 2;
+    *found_name = true;
+    const uint32_t name_hash = loader_hash_string(name);
+    switch (name_hash) {
+        case 0xc3f8ab4eu:
+            if (!strcmp(name, "loader_gpa_device_terminator")) return loader_gpa_device_terminator;
+            break;
+        case 0xa8d42ebbu:
+            if (!strcmp(name, "terminator_DestroyDevice")) return terminator_DestroyDevice;
+            break;
+        case 0x0ef70c2bu:
+            if (!strcmp(name, "vkGetDeviceQueue")) return vkGetDeviceQueue;
+            break;
+        case 0xa702ecf9u:
+            if (!strcmp(name, "vkQueueSubmit")) return vkQueueSubmit;
+            break;
+        case 0x33b1f316u:
+            if (!strcmp(name, "vkQueueWaitIdle")) return vkQueueWaitIdle;
+            break;
+        case 0xd8f8605fu:
+            if (!strcmp(name, "vkDeviceWaitIdle")) return vkDeviceWaitIdle;
+            break;
+        case 0x8fd182beu:
+            if (!strcmp(name, "vkAllocateMemory")) return vkAllocateMemory;
+            break;
+        case 0x3486e387u:
+            if (!strcmp(name, "vkFreeMemory")) return vkFreeMemory;
+            break;
+        case 0xeade61a3u:
+            if (!strcmp(name, "vkMapMemory")) return vkMapMemory;
+            break;
+        case 0x45ae8caau:
+            if (!strcmp(name, "vkUnmapMemory")) return vkUnmapMemory;
+            break;
+        case 0xd4cde7deu:
+            if (!strcmp(name, "vkFlushMappedMemoryRanges")) return vkFlushMappedMemoryRanges;
+            break;
+        case 0x242f4435u:
+            if (!strcmp(name, "vkInvalidateMappedMemoryRanges")) return vkInvalidateMappedMemoryRanges;
+            break;
+        case 0x7edaff3eu:
+            if (!strcmp(name, "vkGetDeviceMemoryCommitment")) return vkGetDeviceMemoryCommitment;
+            break;
+        case 0x8fcb92d4u:
+            if (!strcmp(name, "vkBindBufferMemory")) return vkBindBufferMemory;
+            break;
+        case 0xb59c1405u:
+            if (!strcmp(name, "vkBindImageMemory")) return vkBindImageMemory;
+            break;
+        case 0x5f571cdbu:
+            if (!strcmp(name, "vkGetBufferMemoryRequirements")) return vkGetBufferMemoryRequirements;
+            break;
+        case 0x5b923818u:
+            if (!strcmp(name, "vkGetImageMemoryRequirements")) return vkGetImageMemoryRequirements;
+            break;
+        case 0x0f6505a4u:
+            if (!strcmp(name, "vkGetImageSparseMemoryRequirements")) return vkGetImageSparseMemoryRequirements;
+            break;
+        case 0xe4d99d8eu:
+            if (!strcmp(name, "vkQueueBindSparse")) return vkQueueBindSparse;
+            break;
+        case 0xb758c6a3u:
+            if (!strcmp(name, "vkCreateFence")) return vkCreateFence;
+            break;
+        case 0x60073b51u:
+            if (!strcmp(name, "vkDestroyFence")) return vkDestroyFence;
+            break;
+        case 0xdbb395d3u:
+            if (!strcmp(name, "vkResetFences")) return vkResetFences;
+            break;
+        case 0xd870b975u:
+            if (!strcmp(name, "vkGetFenceStatus")) return vkGetFenceStatus;
+            break;
+        case 0xe7c2c7dcu:
+            if (!strcmp(name, "vkWaitForFences")) return vkWaitForFences;
+            break;
+        case 0xd9b8366cu:
+            if (!strcmp(name, "vkCreateSemaphore")) return vkCreateSemaphore;
+            break;
+        case 0xaf0834d2u:
+            if (!strcmp(name, "vkDestroySemaphore")) return vkDestroySemaphore;
+            break;
+        case 0x0a03b3a4u:
+            if (!strcmp(name, "vkCreateQueryPool")) return vkCreateQueryPool;
+            break;
+        case 0xfc8c9742u:
+            if (!strcmp(name, "vkDestroyQueryPool")) return vkDestroyQueryPool;
+            break;
+        case 0x300fc14au:
+            if (!strcmp(name, "vkGetQueryPoolResults")) return vkGetQueryPoolResults;
+            break;
+        case 0x507f87ecu:
+            if (!strcmp(name, "vkCreateBuffer")) return vkCreateBuffer;
+            break;
+        case 0x8b9013b2u:
+            if (!strcmp(name, "vkDestroyBuffer")) return vkDestroyBuffer;
+            break;
+        case 0x29aa0da7u:
+            if (!strcmp(name, "vkCreateImage")) return vkCreateImage;
+            break;
+        case 0x2d239345u:
+            if (!strcmp(name, "vkDestroyImage")) return vkDestroyImage;
+            break;
+        case 0x3bb2e87du:
+            if (!strcmp(name, "vkGetImageSubresourceLayout")) return vkGetImageSubresourceLayout;
+            break;
+        case 0xb838b382u:
+            if (!strcmp(name, "vkCreateImageView")) return vkCreateImageView;
+            break;
+        case 0xb32c7798u:
+            if (!strcmp(name, "vkDestroyImageView")) return vkDestroyImageView;
+            break;
+        case 0x1d0cde71u:
+            if (!strcmp(name, "vkCreateCommandPool")) return vkCreateCommandPool;
+            break;
+        case 0x46d07137u:
+            if (!strcmp(name, "vkDestroyCommandPool")) return vkDestroyCommandPool;
+            break;
+        case 0x32d3032cu:
+            if (!strcmp(name, "vkResetCommandPool")) return vkResetCommandPool;
+            break;
+        case 0x9b476eedu:
+            if (!strcmp(name, "vkAllocateCommandBuffers")) return vkAllocateCommandBuffers;
+            break;
+        case 0x60cb1fd0u:
+            if (!strcmp(name, "vkFreeCommandBuffers")) return vkFreeCommandBuffers;
+            break;
+        case 0x38f0e672u:
+            if (!strcmp(name, "vkBeginCommandBuffer")) return vkBeginCommandBuffer;
+            break;
+        case 0xcf8708eau:
+            if (!strcmp(name, "vkEndCommandBuffer")) return vkEndCommandBuffer;
+            break;
+        case 0x6ee4b1d0u:
+            if (!strcmp(name, "vkResetCommandBuffer")) return vkResetCommandBuffer;
+            break;
+        case 0x54db4621u:
+            if (!strcmp(name, "vkCmdCopyBuffer")) return vkCmdCopyBuffer;
+            break;
+        case 0x7bf994f0u:
+            if (!strcmp(name, "vkCmdCopyImage")) return vkCmdCopyImage;
+            break;
+        case 0xb0b1777du:
+            if (!strcmp(name, "vkCmdCopyBufferToImage")) return vkCmdCopyBufferToImage;
+            break;
+        case 0x0220566fu:
+            if (!strcmp(name, "vkCmdCopyImageToBuffer")) return vkCmdCopyImageToBuffer;
+            break;
+        case 0x4cafab95u:
+            if (!strcmp(name, "vkCmdUpdateBuffer")) return vkCmdUpdateBuffer;
+            break;
+        case 0xe2498171u:
+            if (!strcmp(name, "vkCmdFillBuffer")) return vkCmdFillBuffer;
+            break;
+        case 0x0223af53u:
+            if (!strcmp(name, "vkCmdPipelineBarrier")) return vkCmdPipelineBarrier;
+            break;
+        case 0x976db859u:
+            if (!strcmp(name, "vkCmdBeginQuery")) return vkCmdBeginQuery;
+            break;
+        case 0xb93efb21u:
+            if (!strcmp(name, "vkCmdEndQuery")) return vkCmdEndQuery;
+            break;
+        case 0x21657da5u:
+            if (!strcmp(name, "vkCmdResetQueryPool")) return vkCmdResetQueryPool;
+            break;
+        case 0xf4fa04efu:
+            if (!strcmp(name, "vkCmdWriteTimestamp")) return vkCmdWriteTimestamp;
+            break;
+        case 0xb2cd2b3fu:
+            if (!strcmp(name, "vkCmdCopyQueryPoolResults")) return vkCmdCopyQueryPoolResults;
+            break;
+        case 0xf5f7e073u:
+            if (!strcmp(name, "vkCmdExecuteCommands")) return vkCmdExecuteCommands;
+            break;
+        case 0x42b3f55eu:
+            if (!strcmp(name, "vkCreateEvent")) return vkCreateEvent;
+            break;
+        case 0x624815e0u:
+            if (!strcmp(name, "vkDestroyEvent")) return vkDestroyEvent;
+            break;
+        case 0x66007620u:
+            if (!strcmp(name, "vkGetEventStatus")) return vkGetEventStatus;
+            break;
+        case 0xa73c166au:
+            if (!strcmp(name, "vkSetEvent")) return vkSetEvent;
+            break;
+        case 0x7de046a3u:
+            if (!strcmp(name, "vkResetEvent")) return vkResetEvent;
+            break;
+        case 0x11b7e8d5u:
+            if (!strcmp(name, "vkCreateBufferView")) return vkCreateBufferView;
+            break;
+        case 0x827878bbu:
+            if (!strcmp(name, "vkDestroyBufferView")) return vkDestroyBufferView;
+            break;
+        case 0x6f596ac7u:
+            if (!strcmp(name, "vkCreateShaderModule")) return vkCreateShaderModule;
+            break;
+        case 0x6892d8b1u:
+            if (!strcmp(name, "vkDestroyShaderModule")) return vkDestroyShaderModule;
+            break;
+        case 0x3e71c4c6u:
+            if (!strcmp(name, "vkCreatePipelineCache")) return vkCreatePipelineCache;
+            break;
+        case 0x396c2a34u:
+            if (!strcmp(name, "vkDestroyPipelineCache")) return vkDestroyPipelineCache;
+            break;
+        case 0x6855c1a6u:
+            if (!strcmp(name, "vkGetPipelineCacheData")) return vkGetPipelineCacheData;
+            break;
+        case 0xc71137ebu:
+            if (!strcmp(name, "vkMergePipelineCaches")) return vkMergePipelineCaches;
+            break;
+        case 0xc45193c6u:
+            if (!strcmp(name, "vkCreateComputePipelines")) return vkCreateComputePipelines;
+            break;
+        case 0x84481076u:
+            if (!strcmp(name, "vkDestroyPipeline")) return vkDestroyPipeline;
+            break;
+        case 0xaffa89a2u:
+            if (!strcmp(name, "vkCreatePipelineLayout")) return vkCreatePipelineLayout;
+            break;
+        case 0xe5b1e1d0u:
+            if (!strcmp(name, "vkDestroyPipelineLayout")) return vkDestroyPipelineLayout;
+            break;
+        case 0x5d12d31eu:
+            if (!strcmp(name, "vkCreateSampler")) return vkCreateSampler;
+            break;
+        case 0x2842f278u:
+            if (!strcmp(name, "vkDestroySampler")) return vkDestroySampler;
+            break;
+        case 0x452f43a7u:
+            if (!strcmp(name, "vkCreateDescriptorSetLayout")) return vkCreateDescriptorSetLayout;
+            break;
+        case 0x123433f5u:
+            if (!strcmp(name, "vkDestroyDescriptorSetLayout")) return vkDestroyDescriptorSetLayout;
+            break;
+        case 0x6392b8cdu:
+            if (!strcmp(name, "vkCreateDescriptorPool")) return vkCreateDescriptorPool;
+            break;
+        case 0x752f3e6fu:
+            if (!strcmp(name, "vkDestroyDescriptorPool")) return vkDestroyDescriptorPool;
+            break;
+        case 0x19c5052au:
+            if (!strcmp(name, "vkResetDescriptorPool")) return vkResetDescriptorPool;
+            break;
+        case 0x14a3b709u:
+            if (!strcmp(name, "vkAllocateDescriptorSets")) return vkAllocateDescriptorSets;
+            break;
+        case 0x2d791f80u:
+            if (!strcmp(name, "vkFreeDescriptorSets")) return vkFreeDescriptorSets;
+            break;
+        case 0x13d7722fu:
+            if (!strcmp(name, "vkUpdateDescriptorSets")) return vkUpdateDescriptorSets;
+            break;
+        case 0x3306d993u:
+            if (!strcmp(name, "vkCmdBindPipeline")) return vkCmdBindPipeline;
+            break;
+        case 0x4f8ac889u:
+            if (!strcmp(name, "vkCmdBindDescriptorSets")) return vkCmdBindDescriptorSets;
+            break;
+        case 0x146f399bu:
+            if (!strcmp(name, "vkCmdClearColorImage")) return vkCmdClearColorImage;
+            break;
+        case 0x1f28c0e0u:
+            if (!strcmp(name, "vkCmdDispatch")) return vkCmdDispatch;
+            break;
+        case 0x6d599ab6u:
+            if (!strcmp(name, "vkCmdDispatchIndirect")) return vkCmdDispatchIndirect;
+            break;
+        case 0x797f43fau:
+            if (!strcmp(name, "vkCmdSetEvent")) return vkCmdSetEvent;
+            break;
+        case 0x7231a513u:
+            if (!strcmp(name, "vkCmdResetEvent")) return vkCmdResetEvent;
+            break;
+        case 0x18acad2eu:
+            if (!strcmp(name, "vkCmdWaitEvents")) return vkCmdWaitEvents;
+            break;
+        case 0xd617972fu:
+            if (!strcmp(name, "vkCmdPushConstants")) return vkCmdPushConstants;
+            break;
+        case 0xffdc1506u:
+            if (!strcmp(name, "vkCreateGraphicsPipelines")) return vkCreateGraphicsPipelines;
+            break;
+        case 0x8c0b3c69u:
+            if (!strcmp(name, "vkCreateFramebuffer")) return vkCreateFramebuffer;
+            break;
+        case 0xf60843dbu:
+            if (!strcmp(name, "vkDestroyFramebuffer")) return vkDestroyFramebuffer;
+            break;
+        case 0xe75b2217u:
+            if (!strcmp(name, "vkCreateRenderPass")) return vkCreateRenderPass;
+            break;
+        case 0x235b7d71u:
+            if (!strcmp(name, "vkDestroyRenderPass")) return vkDestroyRenderPass;
+            break;
+        case 0x0984abf1u:
+            if (!strcmp(name, "vkGetRenderAreaGranularity")) return vkGetRenderAreaGranularity;
+            break;
+        case 0x64e0e218u:
+            if (!strcmp(name, "vkCmdSetViewport")) return vkCmdSetViewport;
+            break;
+        case 0xbcc3cad4u:
+            if (!strcmp(name, "vkCmdSetScissor")) return vkCmdSetScissor;
+            break;
+        case 0x89505460u:
+            if (!strcmp(name, "vkCmdSetLineWidth")) return vkCmdSetLineWidth;
+            break;
+        case 0x9da9f23eu:
+            if (!strcmp(name, "vkCmdSetDepthBias")) return vkCmdSetDepthBias;
+            break;
+        case 0xb11418dau:
+            if (!strcmp(name, "vkCmdSetBlendConstants")) return vkCmdSetBlendConstants;
+            break;
+        case 0x8aad23c2u:
+            if (!strcmp(name, "vkCmdSetDepthBounds")) return vkCmdSetDepthBounds;
+            break;
+        case 0xb6ee9565u:
+            if (!strcmp(name, "vkCmdSetStencilCompareMask")) return vkCmdSetStencilCompareMask;
+            break;
+        case 0xe559d0e1u:
+            if (!strcmp(name, "vkCmdSetStencilWriteMask")) return vkCmdSetStencilWriteMask;
+            break;
+        case 0x1d031387u:
+            if (!strcmp(name, "vkCmdSetStencilReference")) return vkCmdSetStencilReference;
+            break;
+        case 0xf1ac7a71u:
+            if (!strcmp(name, "vkCmdBindIndexBuffer")) return vkCmdBindIndexBuffer;
+            break;
+        case 0xadd4e8dau:
+            if (!strcmp(name, "vkCmdBindVertexBuffers")) return vkCmdBindVertexBuffers;
+            break;
+        case 0xa9fdc2c0u:
+            if (!strcmp(name, "vkCmdDraw")) return vkCmdDraw;
+            break;
+        case 0x44b84ecdu:
+            if (!strcmp(name, "vkCmdDrawIndexed")) return vkCmdDrawIndexed;
+            break;
+        case 0x570978d6u:
+            if (!strcmp(name, "vkCmdDrawIndirect")) return vkCmdDrawIndirect;
+            break;
+        case 0xa2dd69bfu:
+            if (!strcmp(name, "vkCmdDrawIndexedIndirect")) return vkCmdDrawIndexedIndirect;
+            break;
+        case 0xef654202u:
+            if (!strcmp(name, "vkCmdBlitImage")) return vkCmdBlitImage;
+            break;
+        case 0x13bc9e59u:
+            if (!strcmp(name, "vkCmdClearDepthStencilImage")) return vkCmdClearDepthStencilImage;
+            break;
+        case 0x049d5213u:
+            if (!strcmp(name, "vkCmdClearAttachments")) return vkCmdClearAttachments;
+            break;
+        case 0xd84ff14bu:
+            if (!strcmp(name, "vkCmdResolveImage")) return vkCmdResolveImage;
+            break;
+        case 0x79052222u:
+            if (!strcmp(name, "vkCmdBeginRenderPass")) return vkCmdBeginRenderPass;
+            break;
+        case 0x94036722u:
+            if (!strcmp(name, "vkCmdNextSubpass")) return vkCmdNextSubpass;
+            break;
+        case 0xeb0917fau:
+            if (!strcmp(name, "vkCmdEndRenderPass")) return vkCmdEndRenderPass;
+            break;
+        case 0x43784012u:
+            if (!strcmp(name, "vkBindBufferMemory2")) return vkBindBufferMemory2;
+            break;
+        case 0x1bb3d295u:
+            if (!strcmp(name, "vkBindImageMemory2")) return vkBindImageMemory2;
+            break;
+        case 0xf5a1feb7u:
+            if (!strcmp(name, "vkGetDeviceGroupPeerMemoryFeatures")) return vkGetDeviceGroupPeerMemoryFeatures;
+            break;
+        case 0xf0313ec8u:
+            if (!strcmp(name, "vkCmdSetDeviceMask")) return vkCmdSetDeviceMask;
+            break;
+        case 0x512e6a1eu:
+            if (!strcmp(name, "vkGetImageMemoryRequirements2")) return vkGetImageMemoryRequirements2;
+            break;
+        case 0xff2282cbu:
+            if (!strcmp(name, "vkGetBufferMemoryRequirements2")) return vkGetBufferMemoryRequirements2;
+            break;
+        case 0xd207cb22u:
+            if (!strcmp(name, "vkGetImageSparseMemoryRequirements2")) return vkGetImageSparseMemoryRequirements2;
+            break;
+        case 0x59c4eabdu:
+            if (!strcmp(name, "vkTrimCommandPool")) return vkTrimCommandPool;
+            break;
+        case 0xa7e80b5bu:
+            if (!strcmp(name, "vkGetDeviceQueue2")) return vkGetDeviceQueue2;
+            break;
+        case 0x95d77705u:
+            if (!strcmp(name, "vkCmdDispatchBase")) return vkCmdDispatchBase;
+            break;
+        case 0xdde2a868u:
+            if (!strcmp(name, "vkCreateDescriptorUpdateTemplate")) return vkCreateDescriptorUpdateTemplate;
+            break;
+        case 0x8769c7c2u:
+            if (!strcmp(name, "vkDestroyDescriptorUpdateTemplate")) return vkDestroyDescriptorUpdateTemplate;
+            break;
+        case 0xe9650ec4u:
+            if (!strcmp(name, "vkUpdateDescriptorSetWithTemplate")) return vkUpdateDescriptorSetWithTemplate;
+            break;
+        case 0xfd510f82u:
+            if (!strcmp(name, "vkGetDescriptorSetLayoutSupport")) return vkGetDescriptorSetLayoutSupport;
+            break;
+        case 0xf850dd41u:
+            if (!strcmp(name, "vkCreateSamplerYcbcrConversion")) return vkCreateSamplerYcbcrConversion;
+            break;
+        case 0x8b04a087u:
+            if (!strcmp(name, "vkDestroySamplerYcbcrConversion")) return vkDestroySamplerYcbcrConversion;
+            break;
+        case 0x4f91a755u:
+            if (!strcmp(name, "vkResetQueryPool")) return vkResetQueryPool;
+            break;
+        case 0x036431c1u:
+            if (!strcmp(name, "vkGetSemaphoreCounterValue")) return vkGetSemaphoreCounterValue;
+            break;
+        case 0xc2aca738u:
+            if (!strcmp(name, "vkWaitSemaphores")) return vkWaitSemaphores;
+            break;
+        case 0x307d1a20u:
+            if (!strcmp(name, "vkSignalSemaphore")) return vkSignalSemaphore;
+            break;
+        case 0x5a76a96eu:
+            if (!strcmp(name, "vkGetBufferDeviceAddress")) return vkGetBufferDeviceAddress;
+            break;
+        case 0x7e52a54du:
+            if (!strcmp(name, "vkGetBufferOpaqueCaptureAddress")) return vkGetBufferOpaqueCaptureAddress;
+            break;
+        case 0xcf71e086u:
+            if (!strcmp(name, "vkGetDeviceMemoryOpaqueCaptureAddress")) return vkGetDeviceMemoryOpaqueCaptureAddress;
+            break;
+        case 0x772b9685u:
+            if (!strcmp(name, "vkCmdDrawIndirectCount")) return vkCmdDrawIndirectCount;
+            break;
+        case 0x570f1d66u:
+            if (!strcmp(name, "vkCmdDrawIndexedIndirectCount")) return vkCmdDrawIndexedIndirectCount;
+            break;
+        case 0x5976c03fu:
+            if (!strcmp(name, "vkCreateRenderPass2")) return vkCreateRenderPass2;
+            break;
+        case 0x93149f30u:
+            if (!strcmp(name, "vkCmdBeginRenderPass2")) return vkCmdBeginRenderPass2;
+            break;
+        case 0x115b3e30u:
+            if (!strcmp(name, "vkCmdNextSubpass2")) return vkCmdNextSubpass2;
+            break;
+        case 0xc7506fd8u:
+            if (!strcmp(name, "vkCmdEndRenderPass2")) return vkCmdEndRenderPass2;
+            break;
+        case 0x26afd535u:
+            if (!strcmp(name, "vkCreatePrivateDataSlot")) return vkCreatePrivateDataSlot;
+            break;
+        case 0xd5976337u:
+            if (!strcmp(name, "vkDestroyPrivateDataSlot")) return vkDestroyPrivateDataSlot;
+            break;
+        case 0x8ea4745du:
+            if (!strcmp(name, "vkSetPrivateData")) return vkSetPrivateData;
+            break;
+        case 0xe9a91971u:
+            if (!strcmp(name, "vkGetPrivateData")) return vkGetPrivateData;
+            break;
+        case 0xbf2d15b3u:
+            if (!strcmp(name, "vkCmdPipelineBarrier2")) return vkCmdPipelineBarrier2;
+            break;
+        case 0x8295a7e7u:
+            if (!strcmp(name, "vkCmdWriteTimestamp2")) return vkCmdWriteTimestamp2;
+            break;
+        case 0xb49ac391u:
+            if (!strcmp(name, "vkQueueSubmit2")) return vkQueueSubmit2;
+            break;
+        case 0xa82f4fe9u:
+            if (!strcmp(name, "vkCmdCopyBuffer2")) return vkCmdCopyBuffer2;
+            break;
+        case 0xebe52d66u:
+            if (!strcmp(name, "vkCmdCopyImage2")) return vkCmdCopyImage2;
+            break;
+        case 0x765ed15du:
+            if (!strcmp(name, "vkCmdCopyBufferToImage2")) return vkCmdCopyBufferToImage2;
+            break;
+        case 0xb5e7f467u:
+            if (!strcmp(name, "vkCmdCopyImageToBuffer2")) return vkCmdCopyImageToBuffer2;
+            break;
+        case 0xe338387du:
+            if (!strcmp(name, "vkGetDeviceBufferMemoryRequirements")) return vkGetDeviceBufferMemoryRequirements;
+            break;
+        case 0xb451de1au:
+            if (!strcmp(name, "vkGetDeviceImageMemoryRequirements")) return vkGetDeviceImageMemoryRequirements;
+            break;
+        case 0xbbff0df2u:
+            if (!strcmp(name, "vkGetDeviceImageSparseMemoryRequirements")) return vkGetDeviceImageSparseMemoryRequirements;
+            break;
+        case 0x0b57b3d8u:
+            if (!strcmp(name, "vkCmdSetEvent2")) return vkCmdSetEvent2;
+            break;
+        case 0xe526f2f3u:
+            if (!strcmp(name, "vkCmdResetEvent2")) return vkCmdResetEvent2;
+            break;
+        case 0xf3d48314u:
+            if (!strcmp(name, "vkCmdWaitEvents2")) return vkCmdWaitEvents2;
+            break;
+        case 0x0c673190u:
+            if (!strcmp(name, "vkCmdBlitImage2")) return vkCmdBlitImage2;
+            break;
+        case 0xfed9217bu:
+            if (!strcmp(name, "vkCmdResolveImage2")) return vkCmdResolveImage2;
+            break;
+        case 0xc23aecb9u:
+            if (!strcmp(name, "vkCmdBeginRendering")) return vkCmdBeginRendering;
+            break;
+        case 0x504cb441u:
+            if (!strcmp(name, "vkCmdEndRendering")) return vkCmdEndRendering;
+            break;
+        case 0xbb1fdbfdu:
+            if (!strcmp(name, "vkCmdSetCullMode")) return vkCmdSetCullMode;
+            break;
+        case 0xec690b60u:
+            if (!strcmp(name, "vkCmdSetFrontFace")) return vkCmdSetFrontFace;
+            break;
+        case 0xb4387882u:
+            if (!strcmp(name, "vkCmdSetPrimitiveTopology")) return vkCmdSetPrimitiveTopology;
+            break;
+        case 0xa0611d7fu:
+            if (!strcmp(name, "vkCmdSetViewportWithCount")) return vkCmdSetViewportWithCount;
+            break;
+        case 0xfc5a2533u:
+            if (!strcmp(name, "vkCmdSetScissorWithCount")) return vkCmdSetScissorWithCount;
+            break;
+        case 0x8e2aa538u:
+            if (!strcmp(name, "vkCmdBindVertexBuffers2")) return vkCmdBindVertexBuffers2;
+            break;
+        case 0x4874399cu:
+            if (!strcmp(name, "vkCmdSetDepthTestEnable")) return vkCmdSetDepthTestEnable;
+            break;
+        case 0x48a8eb79u:
+            if (!strcmp(name, "vkCmdSetDepthWriteEnable")) return vkCmdSetDepthWriteEnable;
+            break;
+        case 0xeee7ee11u:
+            if (!strcmp(name, "vkCmdSetDepthCompareOp")) return vkCmdSetDepthCompareOp;
+            break;
+        case 0x47579071u:
+            if (!strcmp(name, "vkCmdSetDepthBoundsTestEnable")) return vkCmdSetDepthBoundsTestEnable;
+            break;
+        case 0xb486d021u:
+            if (!strcmp(name, "vkCmdSetStencilTestEnable")) return vkCmdSetStencilTestEnable;
+            break;
+        case 0x4d91cb75u:
+            if (!strcmp(name, "vkCmdSetStencilOp")) return vkCmdSetStencilOp;
+            break;
+        case 0x3fb78c34u:
+            if (!strcmp(name, "vkCmdSetRasterizerDiscardEnable")) return vkCmdSetRasterizerDiscardEnable;
+            break;
+        case 0x9b2a547du:
+            if (!strcmp(name, "vkCmdSetDepthBiasEnable")) return vkCmdSetDepthBiasEnable;
+            break;
+        case 0xd42a0ba9u:
+            if (!strcmp(name, "vkCmdSetPrimitiveRestartEnable")) return vkCmdSetPrimitiveRestartEnable;
+            break;
+        case 0x4d139743u:
+            if (!strcmp(name, "vkMapMemory2")) return vkMapMemory2;
+            break;
+        case 0x49c75348u:
+            if (!strcmp(name, "vkUnmapMemory2")) return vkUnmapMemory2;
+            break;
+        case 0xa108f16bu:
+            if (!strcmp(name, "vkGetDeviceImageSubresourceLayout")) return vkGetDeviceImageSubresourceLayout;
+            break;
+        case 0x49a3b45du:
+            if (!strcmp(name, "vkGetImageSubresourceLayout2")) return vkGetImageSubresourceLayout2;
+            break;
+        case 0x5fb583a2u:
+            if (!strcmp(name, "vkCopyMemoryToImage")) return vkCopyMemoryToImage;
+            break;
+        case 0x6e1e2502u:
+            if (!strcmp(name, "vkCopyImageToMemory")) return vkCopyImageToMemory;
+            break;
+        case 0x7118af0eu:
+            if (!strcmp(name, "vkCopyImageToImage")) return vkCopyImageToImage;
+            break;
+        case 0xe09b90fcu:
+            if (!strcmp(name, "vkTransitionImageLayout")) return vkTransitionImageLayout;
+            break;
+        case 0x05d80881u:
+            if (!strcmp(name, "vkCmdPushDescriptorSet")) return vkCmdPushDescriptorSet;
+            break;
+        case 0xcb42dffbu:
+            if (!strcmp(name, "vkCmdPushDescriptorSetWithTemplate")) return vkCmdPushDescriptorSetWithTemplate;
+            break;
+        case 0xf279fe61u:
+            if (!strcmp(name, "vkCmdBindDescriptorSets2")) return vkCmdBindDescriptorSets2;
+            break;
+        case 0x2422e2a7u:
+            if (!strcmp(name, "vkCmdPushConstants2")) return vkCmdPushConstants2;
+            break;
+        case 0xe615b1c9u:
+            if (!strcmp(name, "vkCmdPushDescriptorSet2")) return vkCmdPushDescriptorSet2;
+            break;
+        case 0xc346496bu:
+            if (!strcmp(name, "vkCmdPushDescriptorSetWithTemplate2")) return vkCmdPushDescriptorSetWithTemplate2;
+            break;
+        case 0x84520929u:
+            if (!strcmp(name, "vkCmdSetLineStipple")) return vkCmdSetLineStipple;
+            break;
+        case 0xb5847779u:
+            if (!strcmp(name, "vkCmdBindIndexBuffer2")) return vkCmdBindIndexBuffer2;
+            break;
+        case 0x2154c31du:
+            if (!strcmp(name, "vkGetRenderingAreaGranularity")) return vkGetRenderingAreaGranularity;
+            break;
+        case 0x4c431a0du:
+            if (!strcmp(name, "vkCmdSetRenderingAttachmentLocations")) return vkCmdSetRenderingAttachmentLocations;
+            break;
+        case 0x9a656a9cu:
+            if (!strcmp(name, "vkCmdSetRenderingInputAttachmentIndices")) return vkCmdSetRenderingInputAttachmentIndices;
+            break;
+        case 0x02e2db2du:
+            if (!strcmp(name, "vkCreateSwapchainKHR")) return vkCreateSwapchainKHR;
+            break;
+        case 0x93dc4e6bu:
+            if (!strcmp(name, "vkDestroySwapchainKHR")) return vkDestroySwapchainKHR;
+            break;
+        case 0xb7e4af43u:
+            if (!strcmp(name, "vkGetSwapchainImagesKHR")) return vkGetSwapchainImagesKHR;
+            break;
+        case 0xe09f2873u:
+            if (!strcmp(name, "vkAcquireNextImageKHR")) return vkAcquireNextImageKHR;
+            break;
+        case 0xd55fb6bbu:
+            if (!strcmp(name, "vkQueuePresentKHR")) return vkQueuePresentKHR;
+            break;
+        case 0xcb70534bu:
+            if (!strcmp(name, "vkGetDeviceGroupPresentCapabilitiesKHR")) return vkGetDeviceGroupPresentCapabilitiesKHR;
+            break;
+        case 0xc17bfaceu:
+            if (!strcmp(name, "vkGetDeviceGroupSurfacePresentModesKHR")) return vkGetDeviceGroupSurfacePresentModesKHR;
+            break;
+        case 0x5d051cb5u:
+            if (!strcmp(name, "vkAcquireNextImage2KHR")) return vkAcquireNextImage2KHR;
+            break;
+        case 0x9a79abe5u:
+            if (!strcmp(name, "vkCreateSharedSwapchainsKHR")) return vkCreateSharedSwapchainsKHR;
+            break;
+        case 0x8755b43bu:
+            if (!strcmp(name, "CreateVideoSessionKHR")) return CreateVideoSessionKHR;
+            break;
+        case 0xba6a9c23u:
+            if (!strcmp(name, "DestroyVideoSessionKHR")) return DestroyVideoSessionKHR;
+            break;
+        case 0x99a36c94u:
+            if (!strcmp(name, "GetVideoSessionMemoryRequirementsKHR")) return GetVideoSessionMemoryRequirementsKHR;
+            break;
+        case 0x8eb592f3u:
+            if (!strcmp(name, "BindVideoSessionMemoryKHR")) return BindVideoSessionMemoryKHR;
+            break;
+        case 0xdaba1587u:
+            if (!strcmp(name, "CreateVideoSessionParametersKHR")) return CreateVideoSessionParametersKHR;
+            break;
+        case 0x8134ab64u:
+            if (!strcmp(name, "UpdateVideoSessionParametersKHR")) return UpdateVideoSessionParametersKHR;
+            break;
+        case 0xa3e5ec1fu:
+            if (!strcmp(name, "DestroyVideoSessionParametersKHR")) return DestroyVideoSessionParametersKHR;
+            break;
+        case 0x2ffc3be0u:
+            if (!strcmp(name, "CmdBeginVideoCodingKHR")) return CmdBeginVideoCodingKHR;
+            break;
+        case 0xb0826eccu:
+            if (!strcmp(name, "CmdEndVideoCodingKHR")) return CmdEndVideoCodingKHR;
+            break;
+        case 0xa3bded00u:
+            if (!strcmp(name, "CmdControlVideoCodingKHR")) return CmdControlVideoCodingKHR;
+            break;
+        case 0x6929c567u:
+            if (!strcmp(name, "CmdDecodeVideoKHR")) return CmdDecodeVideoKHR;
+            break;
+        case 0xb25ed13fu:
+            if (!strcmp(name, "CmdBeginRenderingKHR")) return CmdBeginRenderingKHR;
+            break;
+        case 0xa1e8da3bu:
+            if (!strcmp(name, "CmdEndRenderingKHR")) return CmdEndRenderingKHR;
+            break;
+        case 0x4ed71617u:
+            if (!strcmp(name, "GetDeviceGroupPeerMemoryFeaturesKHR")) return GetDeviceGroupPeerMemoryFeaturesKHR;
+            break;
+        case 0x08800ab6u:
+            if (!strcmp(name, "CmdSetDeviceMaskKHR")) return CmdSetDeviceMaskKHR;
+            break;
+        case 0xd63b031fu:
+            if (!strcmp(name, "CmdDispatchBaseKHR")) return CmdDispatchBaseKHR;
+            break;
+        case 0xb633ed9fu:
+            if (!strcmp(name, "TrimCommandPoolKHR")) return TrimCommandPoolKHR;
+            break;
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x20d23800u:
+            if (!strcmp(name, "GetMemoryWin32HandleKHR")) return GetMemoryWin32HandleKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x8aa3a953u:
+            if (!strcmp(name, "GetMemoryWin32HandlePropertiesKHR")) return GetMemoryWin32HandlePropertiesKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+        case 0xf40b9fe1u:
+            if (!strcmp(name, "GetMemoryFdKHR")) return GetMemoryFdKHR;
+            break;
+        case 0x56495eaau:
+            if (!strcmp(name, "GetMemoryFdPropertiesKHR")) return GetMemoryFdPropertiesKHR;
+            break;
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x9c1d8f6au:
+            if (!strcmp(name, "ImportSemaphoreWin32HandleKHR")) return ImportSemaphoreWin32HandleKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x08094127u:
+            if (!strcmp(name, "GetSemaphoreWin32HandleKHR")) return GetSemaphoreWin32HandleKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+        case 0x63f7079fu:
+            if (!strcmp(name, "ImportSemaphoreFdKHR")) return ImportSemaphoreFdKHR;
+            break;
+        case 0x68dc7f34u:
+            if (!strcmp(name, "GetSemaphoreFdKHR")) return GetSemaphoreFdKHR;
+            break;
+        case 0x3728abedu:
+            if (!strcmp(name, "CmdPushDescriptorSetKHR")) return CmdPushDescriptorSetKHR;
+            break;
+        case 0xcdcc9167u:
+            if (!strcmp(name, "CmdPushDescriptorSetWithTemplateKHR")) return CmdPushDescriptorSetWithTemplateKHR;
+            break;
+        case 0x1e2093eau:
+            if (!strcmp(name, "CreateDescriptorUpdateTemplateKHR")) return CreateDescriptorUpdateTemplateKHR;
+            break;
+        case 0x17e357a2u:
+            if (!strcmp(name, "DestroyDescriptorUpdateTemplateKHR")) return DestroyDescriptorUpdateTemplateKHR;
+            break;
+        case 0x74072198u:
+            if (!strcmp(name, "UpdateDescriptorSetWithTemplateKHR")) return UpdateDescriptorSetWithTemplateKHR;
+            break;
+        case 0xff68d4a5u:
+            if (!strcmp(name, "CreateRenderPass2KHR")) return CreateRenderPass2KHR;
+            break;
+        case 0x1342302cu:
+            if (!strcmp(name, "CmdBeginRenderPass2KHR")) return CmdBeginRenderPass2KHR;
+            break;
+        case 0xb9f20aa0u:
+            if (!strcmp(name, "CmdNextSubpass2KHR")) return CmdNextSubpass2KHR;
+            break;
+        case 0x192dc6f8u:
+            if (!strcmp(name, "CmdEndRenderPass2KHR")) return CmdEndRenderPass2KHR;
+            break;
+        case 0x7204d3eeu:
+            if (!strcmp(name, "GetSwapchainStatusKHR")) return GetSwapchainStatusKHR;
+            break;
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0xc75dd639u:
+            if (!strcmp(name, "ImportFenceWin32HandleKHR")) return ImportFenceWin32HandleKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x1a5aafe0u:
+            if (!strcmp(name, "GetFenceWin32HandleKHR")) return GetFenceWin32HandleKHR;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+        case 0x8cdebc12u:
+            if (!strcmp(name, "ImportFenceFdKHR")) return ImportFenceFdKHR;
+            break;
+        case 0x5a3a2481u:
+            if (!strcmp(name, "GetFenceFdKHR")) return GetFenceFdKHR;
+            break;
+        case 0xf1c9f763u:
+            if (!strcmp(name, "AcquireProfilingLockKHR")) return AcquireProfilingLockKHR;
+            break;
+        case 0xebe8785eu:
+            if (!strcmp(name, "ReleaseProfilingLockKHR")) return ReleaseProfilingLockKHR;
+            break;
+        case 0x4eabff9eu:
+            if (!strcmp(name, "GetImageMemoryRequirements2KHR")) return GetImageMemoryRequirements2KHR;
+            break;
+        case 0x2909ef17u:
+            if (!strcmp(name, "GetBufferMemoryRequirements2KHR")) return GetBufferMemoryRequirements2KHR;
+            break;
+        case 0x6dd8dc46u:
+            if (!strcmp(name, "GetImageSparseMemoryRequirements2KHR")) return GetImageSparseMemoryRequirements2KHR;
+            break;
+        case 0x85ef1f45u:
+            if (!strcmp(name, "CreateSamplerYcbcrConversionKHR")) return CreateSamplerYcbcrConversionKHR;
+            break;
+        case 0xbe069d3du:
+            if (!strcmp(name, "DestroySamplerYcbcrConversionKHR")) return DestroySamplerYcbcrConversionKHR;
+            break;
+        case 0x6d4e02deu:
+            if (!strcmp(name, "BindBufferMemory2KHR")) return BindBufferMemory2KHR;
+            break;
+        case 0x201869e9u:
+            if (!strcmp(name, "BindImageMemory2KHR")) return BindImageMemory2KHR;
+            break;
+        case 0x9edd64bau:
+            if (!strcmp(name, "GetDescriptorSetLayoutSupportKHR")) return GetDescriptorSetLayoutSupportKHR;
+            break;
+        case 0xda9e74f9u:
+            if (!strcmp(name, "CmdDrawIndirectCountKHR")) return CmdDrawIndirectCountKHR;
+            break;
+        case 0xb26a147au:
+            if (!strcmp(name, "CmdDrawIndexedIndirectCountKHR")) return CmdDrawIndexedIndirectCountKHR;
+            break;
+        case 0xf35de4b5u:
+            if (!strcmp(name, "GetSemaphoreCounterValueKHR")) return GetSemaphoreCounterValueKHR;
+            break;
+        case 0xd6b1ec1eu:
+            if (!strcmp(name, "WaitSemaphoresKHR")) return WaitSemaphoresKHR;
+            break;
+        case 0xe32cacd8u:
+            if (!strcmp(name, "SignalSemaphoreKHR")) return SignalSemaphoreKHR;
+            break;
+        case 0x3fb07adeu:
+            if (!strcmp(name, "CmdSetFragmentShadingRateKHR")) return CmdSetFragmentShadingRateKHR;
+            break;
+        case 0x55942285u:
+            if (!strcmp(name, "CmdSetRenderingAttachmentLocationsKHR")) return CmdSetRenderingAttachmentLocationsKHR;
+            break;
+        case 0xd1853d34u:
+            if (!strcmp(name, "CmdSetRenderingInputAttachmentIndicesKHR")) return CmdSetRenderingInputAttachmentIndicesKHR;
+            break;
+        case 0xf8e1926du:
+            if (!strcmp(name, "WaitForPresentKHR")) return WaitForPresentKHR;
+            break;
+        case 0xf67656c8u:
+            if (!strcmp(name, "GetBufferDeviceAddressKHR")) return GetBufferDeviceAddressKHR;
+            break;
+        case 0x6af732c7u:
+            if (!strcmp(name, "GetBufferOpaqueCaptureAddressKHR")) return GetBufferOpaqueCaptureAddressKHR;
+            break;
+        case 0x40173f8au:
+            if (!strcmp(name, "GetDeviceMemoryOpaqueCaptureAddressKHR")) return GetDeviceMemoryOpaqueCaptureAddressKHR;
+            break;
+        case 0x41db77c2u:
+            if (!strcmp(name, "CreateDeferredOperationKHR")) return CreateDeferredOperationKHR;
+            break;
+        case 0xe2e9652au:
+            if (!strcmp(name, "DestroyDeferredOperationKHR")) return DestroyDeferredOperationKHR;
+            break;
+        case 0xa17aac2bu:
+            if (!strcmp(name, "GetDeferredOperationMaxConcurrencyKHR")) return GetDeferredOperationMaxConcurrencyKHR;
+            break;
+        case 0xc99a2583u:
+            if (!strcmp(name, "GetDeferredOperationResultKHR")) return GetDeferredOperationResultKHR;
+            break;
+        case 0xf82ca3cau:
+            if (!strcmp(name, "DeferredOperationJoinKHR")) return DeferredOperationJoinKHR;
+            break;
+        case 0x5120db1bu:
+            if (!strcmp(name, "GetPipelineExecutablePropertiesKHR")) return GetPipelineExecutablePropertiesKHR;
+            break;
+        case 0x415fae7du:
+            if (!strcmp(name, "GetPipelineExecutableStatisticsKHR")) return GetPipelineExecutableStatisticsKHR;
+            break;
+        case 0x3f6f94ddu:
+            if (!strcmp(name, "GetPipelineExecutableInternalRepresentationsKHR")) return GetPipelineExecutableInternalRepresentationsKHR;
+            break;
+        case 0xfcd0e5c3u:
+            if (!strcmp(name, "MapMemory2KHR")) return MapMemory2KHR;
+            break;
+        case 0xbd86b31au:
+            if (!strcmp(name, "UnmapMemory2KHR")) return UnmapMemory2KHR;
+            break;
+        case 0xe513aa09u:
+            if (!strcmp(name, "GetEncodedVideoSessionParametersKHR")) return GetEncodedVideoSessionParametersKHR;
+            break;
+        case 0xed044fd3u:
+            if (!strcmp(name, "CmdEncodeVideoKHR")) return CmdEncodeVideoKHR;
+            break;
+        case 0x5a728716u:
+            if (!strcmp(name, "CmdSetEvent2KHR")) return CmdSetEvent2KHR;
+            break;
+        case 0xa5b840dfu:
+            if (!strcmp(name, "CmdResetEvent2KHR")) return CmdResetEvent2KHR;
+            break;
+        case 0x91e1837au:
+            if (!strcmp(name, "CmdWaitEvents2KHR")) return CmdWaitEvents2KHR;
+            break;
+        case 0x1dfbddedu:
+            if (!strcmp(name, "CmdPipelineBarrier2KHR")) return CmdPipelineBarrier2KHR;
+            break;
+        case 0xe0d31c8fu:
+            if (!strcmp(name, "CmdWriteTimestamp2KHR")) return CmdWriteTimestamp2KHR;
+            break;
+        case 0x63783d0du:
+            if (!strcmp(name, "QueueSubmit2KHR")) return QueueSubmit2KHR;
+            break;
+        case 0x83d6864eu:
+            if (!strcmp(name, "CmdBindIndexBuffer3KHR")) return CmdBindIndexBuffer3KHR;
+            break;
+        case 0x07552f79u:
+            if (!strcmp(name, "CmdBindVertexBuffers3KHR")) return CmdBindVertexBuffers3KHR;
+            break;
+        case 0xfc7b6a6eu:
+            if (!strcmp(name, "CmdDrawIndirect2KHR")) return CmdDrawIndirect2KHR;
+            break;
+        case 0xb46b003du:
+            if (!strcmp(name, "CmdDrawIndexedIndirect2KHR")) return CmdDrawIndexedIndirect2KHR;
+            break;
+        case 0x4f295d26u:
+            if (!strcmp(name, "CmdDispatchIndirect2KHR")) return CmdDispatchIndirect2KHR;
+            break;
+        case 0x5602cfa4u:
+            if (!strcmp(name, "CmdCopyMemoryKHR")) return CmdCopyMemoryKHR;
+            break;
+        case 0xe8215fe8u:
+            if (!strcmp(name, "CmdCopyMemoryToImageKHR")) return CmdCopyMemoryToImageKHR;
+            break;
+        case 0xb26c1574u:
+            if (!strcmp(name, "CmdCopyImageToMemoryKHR")) return CmdCopyImageToMemoryKHR;
+            break;
+        case 0x0663b20cu:
+            if (!strcmp(name, "CmdUpdateMemoryKHR")) return CmdUpdateMemoryKHR;
+            break;
+        case 0x12eb262cu:
+            if (!strcmp(name, "CmdFillMemoryKHR")) return CmdFillMemoryKHR;
+            break;
+        case 0x35d24253u:
+            if (!strcmp(name, "CmdCopyQueryPoolResultsToMemoryKHR")) return CmdCopyQueryPoolResultsToMemoryKHR;
+            break;
+        case 0xb51d3c53u:
+            if (!strcmp(name, "CmdDrawIndirectCount2KHR")) return CmdDrawIndirectCount2KHR;
+            break;
+        case 0x2d675662u:
+            if (!strcmp(name, "CmdDrawIndexedIndirectCount2KHR")) return CmdDrawIndexedIndirectCount2KHR;
+            break;
+        case 0x2ed06d21u:
+            if (!strcmp(name, "CmdBeginConditionalRendering2EXT")) return CmdBeginConditionalRendering2EXT;
+            break;
+        case 0x956c8b1bu:
+            if (!strcmp(name, "CmdBindTransformFeedbackBuffers2EXT")) return CmdBindTransformFeedbackBuffers2EXT;
+            break;
+        case 0x79dc416au:
+            if (!strcmp(name, "CmdBeginTransformFeedback2EXT")) return CmdBeginTransformFeedback2EXT;
+            break;
+        case 0xeb8ed116u:
+            if (!strcmp(name, "CmdEndTransformFeedback2EXT")) return CmdEndTransformFeedback2EXT;
+            break;
+        case 0xa13ce3b5u:
+            if (!strcmp(name, "CmdDrawIndirectByteCount2EXT")) return CmdDrawIndirectByteCount2EXT;
+            break;
+        case 0x8148b859u:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirect2EXT")) return CmdDrawMeshTasksIndirect2EXT;
+            break;
+        case 0x349198b6u:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirectCount2EXT")) return CmdDrawMeshTasksIndirectCount2EXT;
+            break;
+        case 0xf0e2afa4u:
+            if (!strcmp(name, "CmdWriteMarkerToMemoryAMD")) return CmdWriteMarkerToMemoryAMD;
+            break;
+        case 0xef4623ffu:
+            if (!strcmp(name, "CreateAccelerationStructure2KHR")) return CreateAccelerationStructure2KHR;
+            break;
+        case 0x8ad79009u:
+            if (!strcmp(name, "CmdCopyBuffer2KHR")) return CmdCopyBuffer2KHR;
+            break;
+        case 0xb82dbd0au:
+            if (!strcmp(name, "CmdCopyImage2KHR")) return CmdCopyImage2KHR;
+            break;
+        case 0xac4cc803u:
+            if (!strcmp(name, "CmdCopyBufferToImage2KHR")) return CmdCopyBufferToImage2KHR;
+            break;
+        case 0xb3361a99u:
+            if (!strcmp(name, "CmdCopyImageToBuffer2KHR")) return CmdCopyImageToBuffer2KHR;
+            break;
+        case 0x6f8868d4u:
+            if (!strcmp(name, "CmdBlitImage2KHR")) return CmdBlitImage2KHR;
+            break;
+        case 0xd9427c73u:
+            if (!strcmp(name, "CmdResolveImage2KHR")) return CmdResolveImage2KHR;
+            break;
+        case 0x1f19994au:
+            if (!strcmp(name, "CmdTraceRaysIndirect2KHR")) return CmdTraceRaysIndirect2KHR;
+            break;
+        case 0x1e729e4fu:
+            if (!strcmp(name, "GetDeviceBufferMemoryRequirementsKHR")) return GetDeviceBufferMemoryRequirementsKHR;
+            break;
+        case 0x6df0b8f8u:
+            if (!strcmp(name, "GetDeviceImageMemoryRequirementsKHR")) return GetDeviceImageMemoryRequirementsKHR;
+            break;
+        case 0x2ded89dcu:
+            if (!strcmp(name, "GetDeviceImageSparseMemoryRequirementsKHR")) return GetDeviceImageSparseMemoryRequirementsKHR;
+            break;
+        case 0x48eace23u:
+            if (!strcmp(name, "CmdBindIndexBuffer2KHR")) return CmdBindIndexBuffer2KHR;
+            break;
+        case 0xf4ab27fbu:
+            if (!strcmp(name, "GetRenderingAreaGranularityKHR")) return GetRenderingAreaGranularityKHR;
+            break;
+        case 0x7c40af99u:
+            if (!strcmp(name, "GetDeviceImageSubresourceLayoutKHR")) return GetDeviceImageSubresourceLayoutKHR;
+            break;
+        case 0xa6b7077du:
+            if (!strcmp(name, "GetImageSubresourceLayout2KHR")) return GetImageSubresourceLayout2KHR;
+            break;
+        case 0x8c33ea4fu:
+            if (!strcmp(name, "WaitForPresent2KHR")) return WaitForPresent2KHR;
+            break;
+        case 0xef98a8a5u:
+            if (!strcmp(name, "CreatePipelineBinariesKHR")) return CreatePipelineBinariesKHR;
+            break;
+        case 0xe6865415u:
+            if (!strcmp(name, "DestroyPipelineBinaryKHR")) return DestroyPipelineBinaryKHR;
+            break;
+        case 0x5fd4a693u:
+            if (!strcmp(name, "GetPipelineKeyKHR")) return GetPipelineKeyKHR;
+            break;
+        case 0xd217a0e3u:
+            if (!strcmp(name, "GetPipelineBinaryDataKHR")) return GetPipelineBinaryDataKHR;
+            break;
+        case 0x53358d0du:
+            if (!strcmp(name, "ReleaseCapturedPipelineDataKHR")) return ReleaseCapturedPipelineDataKHR;
+            break;
+        case 0x9eeaf127u:
+            if (!strcmp(name, "ReleaseSwapchainImagesKHR")) return ReleaseSwapchainImagesKHR;
+            break;
+        case 0x0968c67fu:
+            if (!strcmp(name, "CmdSetLineStippleKHR")) return CmdSetLineStippleKHR;
+            break;
+        case 0x6b882920u:
+            if (!strcmp(name, "GetCalibratedTimestampsKHR")) return GetCalibratedTimestampsKHR;
+            break;
+        case 0x710c992du:
+            if (!strcmp(name, "CmdBindDescriptorSets2KHR")) return CmdBindDescriptorSets2KHR;
+            break;
+        case 0x653f92f5u:
+            if (!strcmp(name, "CmdPushConstants2KHR")) return CmdPushConstants2KHR;
+            break;
+        case 0x16210ecfu:
+            if (!strcmp(name, "CmdPushDescriptorSet2KHR")) return CmdPushDescriptorSet2KHR;
+            break;
+        case 0x9b217891u:
+            if (!strcmp(name, "CmdPushDescriptorSetWithTemplate2KHR")) return CmdPushDescriptorSetWithTemplate2KHR;
+            break;
+        case 0xaa36302fu:
+            if (!strcmp(name, "CmdSetDescriptorBufferOffsets2EXT")) return CmdSetDescriptorBufferOffsets2EXT;
+            break;
+        case 0x8c819255u:
+            if (!strcmp(name, "CmdBindDescriptorBufferEmbeddedSamplers2EXT")) return CmdBindDescriptorBufferEmbeddedSamplers2EXT;
+            break;
+        case 0x6822bffau:
+            if (!strcmp(name, "CmdCopyMemoryIndirectKHR")) return CmdCopyMemoryIndirectKHR;
+            break;
+        case 0x45e676eeu:
+            if (!strcmp(name, "CmdCopyMemoryToImageIndirectKHR")) return CmdCopyMemoryToImageIndirectKHR;
+            break;
+        case 0xbabfebc5u:
+            if (!strcmp(name, "GetDeviceFaultReportsKHR")) return GetDeviceFaultReportsKHR;
+            break;
+        case 0x77fed63du:
+            if (!strcmp(name, "GetDeviceFaultDebugInfoKHR")) return GetDeviceFaultDebugInfoKHR;
+            break;
+        case 0x1486526du:
+            if (!strcmp(name, "CmdEndRendering2KHR")) return CmdEndRendering2KHR;
+            break;
+        case 0x11c6e79au:
+            if (!strcmp(name, "terminator_DebugMarkerSetObjectTagEXT")) return terminator_DebugMarkerSetObjectTagEXT;
+            break;
+        case 0x25f0a941u:
+            if (!strcmp(name, "terminator_DebugMarkerSetObjectNameEXT")) return terminator_DebugMarkerSetObjectNameEXT;
+            break;
+        case 0x8bd450dcu:
+            if (!strcmp(name, "CmdDebugMarkerBeginEXT")) return CmdDebugMarkerBeginEXT;
+            break;
+        case 0x39db560cu:
+            if (!strcmp(name, "CmdDebugMarkerEndEXT")) return CmdDebugMarkerEndEXT;
+            break;
+        case 0x87eb00acu:
+            if (!strcmp(name, "CmdDebugMarkerInsertEXT")) return CmdDebugMarkerInsertEXT;
+            break;
+        case 0x13f3b181u:
+            if (!strcmp(name, "CmdBindTransformFeedbackBuffersEXT")) return CmdBindTransformFeedbackBuffersEXT;
+            break;
+        case 0x9b6bf192u:
+            if (!strcmp(name, "CmdBeginTransformFeedbackEXT")) return CmdBeginTransformFeedbackEXT;
+            break;
+        case 0x367a51c6u:
+            if (!strcmp(name, "CmdEndTransformFeedbackEXT")) return CmdEndTransformFeedbackEXT;
+            break;
+        case 0x301925d4u:
+            if (!strcmp(name, "CmdBeginQueryIndexedEXT")) return CmdBeginQueryIndexedEXT;
+            break;
+        case 0xbca8e430u:
+            if (!strcmp(name, "CmdEndQueryIndexedEXT")) return CmdEndQueryIndexedEXT;
+            break;
+        case 0xa5386103u:
+            if (!strcmp(name, "CmdDrawIndirectByteCountEXT")) return CmdDrawIndirectByteCountEXT;
+            break;
+        case 0xdf85d3a7u:
+            if (!strcmp(name, "CreateCuModuleNVX")) return CreateCuModuleNVX;
+            break;
+        case 0x1a7b1b6bu:
+            if (!strcmp(name, "CreateCuFunctionNVX")) return CreateCuFunctionNVX;
+            break;
+        case 0x76ff5d6fu:
+            if (!strcmp(name, "DestroyCuModuleNVX")) return DestroyCuModuleNVX;
+            break;
+        case 0x185d65e3u:
+            if (!strcmp(name, "DestroyCuFunctionNVX")) return DestroyCuFunctionNVX;
+            break;
+        case 0xe56f83cfu:
+            if (!strcmp(name, "CmdCuLaunchKernelNVX")) return CmdCuLaunchKernelNVX;
+            break;
+        case 0x24b2d191u:
+            if (!strcmp(name, "GetImageViewHandleNVX")) return GetImageViewHandleNVX;
+            break;
+        case 0x2339418bu:
+            if (!strcmp(name, "GetImageViewHandle64NVX")) return GetImageViewHandle64NVX;
+            break;
+        case 0x515f4f51u:
+            if (!strcmp(name, "GetImageViewAddressNVX")) return GetImageViewAddressNVX;
+            break;
+        case 0x39a203a9u:
+            if (!strcmp(name, "GetDeviceCombinedImageSamplerIndexNVX")) return GetDeviceCombinedImageSamplerIndexNVX;
+            break;
+        case 0x4a6af6e0u:
+            if (!strcmp(name, "CmdDrawIndirectCountAMD")) return CmdDrawIndirectCountAMD;
+            break;
+        case 0xce3c2253u:
+            if (!strcmp(name, "CmdDrawIndexedIndirectCountAMD")) return CmdDrawIndexedIndirectCountAMD;
+            break;
+        case 0xae68a420u:
+            if (!strcmp(name, "GetShaderInfoAMD")) return GetShaderInfoAMD;
+            break;
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0xaa346f01u:
+            if (!strcmp(name, "GetMemoryWin32HandleNV")) return GetMemoryWin32HandleNV;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+        case 0x83cc6ec7u:
+            if (!strcmp(name, "CmdBeginConditionalRenderingEXT")) return CmdBeginConditionalRenderingEXT;
+            break;
+        case 0xc2f44443u:
+            if (!strcmp(name, "CmdEndConditionalRenderingEXT")) return CmdEndConditionalRenderingEXT;
+            break;
+        case 0xef4404bdu:
+            if (!strcmp(name, "CmdSetViewportWScalingNV")) return CmdSetViewportWScalingNV;
+            break;
+        case 0xcd3d83d6u:
+            if (!strcmp(name, "DisplayPowerControlEXT")) return DisplayPowerControlEXT;
+            break;
+        case 0x89eb83c5u:
+            if (!strcmp(name, "RegisterDeviceEventEXT")) return RegisterDeviceEventEXT;
+            break;
+        case 0x308cb801u:
+            if (!strcmp(name, "RegisterDisplayEventEXT")) return RegisterDisplayEventEXT;
+            break;
+        case 0x422be39au:
+            if (!strcmp(name, "GetSwapchainCounterEXT")) return GetSwapchainCounterEXT;
+            break;
+        case 0x9d1e9cbbu:
+            if (!strcmp(name, "GetRefreshCycleDurationGOOGLE")) return GetRefreshCycleDurationGOOGLE;
+            break;
+        case 0x2bf55b06u:
+            if (!strcmp(name, "GetPastPresentationTimingGOOGLE")) return GetPastPresentationTimingGOOGLE;
+            break;
+        case 0x494be225u:
+            if (!strcmp(name, "CmdSetDiscardRectangleEXT")) return CmdSetDiscardRectangleEXT;
+            break;
+        case 0xde952114u:
+            if (!strcmp(name, "CmdSetDiscardRectangleEnableEXT")) return CmdSetDiscardRectangleEnableEXT;
+            break;
+        case 0x0229a59cu:
+            if (!strcmp(name, "CmdSetDiscardRectangleModeEXT")) return CmdSetDiscardRectangleModeEXT;
+            break;
+        case 0x4c4c9e61u:
+            if (!strcmp(name, "SetHdrMetadataEXT")) return SetHdrMetadataEXT;
+            break;
+        case 0x0485e81au:
+            if (!strcmp(name, "terminator_SetDebugUtilsObjectNameEXT")) return terminator_SetDebugUtilsObjectNameEXT;
+            break;
+        case 0xb79ced4fu:
+            if (!strcmp(name, "terminator_SetDebugUtilsObjectTagEXT")) return terminator_SetDebugUtilsObjectTagEXT;
+            break;
+        case 0x17c2ff64u:
+            if (!strcmp(name, "QueueBeginDebugUtilsLabelEXT")) return QueueBeginDebugUtilsLabelEXT;
+            break;
+        case 0xdf00ddb4u:
+            if (!strcmp(name, "QueueEndDebugUtilsLabelEXT")) return QueueEndDebugUtilsLabelEXT;
+            break;
+        case 0x4e04da94u:
+            if (!strcmp(name, "QueueInsertDebugUtilsLabelEXT")) return QueueInsertDebugUtilsLabelEXT;
+            break;
+        case 0xc0ad7af9u:
+            if (!strcmp(name, "CmdBeginDebugUtilsLabelEXT")) return CmdBeginDebugUtilsLabelEXT;
+            break;
+        case 0x54548a95u:
+            if (!strcmp(name, "CmdEndDebugUtilsLabelEXT")) return CmdEndDebugUtilsLabelEXT;
+            break;
+        case 0x08691667u:
+            if (!strcmp(name, "CmdInsertDebugUtilsLabelEXT")) return CmdInsertDebugUtilsLabelEXT;
+            break;
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        case 0xb9163790u:
+            if (!strcmp(name, "GetAndroidHardwareBufferPropertiesANDROID")) return GetAndroidHardwareBufferPropertiesANDROID;
+            break;
+#endif // VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        case 0x20fc64b4u:
+            if (!strcmp(name, "GetMemoryAndroidHardwareBufferANDROID")) return GetMemoryAndroidHardwareBufferANDROID;
+            break;
+#endif // VK_USE_PLATFORM_ANDROID_KHR
+        case 0x8aa864afu:
+            if (!strcmp(name, "CreateGpaSessionAMD")) return CreateGpaSessionAMD;
+            break;
+        case 0xcbcaef47u:
+            if (!strcmp(name, "DestroyGpaSessionAMD")) return DestroyGpaSessionAMD;
+            break;
+        case 0x2e7fabf0u:
+            if (!strcmp(name, "SetGpaDeviceClockModeAMD")) return SetGpaDeviceClockModeAMD;
+            break;
+        case 0x1b222879u:
+            if (!strcmp(name, "GetGpaDeviceClockInfoAMD")) return GetGpaDeviceClockInfoAMD;
+            break;
+        case 0x0a5546c0u:
+            if (!strcmp(name, "CmdBeginGpaSessionAMD")) return CmdBeginGpaSessionAMD;
+            break;
+        case 0xfed3ed24u:
+            if (!strcmp(name, "CmdEndGpaSessionAMD")) return CmdEndGpaSessionAMD;
+            break;
+        case 0xbde10466u:
+            if (!strcmp(name, "CmdBeginGpaSampleAMD")) return CmdBeginGpaSampleAMD;
+            break;
+        case 0xd1be1f02u:
+            if (!strcmp(name, "CmdEndGpaSampleAMD")) return CmdEndGpaSampleAMD;
+            break;
+        case 0xa427fd8bu:
+            if (!strcmp(name, "GetGpaSessionStatusAMD")) return GetGpaSessionStatusAMD;
+            break;
+        case 0x0f68255du:
+            if (!strcmp(name, "GetGpaSessionResultsAMD")) return GetGpaSessionResultsAMD;
+            break;
+        case 0x558b561cu:
+            if (!strcmp(name, "ResetGpaSessionAMD")) return ResetGpaSessionAMD;
+            break;
+        case 0xb2c1bb6cu:
+            if (!strcmp(name, "CmdCopyGpaSessionResultsAMD")) return CmdCopyGpaSessionResultsAMD;
+            break;
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x6591a33cu:
+            if (!strcmp(name, "CreateExecutionGraphPipelinesAMDX")) return CreateExecutionGraphPipelinesAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x285c32bcu:
+            if (!strcmp(name, "GetExecutionGraphPipelineScratchSizeAMDX")) return GetExecutionGraphPipelineScratchSizeAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x269b0af3u:
+            if (!strcmp(name, "GetExecutionGraphPipelineNodeIndexAMDX")) return GetExecutionGraphPipelineNodeIndexAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x3c22a23eu:
+            if (!strcmp(name, "CmdInitializeGraphScratchMemoryAMDX")) return CmdInitializeGraphScratchMemoryAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0xb7474735u:
+            if (!strcmp(name, "CmdDispatchGraphAMDX")) return CmdDispatchGraphAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x0ec3bd13u:
+            if (!strcmp(name, "CmdDispatchGraphIndirectAMDX")) return CmdDispatchGraphIndirectAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x10376d2eu:
+            if (!strcmp(name, "CmdDispatchGraphIndirectCountAMDX")) return CmdDispatchGraphIndirectCountAMDX;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+        case 0x12ae8561u:
+            if (!strcmp(name, "WriteSamplerDescriptorsEXT")) return WriteSamplerDescriptorsEXT;
+            break;
+        case 0xa535e175u:
+            if (!strcmp(name, "WriteResourceDescriptorsEXT")) return WriteResourceDescriptorsEXT;
+            break;
+        case 0xcd88cf99u:
+            if (!strcmp(name, "CmdBindSamplerHeapEXT")) return CmdBindSamplerHeapEXT;
+            break;
+        case 0xc282757du:
+            if (!strcmp(name, "CmdBindResourceHeapEXT")) return CmdBindResourceHeapEXT;
+            break;
+        case 0xdfc9609au:
+            if (!strcmp(name, "CmdPushDataEXT")) return CmdPushDataEXT;
+            break;
+        case 0x2e5a2a1au:
+            if (!strcmp(name, "GetImageOpaqueCaptureDataEXT")) return GetImageOpaqueCaptureDataEXT;
+            break;
+        case 0xf5acd713u:
+            if (!strcmp(name, "RegisterCustomBorderColorEXT")) return RegisterCustomBorderColorEXT;
+            break;
+        case 0x49241c28u:
+            if (!strcmp(name, "UnregisterCustomBorderColorEXT")) return UnregisterCustomBorderColorEXT;
+            break;
+        case 0x201f6589u:
+            if (!strcmp(name, "GetTensorOpaqueCaptureDataARM")) return GetTensorOpaqueCaptureDataARM;
+            break;
+        case 0xd0bfab14u:
+            if (!strcmp(name, "CmdSetSampleLocationsEXT")) return CmdSetSampleLocationsEXT;
+            break;
+        case 0x0f35fea9u:
+            if (!strcmp(name, "GetImageDrmFormatModifierPropertiesEXT")) return GetImageDrmFormatModifierPropertiesEXT;
+            break;
+        case 0x8fcdba63u:
+            if (!strcmp(name, "CreateValidationCacheEXT")) return CreateValidationCacheEXT;
+            break;
+        case 0xfb7aea5bu:
+            if (!strcmp(name, "DestroyValidationCacheEXT")) return DestroyValidationCacheEXT;
+            break;
+        case 0x643a9b0eu:
+            if (!strcmp(name, "MergeValidationCachesEXT")) return MergeValidationCachesEXT;
+            break;
+        case 0x150f30f9u:
+            if (!strcmp(name, "GetValidationCacheDataEXT")) return GetValidationCacheDataEXT;
+            break;
+        case 0x6a4bbce9u:
+            if (!strcmp(name, "CmdBindShadingRateImageNV")) return CmdBindShadingRateImageNV;
+            break;
+        case 0xe4fce164u:
+            if (!strcmp(name, "CmdSetViewportShadingRatePaletteNV")) return CmdSetViewportShadingRatePaletteNV;
+            break;
+        case 0xae8c7ae6u:
+            if (!strcmp(name, "CmdSetCoarseSampleOrderNV")) return CmdSetCoarseSampleOrderNV;
+            break;
+        case 0xa6a91c1au:
+            if (!strcmp(name, "CreateAccelerationStructureNV")) return CreateAccelerationStructureNV;
+            break;
+        case 0xf3a49dc2u:
+            if (!strcmp(name, "DestroyAccelerationStructureNV")) return DestroyAccelerationStructureNV;
+            break;
+        case 0x94c92d9fu:
+            if (!strcmp(name, "GetAccelerationStructureMemoryRequirementsNV")) return GetAccelerationStructureMemoryRequirementsNV;
+            break;
+        case 0xba777ef4u:
+            if (!strcmp(name, "BindAccelerationStructureMemoryNV")) return BindAccelerationStructureMemoryNV;
+            break;
+        case 0x41a5a62eu:
+            if (!strcmp(name, "CmdBuildAccelerationStructureNV")) return CmdBuildAccelerationStructureNV;
+            break;
+        case 0x7a5d9a1bu:
+            if (!strcmp(name, "CmdCopyAccelerationStructureNV")) return CmdCopyAccelerationStructureNV;
+            break;
+        case 0x16249515u:
+            if (!strcmp(name, "CmdTraceRaysNV")) return CmdTraceRaysNV;
+            break;
+        case 0xf2f82f6au:
+            if (!strcmp(name, "CreateRayTracingPipelinesNV")) return CreateRayTracingPipelinesNV;
+            break;
+        case 0xc58edd21u:
+            if (!strcmp(name, "GetRayTracingShaderGroupHandlesKHR")) return GetRayTracingShaderGroupHandlesKHR;
+            break;
+        case 0x0d5f3ca6u:
+            if (!strcmp(name, "GetRayTracingShaderGroupHandlesNV")) return GetRayTracingShaderGroupHandlesNV;
+            break;
+        case 0xe0f756e2u:
+            if (!strcmp(name, "GetAccelerationStructureHandleNV")) return GetAccelerationStructureHandleNV;
+            break;
+        case 0xb79ab941u:
+            if (!strcmp(name, "CmdWriteAccelerationStructuresPropertiesNV")) return CmdWriteAccelerationStructuresPropertiesNV;
+            break;
+        case 0xb1c5975du:
+            if (!strcmp(name, "CompileDeferredNV")) return CompileDeferredNV;
+            break;
+        case 0x969c0921u:
+            if (!strcmp(name, "GetMemoryHostPointerPropertiesEXT")) return GetMemoryHostPointerPropertiesEXT;
+            break;
+        case 0xbc07cba8u:
+            if (!strcmp(name, "CmdWriteBufferMarkerAMD")) return CmdWriteBufferMarkerAMD;
+            break;
+        case 0x94d3cdeau:
+            if (!strcmp(name, "CmdWriteBufferMarker2AMD")) return CmdWriteBufferMarker2AMD;
+            break;
+        case 0xaff87e08u:
+            if (!strcmp(name, "GetCalibratedTimestampsEXT")) return GetCalibratedTimestampsEXT;
+            break;
+        case 0x99213e96u:
+            if (!strcmp(name, "CmdDrawMeshTasksNV")) return CmdDrawMeshTasksNV;
+            break;
+        case 0xa6f9ae88u:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirectNV")) return CmdDrawMeshTasksIndirectNV;
+            break;
+        case 0x549d70abu:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirectCountNV")) return CmdDrawMeshTasksIndirectCountNV;
+            break;
+        case 0xc9d49accu:
+            if (!strcmp(name, "CmdSetExclusiveScissorEnableNV")) return CmdSetExclusiveScissorEnableNV;
+            break;
+        case 0x59aa4d2fu:
+            if (!strcmp(name, "CmdSetExclusiveScissorNV")) return CmdSetExclusiveScissorNV;
+            break;
+        case 0xb6d28423u:
+            if (!strcmp(name, "CmdSetCheckpointNV")) return CmdSetCheckpointNV;
+            break;
+        case 0x449b2e0cu:
+            if (!strcmp(name, "GetQueueCheckpointDataNV")) return GetQueueCheckpointDataNV;
+            break;
+        case 0x348ecc02u:
+            if (!strcmp(name, "GetQueueCheckpointData2NV")) return GetQueueCheckpointData2NV;
+            break;
+        case 0xda074e3bu:
+            if (!strcmp(name, "SetSwapchainPresentTimingQueueSizeEXT")) return SetSwapchainPresentTimingQueueSizeEXT;
+            break;
+        case 0xe26293a9u:
+            if (!strcmp(name, "GetSwapchainTimingPropertiesEXT")) return GetSwapchainTimingPropertiesEXT;
+            break;
+        case 0x15b187f8u:
+            if (!strcmp(name, "GetSwapchainTimeDomainPropertiesEXT")) return GetSwapchainTimeDomainPropertiesEXT;
+            break;
+        case 0x81335194u:
+            if (!strcmp(name, "GetPastPresentationTimingEXT")) return GetPastPresentationTimingEXT;
+            break;
+        case 0x48bbbb5fu:
+            if (!strcmp(name, "InitializePerformanceApiINTEL")) return InitializePerformanceApiINTEL;
+            break;
+        case 0x1253c0d2u:
+            if (!strcmp(name, "UninitializePerformanceApiINTEL")) return UninitializePerformanceApiINTEL;
+            break;
+        case 0xd1766025u:
+            if (!strcmp(name, "CmdSetPerformanceMarkerINTEL")) return CmdSetPerformanceMarkerINTEL;
+            break;
+        case 0x49b583ddu:
+            if (!strcmp(name, "CmdSetPerformanceStreamMarkerINTEL")) return CmdSetPerformanceStreamMarkerINTEL;
+            break;
+        case 0x138dfdbbu:
+            if (!strcmp(name, "CmdSetPerformanceOverrideINTEL")) return CmdSetPerformanceOverrideINTEL;
+            break;
+        case 0xb537e059u:
+            if (!strcmp(name, "AcquirePerformanceConfigurationINTEL")) return AcquirePerformanceConfigurationINTEL;
+            break;
+        case 0x599c00bau:
+            if (!strcmp(name, "ReleasePerformanceConfigurationINTEL")) return ReleasePerformanceConfigurationINTEL;
+            break;
+        case 0x9e52d85cu:
+            if (!strcmp(name, "QueueSetPerformanceConfigurationINTEL")) return QueueSetPerformanceConfigurationINTEL;
+            break;
+        case 0xc1a38c12u:
+            if (!strcmp(name, "GetPerformanceParameterINTEL")) return GetPerformanceParameterINTEL;
+            break;
+        case 0xafa2d3edu:
+            if (!strcmp(name, "SetLocalDimmingAMD")) return SetLocalDimmingAMD;
+            break;
+        case 0x28645dc0u:
+            if (!strcmp(name, "GetBufferDeviceAddressEXT")) return GetBufferDeviceAddressEXT;
+            break;
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x9fb871e0u:
+            if (!strcmp(name, "AcquireFullScreenExclusiveModeEXT")) return AcquireFullScreenExclusiveModeEXT;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0x67c7c855u:
+            if (!strcmp(name, "ReleaseFullScreenExclusiveModeEXT")) return ReleaseFullScreenExclusiveModeEXT;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        case 0xbde3a0ebu:
+            if (!strcmp(name, "GetDeviceGroupSurfacePresentModes2EXT")) return GetDeviceGroupSurfacePresentModes2EXT;
+            break;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+        case 0xad3668e7u:
+            if (!strcmp(name, "CmdSetLineStippleEXT")) return CmdSetLineStippleEXT;
+            break;
+        case 0x6c6fcce1u:
+            if (!strcmp(name, "ResetQueryPoolEXT")) return ResetQueryPoolEXT;
+            break;
+        case 0xab9b765du:
+            if (!strcmp(name, "CmdSetCullModeEXT")) return CmdSetCullModeEXT;
+            break;
+        case 0xf2289404u:
+            if (!strcmp(name, "CmdSetFrontFaceEXT")) return CmdSetFrontFaceEXT;
+            break;
+        case 0x64cba91au:
+            if (!strcmp(name, "CmdSetPrimitiveTopologyEXT")) return CmdSetPrimitiveTopologyEXT;
+            break;
+        case 0xf0fcf30du:
+            if (!strcmp(name, "CmdSetViewportWithCountEXT")) return CmdSetViewportWithCountEXT;
+            break;
+        case 0xe7925953u:
+            if (!strcmp(name, "CmdSetScissorWithCountEXT")) return CmdSetScissorWithCountEXT;
+            break;
+        case 0xb4cd241cu:
+            if (!strcmp(name, "CmdBindVertexBuffers2EXT")) return CmdBindVertexBuffers2EXT;
+            break;
+        case 0xdfd30d54u:
+            if (!strcmp(name, "CmdSetDepthTestEnableEXT")) return CmdSetDepthTestEnableEXT;
+            break;
+        case 0x10132f69u:
+            if (!strcmp(name, "CmdSetDepthWriteEnableEXT")) return CmdSetDepthWriteEnableEXT;
+            break;
+        case 0x421cb111u:
+            if (!strcmp(name, "CmdSetDepthCompareOpEXT")) return CmdSetDepthCompareOpEXT;
+            break;
+        case 0x6a6d3a6fu:
+            if (!strcmp(name, "CmdSetDepthBoundsTestEnableEXT")) return CmdSetDepthBoundsTestEnableEXT;
+            break;
+        case 0x62b54f0fu:
+            if (!strcmp(name, "CmdSetStencilTestEnableEXT")) return CmdSetStencilTestEnableEXT;
+            break;
+        case 0xc2c7a883u:
+            if (!strcmp(name, "CmdSetStencilOpEXT")) return CmdSetStencilOpEXT;
+            break;
+        case 0xd1081f1au:
+            if (!strcmp(name, "CopyMemoryToImageEXT")) return CopyMemoryToImageEXT;
+            break;
+        case 0xf686396eu:
+            if (!strcmp(name, "CopyImageToMemoryEXT")) return CopyImageToMemoryEXT;
+            break;
+        case 0xa81e501cu:
+            if (!strcmp(name, "CopyImageToImageEXT")) return CopyImageToImageEXT;
+            break;
+        case 0xbd1c916cu:
+            if (!strcmp(name, "TransitionImageLayoutEXT")) return TransitionImageLayoutEXT;
+            break;
+        case 0x54f17095u:
+            if (!strcmp(name, "GetImageSubresourceLayout2EXT")) return GetImageSubresourceLayout2EXT;
+            break;
+        case 0x944dc39fu:
+            if (!strcmp(name, "ReleaseSwapchainImagesEXT")) return ReleaseSwapchainImagesEXT;
+            break;
+        case 0xd2aa7009u:
+            if (!strcmp(name, "GetGeneratedCommandsMemoryRequirementsNV")) return GetGeneratedCommandsMemoryRequirementsNV;
+            break;
+        case 0x8d45b6c0u:
+            if (!strcmp(name, "CmdPreprocessGeneratedCommandsNV")) return CmdPreprocessGeneratedCommandsNV;
+            break;
+        case 0xe443e77du:
+            if (!strcmp(name, "CmdExecuteGeneratedCommandsNV")) return CmdExecuteGeneratedCommandsNV;
+            break;
+        case 0xa5273626u:
+            if (!strcmp(name, "CmdBindPipelineShaderGroupNV")) return CmdBindPipelineShaderGroupNV;
+            break;
+        case 0x51109e57u:
+            if (!strcmp(name, "CreateIndirectCommandsLayoutNV")) return CreateIndirectCommandsLayoutNV;
+            break;
+        case 0x92854a2fu:
+            if (!strcmp(name, "DestroyIndirectCommandsLayoutNV")) return DestroyIndirectCommandsLayoutNV;
+            break;
+        case 0x318f1b8eu:
+            if (!strcmp(name, "CmdSetDepthBias2EXT")) return CmdSetDepthBias2EXT;
+            break;
+        case 0x091e69a3u:
+            if (!strcmp(name, "CreatePrivateDataSlotEXT")) return CreatePrivateDataSlotEXT;
+            break;
+        case 0xa81e10ebu:
+            if (!strcmp(name, "DestroyPrivateDataSlotEXT")) return DestroyPrivateDataSlotEXT;
+            break;
+        case 0x8c160fadu:
+            if (!strcmp(name, "SetPrivateDataEXT")) return SetPrivateDataEXT;
+            break;
+        case 0x889689a9u:
+            if (!strcmp(name, "GetPrivateDataEXT")) return GetPrivateDataEXT;
+            break;
+        case 0x25e8d0f2u:
+            if (!strcmp(name, "QueueSetPerfHintQCOM")) return QueueSetPerfHintQCOM;
+            break;
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x45e9daceu:
+            if (!strcmp(name, "CreateCudaModuleNV")) return CreateCudaModuleNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0xa6a2b5bau:
+            if (!strcmp(name, "GetCudaModuleCacheNV")) return GetCudaModuleCacheNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x2a307bb6u:
+            if (!strcmp(name, "CreateCudaFunctionNV")) return CreateCudaFunctionNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x04687356u:
+            if (!strcmp(name, "DestroyCudaModuleNV")) return DestroyCudaModuleNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x2e6ec66eu:
+            if (!strcmp(name, "DestroyCudaFunctionNV")) return DestroyCudaFunctionNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+#if defined(VK_ENABLE_BETA_EXTENSIONS)
+        case 0x129a70c6u:
+            if (!strcmp(name, "CmdCudaLaunchKernelNV")) return CmdCudaLaunchKernelNV;
+            break;
+#endif // VK_ENABLE_BETA_EXTENSIONS
+        case 0x6f5d0139u:
+            if (!strcmp(name, "CmdDispatchTileQCOM")) return CmdDispatchTileQCOM;
+            break;
+        case 0x648e12c3u:
+            if (!strcmp(name, "CmdBeginPerTileExecutionQCOM")) return CmdBeginPerTileExecutionQCOM;
+            break;
+        case 0x8724225fu:
+            if (!strcmp(name, "CmdEndPerTileExecutionQCOM")) return CmdEndPerTileExecutionQCOM;
+            break;
+        case 0x6b0465f2u:
+            if (!strcmp(name, "SetLatencySleepModeLegacyNV")) return SetLatencySleepModeLegacyNV;
+            break;
+        case 0xc66f5793u:
+            if (!strcmp(name, "LatencySleepLegacyNV")) return LatencySleepLegacyNV;
+            break;
+        case 0x4a6c5faeu:
+            if (!strcmp(name, "SetLatencyMarkerLegacyNV")) return SetLatencyMarkerLegacyNV;
+            break;
+        case 0x8bc2efb5u:
+            if (!strcmp(name, "GetLatencyTimingsLegacyNV")) return GetLatencyTimingsLegacyNV;
+            break;
+        case 0x95c3d312u:
+            if (!strcmp(name, "QueueNotifyOutOfBandLegacyNV")) return QueueNotifyOutOfBandLegacyNV;
+            break;
+        case 0x121842abu:
+            if (!strcmp(name, "GetSleepStatusLegacyNV")) return GetSleepStatusLegacyNV;
+            break;
+        case 0x7fc5aa3eu:
+            if (!strcmp(name, "ShutdownLatencyDeviceLegacyNV")) return ShutdownLatencyDeviceLegacyNV;
+            break;
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+        case 0xb9aa8da9u:
+            if (!strcmp(name, "ExportMetalObjectsEXT")) return ExportMetalObjectsEXT;
+            break;
+#endif // VK_USE_PLATFORM_METAL_EXT
+        case 0xcc0f26f0u:
+            if (!strcmp(name, "GetDescriptorSetLayoutSizeEXT")) return GetDescriptorSetLayoutSizeEXT;
+            break;
+        case 0xc1941ea5u:
+            if (!strcmp(name, "GetDescriptorSetLayoutBindingOffsetEXT")) return GetDescriptorSetLayoutBindingOffsetEXT;
+            break;
+        case 0x00925845u:
+            if (!strcmp(name, "GetDescriptorEXT")) return GetDescriptorEXT;
+            break;
+        case 0x5cd0b4bbu:
+            if (!strcmp(name, "CmdBindDescriptorBuffersEXT")) return CmdBindDescriptorBuffersEXT;
+            break;
+        case 0xf9f42a2du:
+            if (!strcmp(name, "CmdSetDescriptorBufferOffsetsEXT")) return CmdSetDescriptorBufferOffsetsEXT;
+            break;
+        case 0x8cb64a23u:
+            if (!strcmp(name, "CmdBindDescriptorBufferEmbeddedSamplersEXT")) return CmdBindDescriptorBufferEmbeddedSamplersEXT;
+            break;
+        case 0x8928ea04u:
+            if (!strcmp(name, "GetBufferOpaqueCaptureDescriptorDataEXT")) return GetBufferOpaqueCaptureDescriptorDataEXT;
+            break;
+        case 0xc2b010ddu:
+            if (!strcmp(name, "GetImageOpaqueCaptureDescriptorDataEXT")) return GetImageOpaqueCaptureDescriptorDataEXT;
+            break;
+        case 0xeae4a4ecu:
+            if (!strcmp(name, "GetImageViewOpaqueCaptureDescriptorDataEXT")) return GetImageViewOpaqueCaptureDescriptorDataEXT;
+            break;
+        case 0xbd1e21ccu:
+            if (!strcmp(name, "GetSamplerOpaqueCaptureDescriptorDataEXT")) return GetSamplerOpaqueCaptureDescriptorDataEXT;
+            break;
+        case 0x430ba849u:
+            if (!strcmp(name, "GetAccelerationStructureOpaqueCaptureDescriptorDataEXT")) return GetAccelerationStructureOpaqueCaptureDescriptorDataEXT;
+            break;
+        case 0x449b8d16u:
+            if (!strcmp(name, "CmdSetFragmentShadingRateEnumNV")) return CmdSetFragmentShadingRateEnumNV;
+            break;
+        case 0xa47a426eu:
+            if (!strcmp(name, "GetDeviceFaultInfoEXT")) return GetDeviceFaultInfoEXT;
+            break;
+        case 0x8005af30u:
+            if (!strcmp(name, "CmdSetVertexInputEXT")) return CmdSetVertexInputEXT;
+            break;
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0xd4b736e2u:
+            if (!strcmp(name, "GetMemoryZirconHandleFUCHSIA")) return GetMemoryZirconHandleFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0x1982503du:
+            if (!strcmp(name, "GetMemoryZirconHandlePropertiesFUCHSIA")) return GetMemoryZirconHandlePropertiesFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0x326b4b20u:
+            if (!strcmp(name, "ImportSemaphoreZirconHandleFUCHSIA")) return ImportSemaphoreZirconHandleFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0xe6bbe67bu:
+            if (!strcmp(name, "GetSemaphoreZirconHandleFUCHSIA")) return GetSemaphoreZirconHandleFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0xa722b2c0u:
+            if (!strcmp(name, "CreateBufferCollectionFUCHSIA")) return CreateBufferCollectionFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0x3bba029fu:
+            if (!strcmp(name, "SetBufferCollectionImageConstraintsFUCHSIA")) return SetBufferCollectionImageConstraintsFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0x9c967496u:
+            if (!strcmp(name, "SetBufferCollectionBufferConstraintsFUCHSIA")) return SetBufferCollectionBufferConstraintsFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0xa5a53ad8u:
+            if (!strcmp(name, "DestroyBufferCollectionFUCHSIA")) return DestroyBufferCollectionFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_FUCHSIA)
+        case 0x963d0551u:
+            if (!strcmp(name, "GetBufferCollectionPropertiesFUCHSIA")) return GetBufferCollectionPropertiesFUCHSIA;
+            break;
+#endif // VK_USE_PLATFORM_FUCHSIA
+        case 0x4c56fa14u:
+            if (!strcmp(name, "GetDeviceSubpassShadingMaxWorkgroupSizeHUAWEI")) return GetDeviceSubpassShadingMaxWorkgroupSizeHUAWEI;
+            break;
+        case 0x08ae7a99u:
+            if (!strcmp(name, "CmdSubpassShadingHUAWEI")) return CmdSubpassShadingHUAWEI;
+            break;
+        case 0x8948a3bbu:
+            if (!strcmp(name, "CmdBindInvocationMaskHUAWEI")) return CmdBindInvocationMaskHUAWEI;
+            break;
+        case 0x654fb382u:
+            if (!strcmp(name, "GetMemoryRemoteAddressNV")) return GetMemoryRemoteAddressNV;
+            break;
+        case 0xa91b0edbu:
+            if (!strcmp(name, "GetPipelinePropertiesEXT")) return GetPipelinePropertiesEXT;
+            break;
+        case 0xe3cf69c8u:
+            if (!strcmp(name, "CmdSetPatchControlPointsEXT")) return CmdSetPatchControlPointsEXT;
+            break;
+        case 0x015d47c4u:
+            if (!strcmp(name, "CmdSetRasterizerDiscardEnableEXT")) return CmdSetRasterizerDiscardEnableEXT;
+            break;
+        case 0xd526ddf7u:
+            if (!strcmp(name, "CmdSetDepthBiasEnableEXT")) return CmdSetDepthBiasEnableEXT;
+            break;
+        case 0xe76c2231u:
+            if (!strcmp(name, "CmdSetLogicOpEXT")) return CmdSetLogicOpEXT;
+            break;
+        case 0x69f6e32du:
+            if (!strcmp(name, "CmdSetPrimitiveRestartEnableEXT")) return CmdSetPrimitiveRestartEnableEXT;
+            break;
+        case 0x88b42aefu:
+            if (!strcmp(name, "CmdSetColorWriteEnableEXT")) return CmdSetColorWriteEnableEXT;
+            break;
+        case 0x2a995ebdu:
+            if (!strcmp(name, "CmdDrawMultiEXT")) return CmdDrawMultiEXT;
+            break;
+        case 0xa3a7fa6eu:
+            if (!strcmp(name, "CmdDrawMultiIndexedEXT")) return CmdDrawMultiIndexedEXT;
+            break;
+        case 0x367ac11eu:
+            if (!strcmp(name, "CreateMicromapEXT")) return CreateMicromapEXT;
+            break;
+        case 0x4c19d1c6u:
+            if (!strcmp(name, "DestroyMicromapEXT")) return DestroyMicromapEXT;
+            break;
+        case 0xffe0755fu:
+            if (!strcmp(name, "CmdBuildMicromapsEXT")) return CmdBuildMicromapsEXT;
+            break;
+        case 0x316926b1u:
+            if (!strcmp(name, "BuildMicromapsEXT")) return BuildMicromapsEXT;
+            break;
+        case 0x16c3f23du:
+            if (!strcmp(name, "CopyMicromapEXT")) return CopyMicromapEXT;
+            break;
+        case 0xdd14db57u:
+            if (!strcmp(name, "CopyMicromapToMemoryEXT")) return CopyMicromapToMemoryEXT;
+            break;
+        case 0xe467c893u:
+            if (!strcmp(name, "CopyMemoryToMicromapEXT")) return CopyMemoryToMicromapEXT;
+            break;
+        case 0x4e595135u:
+            if (!strcmp(name, "WriteMicromapsPropertiesEXT")) return WriteMicromapsPropertiesEXT;
+            break;
+        case 0x3c8abe13u:
+            if (!strcmp(name, "CmdCopyMicromapEXT")) return CmdCopyMicromapEXT;
+            break;
+        case 0xf8b0deb9u:
+            if (!strcmp(name, "CmdCopyMicromapToMemoryEXT")) return CmdCopyMicromapToMemoryEXT;
+            break;
+        case 0xae64bcc5u:
+            if (!strcmp(name, "CmdCopyMemoryToMicromapEXT")) return CmdCopyMemoryToMicromapEXT;
+            break;
+        case 0xf2620b47u:
+            if (!strcmp(name, "CmdWriteMicromapsPropertiesEXT")) return CmdWriteMicromapsPropertiesEXT;
+            break;
+        case 0x3db62560u:
+            if (!strcmp(name, "GetDeviceMicromapCompatibilityEXT")) return GetDeviceMicromapCompatibilityEXT;
+            break;
+        case 0x4700a14au:
+            if (!strcmp(name, "GetMicromapBuildSizesEXT")) return GetMicromapBuildSizesEXT;
+            break;
+        case 0x92efcafcu:
+            if (!strcmp(name, "CmdDrawClusterHUAWEI")) return CmdDrawClusterHUAWEI;
+            break;
+        case 0xa4dbc26au:
+            if (!strcmp(name, "CmdDrawClusterIndirectHUAWEI")) return CmdDrawClusterIndirectHUAWEI;
+            break;
+        case 0x46de03b5u:
+            if (!strcmp(name, "SetDeviceMemoryPriorityEXT")) return SetDeviceMemoryPriorityEXT;
+            break;
+        case 0x6ebdb357u:
+            if (!strcmp(name, "CmdSetDispatchParametersARM")) return CmdSetDispatchParametersARM;
+            break;
+        case 0x3c6e3abau:
+            if (!strcmp(name, "GetDescriptorSetLayoutHostMappingInfoVALVE")) return GetDescriptorSetLayoutHostMappingInfoVALVE;
+            break;
+        case 0xc911a54cu:
+            if (!strcmp(name, "GetDescriptorSetHostMappingVALVE")) return GetDescriptorSetHostMappingVALVE;
+            break;
+        case 0x0e5861dfu:
+            if (!strcmp(name, "CmdCopyMemoryIndirectNV")) return CmdCopyMemoryIndirectNV;
+            break;
+        case 0x89366afbu:
+            if (!strcmp(name, "CmdCopyMemoryToImageIndirectNV")) return CmdCopyMemoryToImageIndirectNV;
+            break;
+        case 0x3787dc07u:
+            if (!strcmp(name, "CmdDecompressMemoryNV")) return CmdDecompressMemoryNV;
+            break;
+        case 0x4c9a0898u:
+            if (!strcmp(name, "CmdDecompressMemoryIndirectCountNV")) return CmdDecompressMemoryIndirectCountNV;
+            break;
+        case 0x68516320u:
+            if (!strcmp(name, "GetPipelineIndirectMemoryRequirementsNV")) return GetPipelineIndirectMemoryRequirementsNV;
+            break;
+        case 0x40e85748u:
+            if (!strcmp(name, "CmdUpdatePipelineIndirectBufferNV")) return CmdUpdatePipelineIndirectBufferNV;
+            break;
+        case 0x928cd267u:
+            if (!strcmp(name, "GetPipelineIndirectDeviceAddressNV")) return GetPipelineIndirectDeviceAddressNV;
+            break;
+#if defined(VK_USE_PLATFORM_OHOS)
+        case 0x06874e5eu:
+            if (!strcmp(name, "GetNativeBufferPropertiesOHOS")) return GetNativeBufferPropertiesOHOS;
+            break;
+#endif // VK_USE_PLATFORM_OHOS
+#if defined(VK_USE_PLATFORM_OHOS)
+        case 0xbb61bc68u:
+            if (!strcmp(name, "GetMemoryNativeBufferOHOS")) return GetMemoryNativeBufferOHOS;
+            break;
+#endif // VK_USE_PLATFORM_OHOS
+        case 0x2023a31du:
+            if (!strcmp(name, "CmdSetDepthClampEnableEXT")) return CmdSetDepthClampEnableEXT;
+            break;
+        case 0xead2dc11u:
+            if (!strcmp(name, "CmdSetPolygonModeEXT")) return CmdSetPolygonModeEXT;
+            break;
+        case 0x40d2368au:
+            if (!strcmp(name, "CmdSetRasterizationSamplesEXT")) return CmdSetRasterizationSamplesEXT;
+            break;
+        case 0x8074bbbau:
+            if (!strcmp(name, "CmdSetSampleMaskEXT")) return CmdSetSampleMaskEXT;
+            break;
+        case 0x436cf4cau:
+            if (!strcmp(name, "CmdSetAlphaToCoverageEnableEXT")) return CmdSetAlphaToCoverageEnableEXT;
+            break;
+        case 0x88aa9b78u:
+            if (!strcmp(name, "CmdSetAlphaToOneEnableEXT")) return CmdSetAlphaToOneEnableEXT;
+            break;
+        case 0xfdc1a750u:
+            if (!strcmp(name, "CmdSetLogicOpEnableEXT")) return CmdSetLogicOpEnableEXT;
+            break;
+        case 0xef84fefbu:
+            if (!strcmp(name, "CmdSetColorBlendEnableEXT")) return CmdSetColorBlendEnableEXT;
+            break;
+        case 0xa2683bf4u:
+            if (!strcmp(name, "CmdSetColorBlendEquationEXT")) return CmdSetColorBlendEquationEXT;
+            break;
+        case 0xabff6022u:
+            if (!strcmp(name, "CmdSetColorWriteMaskEXT")) return CmdSetColorWriteMaskEXT;
+            break;
+        case 0x69b05a7du:
+            if (!strcmp(name, "CmdSetTessellationDomainOriginEXT")) return CmdSetTessellationDomainOriginEXT;
+            break;
+        case 0xb085c957u:
+            if (!strcmp(name, "CmdSetRasterizationStreamEXT")) return CmdSetRasterizationStreamEXT;
+            break;
+        case 0x75d3a4bfu:
+            if (!strcmp(name, "CmdSetConservativeRasterizationModeEXT")) return CmdSetConservativeRasterizationModeEXT;
+            break;
+        case 0x9b4dd0e5u:
+            if (!strcmp(name, "CmdSetExtraPrimitiveOverestimationSizeEXT")) return CmdSetExtraPrimitiveOverestimationSizeEXT;
+            break;
+        case 0xde0cc9cau:
+            if (!strcmp(name, "CmdSetDepthClipEnableEXT")) return CmdSetDepthClipEnableEXT;
+            break;
+        case 0xa2d6a90du:
+            if (!strcmp(name, "CmdSetSampleLocationsEnableEXT")) return CmdSetSampleLocationsEnableEXT;
+            break;
+        case 0x91cd4248u:
+            if (!strcmp(name, "CmdSetColorBlendAdvancedEXT")) return CmdSetColorBlendAdvancedEXT;
+            break;
+        case 0x2f707cd4u:
+            if (!strcmp(name, "CmdSetProvokingVertexModeEXT")) return CmdSetProvokingVertexModeEXT;
+            break;
+        case 0x0bd058f0u:
+            if (!strcmp(name, "CmdSetLineRasterizationModeEXT")) return CmdSetLineRasterizationModeEXT;
+            break;
+        case 0xe0af9de6u:
+            if (!strcmp(name, "CmdSetLineStippleEnableEXT")) return CmdSetLineStippleEnableEXT;
+            break;
+        case 0x66cb7fcbu:
+            if (!strcmp(name, "CmdSetDepthClipNegativeOneToOneEXT")) return CmdSetDepthClipNegativeOneToOneEXT;
+            break;
+        case 0x02eda17au:
+            if (!strcmp(name, "CmdSetViewportWScalingEnableNV")) return CmdSetViewportWScalingEnableNV;
+            break;
+        case 0x32f50e8fu:
+            if (!strcmp(name, "CmdSetViewportSwizzleNV")) return CmdSetViewportSwizzleNV;
+            break;
+        case 0x1cd4b962u:
+            if (!strcmp(name, "CmdSetCoverageToColorEnableNV")) return CmdSetCoverageToColorEnableNV;
+            break;
+        case 0x44b956aau:
+            if (!strcmp(name, "CmdSetCoverageToColorLocationNV")) return CmdSetCoverageToColorLocationNV;
+            break;
+        case 0x4a470032u:
+            if (!strcmp(name, "CmdSetCoverageModulationModeNV")) return CmdSetCoverageModulationModeNV;
+            break;
+        case 0xe3053e18u:
+            if (!strcmp(name, "CmdSetCoverageModulationTableEnableNV")) return CmdSetCoverageModulationTableEnableNV;
+            break;
+        case 0x19587b3bu:
+            if (!strcmp(name, "CmdSetCoverageModulationTableNV")) return CmdSetCoverageModulationTableNV;
+            break;
+        case 0x793a2117u:
+            if (!strcmp(name, "CmdSetShadingRateImageEnableNV")) return CmdSetShadingRateImageEnableNV;
+            break;
+        case 0x8c9443cbu:
+            if (!strcmp(name, "CmdSetRepresentativeFragmentTestEnableNV")) return CmdSetRepresentativeFragmentTestEnableNV;
+            break;
+        case 0xcd8c0debu:
+            if (!strcmp(name, "CmdSetCoverageReductionModeNV")) return CmdSetCoverageReductionModeNV;
+            break;
+        case 0x8ee83766u:
+            if (!strcmp(name, "CreateTensorARM")) return CreateTensorARM;
+            break;
+        case 0x78dca0eeu:
+            if (!strcmp(name, "DestroyTensorARM")) return DestroyTensorARM;
+            break;
+        case 0x2235ebb5u:
+            if (!strcmp(name, "CreateTensorViewARM")) return CreateTensorViewARM;
+            break;
+        case 0x865e822du:
+            if (!strcmp(name, "DestroyTensorViewARM")) return DestroyTensorViewARM;
+            break;
+        case 0x59691d2du:
+            if (!strcmp(name, "GetTensorMemoryRequirementsARM")) return GetTensorMemoryRequirementsARM;
+            break;
+        case 0x8618affau:
+            if (!strcmp(name, "BindTensorMemoryARM")) return BindTensorMemoryARM;
+            break;
+        case 0xe1b39aebu:
+            if (!strcmp(name, "GetDeviceTensorMemoryRequirementsARM")) return GetDeviceTensorMemoryRequirementsARM;
+            break;
+        case 0xb93ada8bu:
+            if (!strcmp(name, "CmdCopyTensorARM")) return CmdCopyTensorARM;
+            break;
+        case 0xceb87a56u:
+            if (!strcmp(name, "GetTensorOpaqueCaptureDescriptorDataARM")) return GetTensorOpaqueCaptureDescriptorDataARM;
+            break;
+        case 0x938d0053u:
+            if (!strcmp(name, "GetTensorViewOpaqueCaptureDescriptorDataARM")) return GetTensorViewOpaqueCaptureDescriptorDataARM;
+            break;
+        case 0x9e53195cu:
+            if (!strcmp(name, "GetShaderModuleIdentifierEXT")) return GetShaderModuleIdentifierEXT;
+            break;
+        case 0xa4c4d258u:
+            if (!strcmp(name, "GetShaderModuleCreateInfoIdentifierEXT")) return GetShaderModuleCreateInfoIdentifierEXT;
+            break;
+        case 0x131f42e1u:
+            if (!strcmp(name, "CreateOpticalFlowSessionNV")) return CreateOpticalFlowSessionNV;
+            break;
+        case 0x18d36c59u:
+            if (!strcmp(name, "DestroyOpticalFlowSessionNV")) return DestroyOpticalFlowSessionNV;
+            break;
+        case 0x7ed5d89bu:
+            if (!strcmp(name, "BindOpticalFlowSessionImageNV")) return BindOpticalFlowSessionImageNV;
+            break;
+        case 0x51df2d1cu:
+            if (!strcmp(name, "CmdOpticalFlowExecuteNV")) return CmdOpticalFlowExecuteNV;
+            break;
+        case 0xe574b248u:
+            if (!strcmp(name, "AntiLagUpdateAMD")) return AntiLagUpdateAMD;
+            break;
+        case 0x7af22e70u:
+            if (!strcmp(name, "CreateShadersEXT")) return CreateShadersEXT;
+            break;
+        case 0x4356e7ebu:
+            if (!strcmp(name, "DestroyShaderEXT")) return DestroyShaderEXT;
+            break;
+        case 0x035647d6u:
+            if (!strcmp(name, "GetShaderBinaryDataEXT")) return GetShaderBinaryDataEXT;
+            break;
+        case 0xaf09e9c9u:
+            if (!strcmp(name, "CmdBindShadersEXT")) return CmdBindShadersEXT;
+            break;
+        case 0x2fbae029u:
+            if (!strcmp(name, "CmdSetDepthClampRangeEXT")) return CmdSetDepthClampRangeEXT;
+            break;
+        case 0x1b96b233u:
+            if (!strcmp(name, "GetFramebufferTilePropertiesQCOM")) return GetFramebufferTilePropertiesQCOM;
+            break;
+        case 0xa57b8109u:
+            if (!strcmp(name, "GetDynamicRenderingTilePropertiesQCOM")) return GetDynamicRenderingTilePropertiesQCOM;
+            break;
+        case 0xfdc0d2b5u:
+            if (!strcmp(name, "ConvertCooperativeVectorMatrixNV")) return ConvertCooperativeVectorMatrixNV;
+            break;
+        case 0xa3bc320fu:
+            if (!strcmp(name, "CmdConvertCooperativeVectorMatrixNV")) return CmdConvertCooperativeVectorMatrixNV;
+            break;
+        case 0x8d2a16c5u:
+            if (!strcmp(name, "SetLatencySleepModeNV")) return SetLatencySleepModeNV;
+            break;
+        case 0xd9427520u:
+            if (!strcmp(name, "LatencySleepNV")) return LatencySleepNV;
+            break;
+        case 0xb07b0699u:
+            if (!strcmp(name, "SetLatencyMarkerNV")) return SetLatencyMarkerNV;
+            break;
+        case 0xb95541bau:
+            if (!strcmp(name, "GetLatencyTimingsNV")) return GetLatencyTimingsNV;
+            break;
+        case 0x87fc9ca5u:
+            if (!strcmp(name, "QueueNotifyOutOfBandNV")) return QueueNotifyOutOfBandNV;
+            break;
+        case 0x2173b4c0u:
+            if (!strcmp(name, "CreateDataGraphPipelinesARM")) return CreateDataGraphPipelinesARM;
+            break;
+        case 0x186d09dbu:
+            if (!strcmp(name, "CreateDataGraphPipelineSessionARM")) return CreateDataGraphPipelineSessionARM;
+            break;
+        case 0x87a1a322u:
+            if (!strcmp(name, "GetDataGraphPipelineSessionBindPointRequirementsARM")) return GetDataGraphPipelineSessionBindPointRequirementsARM;
+            break;
+        case 0xa168b348u:
+            if (!strcmp(name, "GetDataGraphPipelineSessionMemoryRequirementsARM")) return GetDataGraphPipelineSessionMemoryRequirementsARM;
+            break;
+        case 0x0b8f6dbfu:
+            if (!strcmp(name, "BindDataGraphPipelineSessionMemoryARM")) return BindDataGraphPipelineSessionMemoryARM;
+            break;
+        case 0x22aae5c3u:
+            if (!strcmp(name, "DestroyDataGraphPipelineSessionARM")) return DestroyDataGraphPipelineSessionARM;
+            break;
+        case 0x72c8ae53u:
+            if (!strcmp(name, "CmdDispatchDataGraphARM")) return CmdDispatchDataGraphARM;
+            break;
+        case 0x816ef83fu:
+            if (!strcmp(name, "GetDataGraphPipelineAvailablePropertiesARM")) return GetDataGraphPipelineAvailablePropertiesARM;
+            break;
+        case 0x8358ba34u:
+            if (!strcmp(name, "GetDataGraphPipelinePropertiesARM")) return GetDataGraphPipelinePropertiesARM;
+            break;
+        case 0x7597b011u:
+            if (!strcmp(name, "CmdSetAttachmentFeedbackLoopEnableEXT")) return CmdSetAttachmentFeedbackLoopEnableEXT;
+            break;
+#if defined(VK_USE_PLATFORM_SCREEN_QNX)
+        case 0xb6bc3d65u:
+            if (!strcmp(name, "GetScreenBufferPropertiesQNX")) return GetScreenBufferPropertiesQNX;
+            break;
+#endif // VK_USE_PLATFORM_SCREEN_QNX
+        case 0xa87804d7u:
+            if (!strcmp(name, "CmdBindTileMemoryQCOM")) return CmdBindTileMemoryQCOM;
+            break;
+        case 0xd19fa84au:
+            if (!strcmp(name, "CmdDecompressMemoryEXT")) return CmdDecompressMemoryEXT;
+            break;
+        case 0xc1bea83fu:
+            if (!strcmp(name, "CmdDecompressMemoryIndirectCountEXT")) return CmdDecompressMemoryIndirectCountEXT;
+            break;
+        case 0x66123ec2u:
+            if (!strcmp(name, "CreateExternalComputeQueueNV")) return CreateExternalComputeQueueNV;
+            break;
+        case 0xb140596au:
+            if (!strcmp(name, "DestroyExternalComputeQueueNV")) return DestroyExternalComputeQueueNV;
+            break;
+        case 0x5e994382u:
+            if (!strcmp(name, "GetClusterAccelerationStructureBuildSizesNV")) return GetClusterAccelerationStructureBuildSizesNV;
+            break;
+        case 0x50372290u:
+            if (!strcmp(name, "CmdBuildClusterAccelerationStructureIndirectNV")) return CmdBuildClusterAccelerationStructureIndirectNV;
+            break;
+        case 0x921b5752u:
+            if (!strcmp(name, "GetPartitionedAccelerationStructuresBuildSizesNV")) return GetPartitionedAccelerationStructuresBuildSizesNV;
+            break;
+        case 0xc9bd643eu:
+            if (!strcmp(name, "CmdBuildPartitionedAccelerationStructuresNV")) return CmdBuildPartitionedAccelerationStructuresNV;
+            break;
+        case 0x0de82280u:
+            if (!strcmp(name, "GetGeneratedCommandsMemoryRequirementsEXT")) return GetGeneratedCommandsMemoryRequirementsEXT;
+            break;
+        case 0x45082ad7u:
+            if (!strcmp(name, "CmdPreprocessGeneratedCommandsEXT")) return CmdPreprocessGeneratedCommandsEXT;
+            break;
+        case 0x4e44bcbcu:
+            if (!strcmp(name, "CmdExecuteGeneratedCommandsEXT")) return CmdExecuteGeneratedCommandsEXT;
+            break;
+        case 0xf3e8f51au:
+            if (!strcmp(name, "CreateIndirectCommandsLayoutEXT")) return CreateIndirectCommandsLayoutEXT;
+            break;
+        case 0xe39a9d42u:
+            if (!strcmp(name, "DestroyIndirectCommandsLayoutEXT")) return DestroyIndirectCommandsLayoutEXT;
+            break;
+        case 0xcb16d00cu:
+            if (!strcmp(name, "CreateIndirectExecutionSetEXT")) return CreateIndirectExecutionSetEXT;
+            break;
+        case 0x9c4214c4u:
+            if (!strcmp(name, "DestroyIndirectExecutionSetEXT")) return DestroyIndirectExecutionSetEXT;
+            break;
+        case 0x19f63d15u:
+            if (!strcmp(name, "UpdateIndirectExecutionSetPipelineEXT")) return UpdateIndirectExecutionSetPipelineEXT;
+            break;
+        case 0x05ac8360u:
+            if (!strcmp(name, "UpdateIndirectExecutionSetShaderEXT")) return UpdateIndirectExecutionSetShaderEXT;
+            break;
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+        case 0xa02b049cu:
+            if (!strcmp(name, "GetMemoryMetalHandleEXT")) return GetMemoryMetalHandleEXT;
+            break;
+#endif // VK_USE_PLATFORM_METAL_EXT
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+        case 0x2ad619bfu:
+            if (!strcmp(name, "GetMemoryMetalHandlePropertiesEXT")) return GetMemoryMetalHandlePropertiesEXT;
+            break;
+#endif // VK_USE_PLATFORM_METAL_EXT
+        case 0x91602e1cu:
+            if (!strcmp(name, "CreateShaderInstrumentationARM")) return CreateShaderInstrumentationARM;
+            break;
+        case 0x6b282174u:
+            if (!strcmp(name, "DestroyShaderInstrumentationARM")) return DestroyShaderInstrumentationARM;
+            break;
+        case 0x820deaa5u:
+            if (!strcmp(name, "CmdBeginShaderInstrumentationARM")) return CmdBeginShaderInstrumentationARM;
+            break;
+        case 0x9e284719u:
+            if (!strcmp(name, "CmdEndShaderInstrumentationARM")) return CmdEndShaderInstrumentationARM;
+            break;
+        case 0xb87c65c8u:
+            if (!strcmp(name, "GetShaderInstrumentationValuesARM")) return GetShaderInstrumentationValuesARM;
+            break;
+        case 0xe46475d2u:
+            if (!strcmp(name, "ClearShaderInstrumentationMetricsARM")) return ClearShaderInstrumentationMetricsARM;
+            break;
+        case 0xc27109a5u:
+            if (!strcmp(name, "CmdEndRendering2EXT")) return CmdEndRendering2EXT;
+            break;
+        case 0xc3261ff8u:
+            if (!strcmp(name, "CmdBeginCustomResolveEXT")) return CmdBeginCustomResolveEXT;
+            break;
+        case 0x233e514bu:
+            if (!strcmp(name, "CmdSetComputeOccupancyPriorityNV")) return CmdSetComputeOccupancyPriorityNV;
+            break;
+        case 0x52eaa7c6u:
+            if (!strcmp(name, "CmdSetPrimitiveRestartIndexEXT")) return CmdSetPrimitiveRestartIndexEXT;
+            break;
+        case 0xce965a5du:
+            if (!strcmp(name, "CreateAccelerationStructureKHR")) return CreateAccelerationStructureKHR;
+            break;
+        case 0x451e9ac5u:
+            if (!strcmp(name, "DestroyAccelerationStructureKHR")) return DestroyAccelerationStructureKHR;
+            break;
+        case 0x0279ea2eu:
+            if (!strcmp(name, "CmdBuildAccelerationStructuresKHR")) return CmdBuildAccelerationStructuresKHR;
+            break;
+        case 0x77d19a58u:
+            if (!strcmp(name, "CmdBuildAccelerationStructuresIndirectKHR")) return CmdBuildAccelerationStructuresIndirectKHR;
+            break;
+        case 0xd699e1dcu:
+            if (!strcmp(name, "BuildAccelerationStructuresKHR")) return BuildAccelerationStructuresKHR;
+            break;
+        case 0x99303774u:
+            if (!strcmp(name, "CopyAccelerationStructureKHR")) return CopyAccelerationStructureKHR;
+            break;
+        case 0xd6d213eau:
+            if (!strcmp(name, "CopyAccelerationStructureToMemoryKHR")) return CopyAccelerationStructureToMemoryKHR;
+            break;
+        case 0xdc7bca4eu:
+            if (!strcmp(name, "CopyMemoryToAccelerationStructureKHR")) return CopyMemoryToAccelerationStructureKHR;
+            break;
+        case 0x5baf1f8au:
+            if (!strcmp(name, "WriteAccelerationStructuresPropertiesKHR")) return WriteAccelerationStructuresPropertiesKHR;
+            break;
+        case 0x07d2daceu:
+            if (!strcmp(name, "CmdCopyAccelerationStructureKHR")) return CmdCopyAccelerationStructureKHR;
+            break;
+        case 0x69b69860u:
+            if (!strcmp(name, "CmdCopyAccelerationStructureToMemoryKHR")) return CmdCopyAccelerationStructureToMemoryKHR;
+            break;
+        case 0xc05e1ddcu:
+            if (!strcmp(name, "CmdCopyMemoryToAccelerationStructureKHR")) return CmdCopyMemoryToAccelerationStructureKHR;
+            break;
+        case 0x17e34879u:
+            if (!strcmp(name, "GetAccelerationStructureDeviceAddressKHR")) return GetAccelerationStructureDeviceAddressKHR;
+            break;
+        case 0xf8d9e440u:
+            if (!strcmp(name, "CmdWriteAccelerationStructuresPropertiesKHR")) return CmdWriteAccelerationStructuresPropertiesKHR;
+            break;
+        case 0x2d186d4du:
+            if (!strcmp(name, "GetDeviceAccelerationStructureCompatibilityKHR")) return GetDeviceAccelerationStructureCompatibilityKHR;
+            break;
+        case 0x4b8adcb5u:
+            if (!strcmp(name, "GetAccelerationStructureBuildSizesKHR")) return GetAccelerationStructureBuildSizesKHR;
+            break;
+        case 0x683dee8cu:
+            if (!strcmp(name, "CmdTraceRaysKHR")) return CmdTraceRaysKHR;
+            break;
+        case 0x9f60774du:
+            if (!strcmp(name, "CreateRayTracingPipelinesKHR")) return CreateRayTracingPipelinesKHR;
+            break;
+        case 0x7e4aca88u:
+            if (!strcmp(name, "GetRayTracingCaptureReplayShaderGroupHandlesKHR")) return GetRayTracingCaptureReplayShaderGroupHandlesKHR;
+            break;
+        case 0x71243852u:
+            if (!strcmp(name, "CmdTraceRaysIndirectKHR")) return CmdTraceRaysIndirectKHR;
+            break;
+        case 0xd366d0cfu:
+            if (!strcmp(name, "GetRayTracingShaderGroupStackSizeKHR")) return GetRayTracingShaderGroupStackSizeKHR;
+            break;
+        case 0xb831363du:
+            if (!strcmp(name, "CmdSetRayTracingPipelineStackSizeKHR")) return CmdSetRayTracingPipelineStackSizeKHR;
+            break;
+        case 0xb2ec7be9u:
+            if (!strcmp(name, "CmdDrawMeshTasksEXT")) return CmdDrawMeshTasksEXT;
+            break;
+        case 0x13d6aa6fu:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirectEXT")) return CmdDrawMeshTasksIndirectEXT;
+            break;
+        case 0xb67c7ce6u:
+            if (!strcmp(name, "CmdDrawMeshTasksIndirectCountEXT")) return CmdDrawMeshTasksIndirectCountEXT;
+            break;
+        default:
+            break;
+    }
+
+    *found_name = false;
+    return NULL;
+}
+
 // GPA helpers for extensions
 // name_hash must be loader_hash_string(name) - passed in by the caller so it is only computed once per lookup.
 bool extension_instance_gpa(struct loader_instance *ptr_instance, const char *name, uint32_t name_hash, void **addr) {

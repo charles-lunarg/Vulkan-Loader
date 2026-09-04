@@ -283,6 +283,7 @@ class LoaderExtensionGenerator(BaseGenerator):
         self.OutputDeviceFunctionTrampolinePrototypes(out)
         self.OutputLoaderLookupFunc(out)
         self.CreateTrampTermFuncs(out)
+        self.OutputLoaderDeviceTerminatorLookupFunc(out)
         self.InstExtensionGPA(out)
         self.InstantExtensionCreate(out)
         self.DeviceExtensionGetTerminator(out)
@@ -372,6 +373,13 @@ VKAPI_ATTR void VKAPI_CALL loader_init_instance_extension_dispatch_table(VkLayer
 
 // Device command lookup function
 VKAPI_ATTR void* VKAPI_CALL loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table, const char *name, bool* name_found);
+
+// Device terminator command lookup function
+void* loader_lookup_device_terminator_dispatch(const char *name, bool *found_name);
+
+// Forward declarations that are used in loader_lookup_device_terminator_dispatch
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL loader_gpa_device_terminator(VkDevice device, const char *pName);
+VKAPI_ATTR void VKAPI_CALL terminator_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator);
 
 // Instance command lookup function
 VKAPI_ATTR void* VKAPI_CALL loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table, const char *name,
@@ -835,7 +843,48 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDevExtError(VkDevice dev) {
             out.append('    return NULL;\n')
             out.append('}\n\n')
 
+    def OutputLoaderDeviceTerminatorLookupFunc(self, out):
+        out.append('void* loader_lookup_device_terminator_dispatch(const char *name, bool *found_name) {\n')
+        out.append('    if (!name || name[0] != \'v\' || name[1] != \'k\') {\n')
+        out.append('        *found_name = false;\n')
+        out.append('        return NULL;\n')
+        out.append('    }\n')
+        out.append('    name += 2;\n')
+        out.append('    *found_name = true;\n')
+        out.append('    const uint32_t name_hash = loader_hash_string(name);\n')
+        out.append('    switch (name_hash) {\n')
+        for command_list in [self.core_commands, self.extension_commands]:
+                commands = command_list
+                for command in commands:
+                    # Ignore non device functions
+                    if command.params[0].type not in ['VkDevice', 'VkCommandBuffer', 'VkQueue']:
+                        continue
+                    if command.version or len(command.extensions) == 0 or command.extensions[0] in WSI_EXT_NAMES:
+                        base_name = command.name
+                    else:
+                        # Only core commands have a dispatchable function that starts with vk
+                        base_name = command.name[2:]
 
+                    if command.name == 'vkGetDeviceProcAddr':
+                        base_name = 'loader_gpa_device_terminator'
+                    elif command.name == 'vkDestroyDevice':
+                        base_name = 'terminator_DestroyDevice'
+                    elif command.name in ['vkDebugMarkerSetObjectTagEXT', 'vkDebugMarkerSetObjectNameEXT', 'vkSetDebugUtilsObjectNameEXT', 'vkSetDebugUtilsObjectTagEXT']:
+                        base_name = 'terminator_' + base_name
+                    if command.protect is not None:
+                        out.append(f'#if defined({command.protect})\n')
+                    out.append(f'        case {loader_hash_string(base_name):#010x}u:\n')
+                    out.append(f'            if (!strcmp(name, "{base_name}")) return {base_name};\n')
+                    out.append('            break;\n')
+                    if command.protect is not None:
+                        out.append(f'#endif // {command.protect}\n')
+        out.append('        default:\n')
+        out.append('            break;\n')
+        out.append('    }\n')
+        out.append('\n')
+        out.append('    *found_name = false;\n')
+        out.append('    return NULL;\n')
+        out.append('}\n\n')
     #
     # Create the appropriate trampoline (and possibly terminator) functions
     def CreateTrampTermFuncs(self, out):
