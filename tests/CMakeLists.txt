@@ -100,11 +100,7 @@ add_executable(
         loader_testing_main.cpp
         loader_fuzz_tests.cpp
 )
-target_link_libraries(test_fuzzing PUBLIC testing_dependencies)
-# testing_dependencies already links to vulkan when linking statically
-if (NOT APPLE_STATIC_LOADER)
-    target_link_libraries(test_fuzzing PUBLIC vulkan)
-endif()
+target_link_libraries(test_fuzzing PUBLIC testing_dependencies vulkan_impl)
 target_include_directories(test_fuzzing PUBLIC ${CMAKE_SOURCE_DIR}/loader ${CMAKE_SOURCE_DIR}/loader/generated)
 
 # Threading tests live in separate executabe just for threading tests as it'll need support
@@ -113,7 +109,7 @@ add_executable(
     test_threading
         loader_testing_main.cpp
         loader_threading_tests.cpp)
-target_link_libraries(test_threading PUBLIC testing_dependencies)
+target_link_libraries(test_threading PUBLIC testing_dependencies vulkan)
 target_compile_definitions(test_threading PUBLIC VK_NO_PROTOTYPES)
 
 # executables that are meant for testing against real drivers rather than the mocks

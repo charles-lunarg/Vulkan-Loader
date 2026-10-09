@@ -48,7 +48,7 @@ void execute_instance_enumerate_fuzzer(std::filesystem::path const& filename) {
     uint32_t pPropertyCount = 1;
     VkExtensionProperties pProperties = {0};
 
-    env.vulkan_functions.vkEnumerateInstanceExtensionProperties("test_auto", &pPropertyCount, &pProperties);
+    vkEnumerateInstanceExtensionProperties("test_auto", &pPropertyCount, &pProperties);
 }
 // Common code for execute_instance_create_fuzzer and execute_instance_create_fuzzer_advanced
 void execute_instance_create_fuzzer_logic(FrameworkEnvironment& env) {
@@ -74,12 +74,12 @@ void execute_instance_create_fuzzer_logic(FrameworkEnvironment& env) {
     inst_info.enabledExtensionCount = 0;
     inst_info.ppEnabledExtensionNames = NULL;
 
-    VkResult err = env.vulkan_functions.vkCreateInstance(&inst_info, NULL, &inst);
+    VkResult err = vkCreateInstance(&inst_info, NULL, &inst);
     if (err != VK_SUCCESS) {
         return;
     }
 
-    env.vulkan_functions.vkDestroyInstance(inst, NULL);
+    vkDestroyInstance(inst, NULL);
 }
 
 void execute_instance_create_fuzzer(std::filesystem::path const& filename) {

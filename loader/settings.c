@@ -879,7 +879,7 @@ out:
     return res;
 }
 
-TEST_FUNCTION_EXPORT VkResult update_global_loader_settings(void) {
+VkResult update_global_loader_settings(void) {
     loader_settings settings = {0};
     VkResult res = get_loader_settings(NULL, &settings);
     loader_platform_thread_lock_mutex(&global_loader_settings_lock);
@@ -932,8 +932,8 @@ void release_current_settings_lock(const struct loader_instance* inst) {
     }
 }
 
-TEST_FUNCTION_EXPORT VkResult get_settings_layers(const struct loader_instance* inst, struct loader_layer_list* settings_layers,
-                                                  bool* should_search_for_other_layers) {
+VkResult get_settings_layers(const struct loader_instance* inst, struct loader_layer_list* settings_layers,
+                             bool* should_search_for_other_layers) {
     VkResult res = VK_SUCCESS;
     *should_search_for_other_layers = true;  // default to true
 

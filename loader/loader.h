@@ -82,7 +82,7 @@ extern struct loader_struct loader;
 extern loader_platform_thread_mutex loader_lock;
 extern loader_platform_thread_mutex loader_preload_icd_lock;
 
-TEST_FUNCTION_EXPORT bool compare_vk_extension_properties(const VkExtensionProperties *op1, const VkExtensionProperties *op2);
+bool compare_vk_extension_properties(const VkExtensionProperties *op1, const VkExtensionProperties *op2);
 
 VkResult loader_validate_layers(const struct loader_instance *inst, const uint32_t layer_count,
                                 const char *const *ppEnabledLayerNames, const struct loader_layer_list *list);
@@ -171,8 +171,7 @@ VkResult loader_add_device_extensions(const struct loader_instance *inst,
                                       struct loader_extension_list *ext_list);
 void loader_destroy_generic_list(const struct loader_instance *inst, struct loader_generic_list *list);
 void loader_destroy_pointer_layer_list(const struct loader_instance *inst, struct loader_pointer_layer_list *layer_list);
-TEST_FUNCTION_EXPORT void loader_delete_layer_list_and_properties(const struct loader_instance *inst,
-                                                                  struct loader_layer_list *layer_list);
+void loader_delete_layer_list_and_properties(const struct loader_instance *inst, struct loader_layer_list *layer_list);
 void loader_remove_layer_in_list(const struct loader_instance *inst, struct loader_layer_list *layer_list,
                                  uint32_t layer_to_remove);
 VkResult loader_init_scanned_icd_list(const struct loader_instance *inst, struct loader_icd_tramp_list *icd_tramp_list);
@@ -231,7 +230,7 @@ void unload_drivers_without_physical_devices(struct loader_instance *inst);
 VkResult loader_apply_settings_device_configurations(struct loader_instance *inst, uint32_t *pPhysicalDeviceCount,
                                                      VkPhysicalDevice *pPhysicalDevices);
 
-TEST_FUNCTION_EXPORT VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8);
+VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8);
 char *loader_get_next_path(char *path);
 VkResult add_if_manifest_file(const struct loader_instance *inst, const char *file_name, struct loader_string_list *out_files);
 VkResult prepend_if_manifest_file(const struct loader_instance *inst, const char *file_name, struct loader_string_list *out_files);

@@ -379,6 +379,47 @@ if(UNKNOWN_FUNCTIONS_SUPPORTED)
     list(APPEND NORMAL_LOADER_SRCS ${OPT_LOADER_SRCS})
 endif()
 
+add_library(vulkan_impl OBJECT ${NORMAL_LOADER_SRCS})
+target_link_libraries(vulkan_impl PUBLIC loader_specific_options Vulkan::Headers)
+set_property(TARGET vulkan_impl PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+if(WIN32)
+    if(MSVC AND ENABLE_WIN10_ONECORE)
+        target_link_libraries(vulkan_impl PUBLIC OneCoreUAP.lib LIBCMT.LIB LIBCMTD.LIB LIBVCRUNTIME.LIB LIBUCRT.LIB)
+        set_target_properties(vulkan_impl PROPERTIES LINK_FLAGS "/NODEFAULTLIB")
+    else()
+       target_link_libraries(vulkan_impl PUBLIC cfgmgr32)
+    endif()
+else()
+    target_link_libraries(vulkan_impl PUBLIC ${CMAKE_DL_LIBS} m Threads::Threads)
+endif()
+if (APPLE)
+    find_library(COREFOUNDATION_LIBRARY NAMES CoreFoundation)
+    target_link_libraries(vulkan_impl PUBLIC "-framework CoreFoundation")
+
+    if (MODIFY_UNKNOWN_FUNCTION_DECLS)
+        # Modifies the names of functions as they appearin the assembly code so that the
+        # unknown function handling will work
+        target_compile_definitions(vulkan_impl PUBLIC MODIFY_UNKNOWN_FUNCTION_DECLS)
+    endif()
+endif()
+
+option(LOADER_USE_UNSAFE_FILE_SEARCH "Allows the loader to search in unsafe locations")
+if (LOADER_USE_UNSAFE_FILE_SEARCH)
+    target_compile_definitions(vulkan_impl PUBLIC LOADER_USE_UNSAFE_FILE_SEARCH)
+endif()
+
+if (USE_CLANG_TIDY)
+    set_target_properties(vulkan_impl PROPERTIES C_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+    # cJSON is vendored third-party code; don't hold it to this project's clang-tidy checks.
+    set_source_files_properties(cJSON.c PROPERTIES SKIP_LINTING ON)
+endif()
+
+if (UNKNOWN_FUNCTIONS_SUPPORTED)
+    target_compile_definitions(vulkan_impl PRIVATE UNKNOWN_FUNCTIONS_SUPPORTED)
+    add_dependencies(vulkan_impl loader_asm_gen_files)
+endif()
+
 if(WIN32)
     # If BUILD_DLL_VERSIONINFO was set, use the loader.rc in the build dir, otherwise use the checked in file
     set(RC_FILE_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/loader.rc)
@@ -388,11 +429,10 @@ if(WIN32)
 
     add_library(vulkan
                 SHARED
-                ${NORMAL_LOADER_SRCS}
                 ${CMAKE_CURRENT_SOURCE_DIR}/${API_TYPE}-1.def
                 ${RC_FILE_LOCATION})
 
-    target_link_libraries(vulkan PRIVATE loader_specific_options)
+    target_link_libraries(vulkan PRIVATE vulkan_impl)
 
     # when adding the suffix the import and runtime library names must be consistent
     # mingw: libvulkan-1.dll.a / vulkan-1.dll
@@ -411,13 +451,6 @@ if(WIN32)
         endif()
     endif()
 
-    if(MSVC AND ENABLE_WIN10_ONECORE)
-        target_link_libraries(vulkan PRIVATE OneCoreUAP.lib LIBCMT.LIB LIBCMTD.LIB LIBVCRUNTIME.LIB LIBUCRT.LIB)
-        set_target_properties(vulkan PROPERTIES LINK_FLAGS "/NODEFAULTLIB")
-    else()
-       target_link_libraries(vulkan PRIVATE cfgmgr32)
-    endif()
-
 else()
     if(APPLE)
         option(APPLE_STATIC_LOADER "Build a loader that can be statically linked. Intended for Chromium usage/testing.")
@@ -434,14 +467,12 @@ else()
         add_library(vulkan SHARED)
     endif()
 
-    target_sources(vulkan PRIVATE ${NORMAL_LOADER_SRCS})
+    target_link_libraries(vulkan PRIVATE vulkan_impl)
 
     set_target_properties(vulkan PROPERTIES
         SOVERSION "1"
         VERSION "${VULKAN_LOADER_VERSION}"
     )
-
-    target_link_libraries(vulkan PRIVATE ${CMAKE_DL_LIBS} m Threads::Threads)
 
     set_target_properties(vulkan PROPERTIES OUTPUT_NAME ${API_TYPE})
 
@@ -460,9 +491,6 @@ else()
     endif()
 
     if(APPLE)
-        find_library(COREFOUNDATION_LIBRARY NAMES CoreFoundation)
-        target_link_libraries(vulkan PRIVATE "-framework CoreFoundation")
-
         # Build vulkan.framework
         # Use GLOB_RECURSE to find all the header files and populate the vulkan.framework headers with them
         # Use CONFIGURE_DEPENDS to ensure that if the header files are updated, this list is also updated
@@ -470,21 +498,13 @@ else()
         file(GLOB_RECURSE CONFIGURE_DEPENDS FRAMEWORK_HEADERS ${VulkanHeaders_INCLUDE_DIRS})
 
         add_library(vulkan-framework SHARED)
-        target_sources(vulkan-framework PRIVATE ${NORMAL_LOADER_SRCS} ${FRAMEWORK_HEADERS})
+        target_link_libraries(vulkan-framework PRIVATE vulkan_impl)
+        target_sources(vulkan-framework PRIVATE ${FRAMEWORK_HEADERS})
 
         if (UNKNOWN_FUNCTIONS_SUPPORTED)
             add_dependencies(vulkan-framework loader_asm_gen_files)
         endif()
 
-        target_link_libraries(vulkan-framework ${CMAKE_DL_LIBS} Threads::Threads -lm "-framework CoreFoundation")
-        target_link_libraries(vulkan-framework loader_specific_options)
-
-        if (MODIFY_UNKNOWN_FUNCTION_DECLS)
-            # Modifies the names of functions as they appearin the assembly code so that the
-            # unknown function handling will work
-            target_compile_definitions(vulkan PRIVATE MODIFY_UNKNOWN_FUNCTION_DECLS)
-            target_compile_definitions(vulkan-framework PRIVATE MODIFY_UNKNOWN_FUNCTION_DECLS)
-        endif()
 
         # The FRAMEWORK_VERSION needs to be "A" here so that Xcode code-signing works when a user adds their framework to an Xcode
         # project and does "Sign on Copy". It would have been nicer to use "1" to denote Vulkan 1. Although Apple docs say that a
@@ -518,31 +538,7 @@ else()
     endif()
 endif()
 
-option(LOADER_USE_UNSAFE_FILE_SEARCH "Allows the loader to search in unsafe locations")
-if (LOADER_USE_UNSAFE_FILE_SEARCH)
-    target_compile_definitions(vulkan PRIVATE LOADER_USE_UNSAFE_FILE_SEARCH)
-endif()
-
-# common attributes of the vulkan library
-target_link_libraries(vulkan PRIVATE loader_specific_options)
-
-target_link_libraries(vulkan PRIVATE Vulkan::Headers)
 add_library(Vulkan::Loader ALIAS vulkan)
-
-if (USE_CLANG_TIDY)
-    set_target_properties(vulkan PROPERTIES C_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
-    # cJSON is vendored third-party code; don't hold it to this project's clang-tidy checks.
-    set_source_files_properties(cJSON.c PROPERTIES SKIP_LINTING ON)
-endif()
-
-if (UNKNOWN_FUNCTIONS_SUPPORTED)
-    target_compile_definitions(vulkan PRIVATE UNKNOWN_FUNCTIONS_SUPPORTED)
-    add_dependencies(vulkan loader_asm_gen_files)
-endif()
-
-if (BUILD_TESTS)
-    target_compile_definitions(vulkan PRIVATE SHOULD_EXPORT_TEST_FUNCTIONS)
-endif()
 
 if (APPLE_STATIC_LOADER)
     # TLDR: This feature only exists at the request of Google for Chromium. No other project should use this!

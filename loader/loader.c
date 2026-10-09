@@ -743,7 +743,7 @@ uint32_t loader_parse_version_string(char *vers_str) {
     return VK_MAKE_API_VERSION(variant, major, minor, patch);
 }
 
-TEST_FUNCTION_EXPORT bool compare_vk_extension_properties(const VkExtensionProperties *op1, const VkExtensionProperties *op2) {
+bool compare_vk_extension_properties(const VkExtensionProperties *op1, const VkExtensionProperties *op2) {
     return strncmp(op1->extensionName, op2->extensionName, VK_MAX_EXTENSION_NAME_SIZE) == 0 ? true : false;
 }
 
@@ -844,8 +844,7 @@ bool loader_find_layer_name_in_blacklist(const char *layer_name, struct loader_l
 }
 
 // Remove all layer properties entries from the list
-TEST_FUNCTION_EXPORT void loader_delete_layer_list_and_properties(const struct loader_instance *inst,
-                                                                  struct loader_layer_list *layer_list) {
+void loader_delete_layer_list_and_properties(const struct loader_instance *inst, struct loader_layer_list *layer_list) {
     uint32_t i;
     if (!layer_list) return;
 
@@ -7515,7 +7514,7 @@ out:
     return res;
 }
 
-TEST_FUNCTION_EXPORT VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8) {
+VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8) {
     VkStringErrorFlags result = VK_STRING_ERROR_NONE;
     int num_char_bytes = 0;
     int i;

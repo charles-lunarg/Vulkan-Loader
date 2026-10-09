@@ -148,7 +148,7 @@ static cJSON *cJSON_New_Item(const VkAllocationCallbacks *pAllocator) {
 }
 
 /* Delete a cJSON structure. */
-TEST_FUNCTION_EXPORT CJSON_PUBLIC(void) loader_cJSON_Delete(cJSON *item) {
+CJSON_PUBLIC(void) loader_cJSON_Delete(cJSON *item) {
     cJSON *next = NULL;
     while (item != NULL) {
         next = item->next;
@@ -950,9 +950,7 @@ fail:
 }
 
 /* Render a cJSON item/entity/structure to text. */
-TEST_FUNCTION_EXPORT CJSON_PUBLIC(char *) loader_cJSON_Print(const cJSON *item, bool *out_of_memory) {
-    return (char *)print(item, true, out_of_memory);
-}
+CJSON_PUBLIC(char *) loader_cJSON_Print(const cJSON *item, bool *out_of_memory) { return (char *)print(item, true, out_of_memory); }
 
 CJSON_PUBLIC(char *) loader_cJSON_PrintUnformatted(const cJSON *item, bool *out_of_memory) {
     return (char *)print(item, false, out_of_memory);
@@ -986,8 +984,8 @@ loader_cJSON_PrintBuffered(const cJSON *item, int prebuffer, cJSON_bool fmt, boo
     return (char *)p.buffer;
 }
 
-TEST_FUNCTION_EXPORT CJSON_PUBLIC(cJSON_bool)
-    loader_cJSON_PrintPreallocated(cJSON *item, char *buffer, const int length, const cJSON_bool format) {
+CJSON_PUBLIC(cJSON_bool)
+loader_cJSON_PrintPreallocated(cJSON *item, char *buffer, const int length, const cJSON_bool format) {
     printbuffer p = {0, 0, 0, 0, 0, 0, 0};
 
     if ((length < 0) || (buffer == NULL)) {
