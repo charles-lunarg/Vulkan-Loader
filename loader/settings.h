@@ -106,7 +106,7 @@ void free_loader_settings(const struct loader_instance* inst, loader_settings* l
 void log_settings(const struct loader_instance* inst, loader_settings* settings);
 
 // Every global function needs to call this at startup to insure that
-TEST_FUNCTION_EXPORT VkResult update_global_loader_settings(void);
+VkResult update_global_loader_settings(void);
 
 // Needs to be called during startup -
 void init_global_loader_settings(void);
@@ -117,8 +117,8 @@ bool should_skip_logging_global_messages(VkFlags msg_type);
 
 // Query the current settings (either global or per-instance) and return the list of layers contained within.
 // should_search_for_other_layers tells the caller if the settings file should be used exclusively for layer searching or not
-TEST_FUNCTION_EXPORT VkResult get_settings_layers(const struct loader_instance* inst, struct loader_layer_list* settings_layers,
-                                                  bool* should_search_for_other_layers);
+VkResult get_settings_layers(const struct loader_instance* inst, struct loader_layer_list* settings_layers,
+                             bool* should_search_for_other_layers);
 
 // Take the provided list of settings_layers and add in the layers from regular search paths
 // Only adds layers that aren't already present in the settings_layers and in the location of the
