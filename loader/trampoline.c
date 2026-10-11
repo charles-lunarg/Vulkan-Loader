@@ -1034,10 +1034,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(VkPhysicalDevice phy
                    "vkCreateDevice: Invalid physicalDevice [VUID-vkCreateDevice-physicalDevice-parameter]");
         abort(); /* Intentionally fail so user can correct issue. */
     }
-    loader_platform_thread_lock_mutex(&loader_lock);
-    VkResult res = loader_layer_create_device(NULL, physicalDevice, pCreateInfo, pAllocator, pDevice, NULL, NULL);
-    loader_platform_thread_unlock_mutex(&loader_lock);
-    return res;
+    return loader_layer_create_device(NULL, physicalDevice, pCreateInfo, pAllocator, pDevice, NULL, NULL);
 }
 
 LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator) {

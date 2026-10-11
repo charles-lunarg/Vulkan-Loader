@@ -4872,6 +4872,7 @@ VKAPI_ATTR VkResult VKAPI_CALL loader_layer_create_device(VkInstance instance, V
                                                           const VkDeviceCreateInfo *pCreateInfo,
                                                           const VkAllocationCallbacks *pAllocator, VkDevice *pDevice,
                                                           PFN_vkGetInstanceProcAddr layerGIPA, PFN_vkGetDeviceProcAddr *nextGDPA) {
+    loader_platform_thread_lock_mutex(&loader_lock);
     VkResult res;
     VkPhysicalDevice internal_device = VK_NULL_HANDLE;
     struct loader_device *dev = NULL;
@@ -4977,6 +4978,8 @@ out:
     if (NULL != icd_exts.list) {
         loader_destroy_generic_list(inst, (struct loader_generic_list *)&icd_exts);
     }
+    loader_platform_thread_unlock_mutex(&loader_lock);
+
     return res;
 }
 
