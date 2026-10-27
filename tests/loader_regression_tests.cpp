@@ -4710,6 +4710,80 @@ TEST(ManifestDiscovery, AppleBundlesEnvVarActive) {
 }
 #endif
 
+TEST(ManifestDiscovery, UnicodePaths) {
+    // Change the home folder to contain a unicode character so that the unsecured_generic folders will have unicode in them in the
+    // fake filesystem that the loader sees, and set use_unicode_in_unsecured_folders so that there is real unicode in the actual
+    // filesystem paths
+    FrameworkEnvironment env{FrameworkSettings{}.set_home_env_var("/home/🖖").set_use_unicode_in_unsecured_folders(true)};
+    env.add_icd(widen(TEST_ICD_PATH_VERSION_2_UNICODE),
+                ManifestOptions{}
+                    .set_discovery_type(ManifestDiscoveryType::unsecured_generic)
+                    .set_json_name(widen(std::string(TEST_JSON_NAME_VERSION_2_UNICODE) + ".json")))
+        .add_physical_device({});
+
+#if defined(WIN32)
+    // there is no unsecured_generic location on windows, so manually add it to the regular registry search location
+    env.platform_shim->add_manifest_to_registry(ManifestCategory::icd, env.get_icd_manifest_path(0));
+#endif
+
+    const char* implicit_layer_name = "VK_LAYER_implicit_layer_name";
+    env.add_implicit_layer(ManifestOptions{}
+                               .set_discovery_type(ManifestDiscoveryType::unsecured_generic)
+                               .set_json_name(widen(std::string("layer_") + TEST_JSON_NAME_VERSION_2_UNICODE + ".json")),
+                           ManifestLayer{}.add_layer(ManifestLayer::LayerDescription{}
+                                                         .set_name(implicit_layer_name)
+                                                         .set_lib_path(widen(TEST_LAYER_PATH_VERSION_2_UNICODE))
+                                                         .set_disable_environment("DISABLE_ME")));
+
+    const char* explicit_layer_name = "VK_LAYER_explicit_layer_name";
+    env.add_explicit_layer(ManifestOptions{}
+                               .set_discovery_type(ManifestDiscoveryType::unsecured_generic)
+                               .set_json_name(widen(std::string(TEST_JSON_NAME_VERSION_2_UNICODE) + ".json")),
+                           ManifestLayer{}.add_layer(ManifestLayer::LayerDescription{}
+                                                         .set_name(explicit_layer_name)
+                                                         .set_lib_path(widen(TEST_LAYER_PATH_VERSION_2_UNICODE))));
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.create_info.add_layer(explicit_layer_name);
+    inst.CheckCreate();
+
+    auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
+    ASSERT_EQ(layers.size(), 2U);
+}
+
+TEST(ManifestDiscovery, UnicodePathsInEnvVars) {
+    FrameworkEnvironment env{};
+    env.add_icd(widen(TEST_ICD_PATH_VERSION_2_UNICODE),
+                ManifestOptions{}
+                    .set_discovery_type(ManifestDiscoveryType::env_var)
+                    .set_json_name(widen(std::string(TEST_JSON_NAME_VERSION_2_UNICODE) + ".json")))
+        .add_physical_device({});
+
+    const char* implicit_layer_name = "VK_LAYER_implicit_layer_name";
+    env.add_implicit_layer(ManifestOptions{}
+                               .set_discovery_type(ManifestDiscoveryType::env_var)
+                               .set_json_name(widen(std::string("layer_") + TEST_JSON_NAME_VERSION_2_UNICODE + ".json")),
+                           ManifestLayer{}.add_layer(ManifestLayer::LayerDescription{}
+                                                         .set_name(implicit_layer_name)
+                                                         .set_lib_path(widen(TEST_LAYER_PATH_VERSION_2_UNICODE))
+                                                         .set_disable_environment("DISABLE_ME")));
+
+    const char* explicit_layer_name = "VK_LAYER_explicit_layer_name";
+    env.add_explicit_layer(ManifestOptions{}
+                               .set_discovery_type(ManifestDiscoveryType::env_var)
+                               .set_json_name(widen(std::string(TEST_JSON_NAME_VERSION_2_UNICODE) + ".json")),
+                           ManifestLayer{}.add_layer(ManifestLayer::LayerDescription{}
+                                                         .set_name(explicit_layer_name)
+                                                         .set_lib_path(widen(TEST_LAYER_PATH_VERSION_2_UNICODE))));
+
+    InstWrapper inst{env.vulkan_functions};
+    inst.create_info.add_layer(explicit_layer_name);
+    inst.CheckCreate();
+
+    auto layers = inst.GetActiveLayers(inst.GetPhysDev(), 2);
+    ASSERT_EQ(layers.size(), 2U);
+}
+
 TEST(LayerCreatesDevice, Basic) {
     FrameworkEnvironment env{};
     env.add_icd(TEST_ICD_PATH_VERSION_2).add_physical_device({});
