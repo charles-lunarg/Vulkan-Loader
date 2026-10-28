@@ -4515,9 +4515,11 @@ TEST(DuplicateRegistryEntries, Drivers) {
     inst.CheckCreate();
     auto phys_devs = inst.GetPhysDevs(1);
     ASSERT_EQ(phys_devs.size(), 1U);
+
+    std::string narrow_drivers_info_registry_loc = narrow(VK_DRIVERS_INFO_REGISTRY_LOC);
     ASSERT_TRUE(env.debug_log.find(std::string("Located json file \"") + env.get_icd_manifest_path().string() +
-                                   "\" from registry \"HKEY_LOCAL_MACHINE\\" VK_DRIVERS_INFO_REGISTRY_LOC));
-    ASSERT_TRUE(env.debug_log.find("Found no registry files in HKEY_LOCAL_MACHINE\\" VK_DRIVERS_INFO_REGISTRY_LOC));
+                                   "\" from registry \"HKEY_LOCAL_MACHINE\\" + narrow_drivers_info_registry_loc));
+    ASSERT_TRUE(env.debug_log.find("Found no registry files in HKEY_LOCAL_MACHINE\\" + narrow_drivers_info_registry_loc));
 }
 
 // Regression test for a heap buffer overflow in windows_add_json_entry(). The buffer that aggregates manifest paths

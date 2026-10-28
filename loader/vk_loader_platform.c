@@ -350,12 +350,7 @@ wchar_t *loader_convert_char_to_wchar_realloc(const struct loader_instance *inst
 
 // Get the key for the plug n play driver registry
 // The string returned by this function should NOT be freed
-const char *LoaderPnpDriverRegistry(void) {
-    BOOL is_wow;
-    IsWow64Process(GetCurrentProcess(), &is_wow);
-    return is_wow ? "Vulkan" VK_VARIANT_REG_STR "DriverNameWow" : "Vulkan" VK_VARIANT_REG_STR "DriverName";
-}
-const wchar_t *LoaderPnpDriverRegistryWide(void) {
+const wchar_t *LoaderPnpDriverRegistry(void) {
     BOOL is_wow;
     IsWow64Process(GetCurrentProcess(), &is_wow);
     return is_wow ? L"Vulkan" VK_VARIANT_REG_STR_W L"DriverNameWow" : L"Vulkan" VK_VARIANT_REG_STR_W L"DriverName";
@@ -363,12 +358,7 @@ const wchar_t *LoaderPnpDriverRegistryWide(void) {
 
 // Get the key for the plug 'n play explicit layer registry
 // The string returned by this function should NOT be freed
-const char *LoaderPnpELayerRegistry(void) {
-    BOOL is_wow;
-    IsWow64Process(GetCurrentProcess(), &is_wow);
-    return is_wow ? "Vulkan" VK_VARIANT_REG_STR "ExplicitLayersWow" : "Vulkan" VK_VARIANT_REG_STR "ExplicitLayers";
-}
-const wchar_t *LoaderPnpELayerRegistryWide(void) {
+const wchar_t *LoaderPnpELayerRegistry(void) {
     BOOL is_wow;
     IsWow64Process(GetCurrentProcess(), &is_wow);
     return is_wow ? L"Vulkan" VK_VARIANT_REG_STR_W L"ExplicitLayersWow" : L"Vulkan" VK_VARIANT_REG_STR_W L"ExplicitLayers";
@@ -376,12 +366,7 @@ const wchar_t *LoaderPnpELayerRegistryWide(void) {
 
 // Get the key for the plug 'n play implicit layer registry
 // The string returned by this function should NOT be freed
-const char *LoaderPnpILayerRegistry(void) {
-    BOOL is_wow;
-    IsWow64Process(GetCurrentProcess(), &is_wow);
-    return is_wow ? "Vulkan" VK_VARIANT_REG_STR "ImplicitLayersWow" : "Vulkan" VK_VARIANT_REG_STR "ImplicitLayers";
-}
-const wchar_t *LoaderPnpILayerRegistryWide(void) {
+const wchar_t *LoaderPnpILayerRegistry(void) {
     BOOL is_wow;
     IsWow64Process(GetCurrentProcess(), &is_wow);
     return is_wow ? L"Vulkan" VK_VARIANT_REG_STR_W L"ImplicitLayersWow" : L"Vulkan" VK_VARIANT_REG_STR_W L"ImplicitLayers";
@@ -519,6 +504,18 @@ char *loader_strncat(char *dest, size_t dest_sz, const char *src, size_t count) 
 
 char *loader_strncpy(char *dest, size_t dest_sz, const char *src, size_t count) {
     errno_t err = strncpy_s(dest, dest_sz, src, count);
+    if (err != 0) return NULL;
+    return dest;
+}
+
+wchar_t *loader_wcsncat(wchar_t *dest, size_t dest_sz, const wchar_t *src, size_t count) {
+    errno_t err = wcsncat_s(dest, dest_sz, src, count);
+    if (err != 0) return NULL;
+    return dest;
+}
+
+wchar_t *loader_wcsncpy(wchar_t *dest, size_t dest_sz, const wchar_t *src, size_t count) {
+    errno_t err = wcsncpy_s(dest, dest_sz, src, count);
     if (err != 0) return NULL;
     return dest;
 }

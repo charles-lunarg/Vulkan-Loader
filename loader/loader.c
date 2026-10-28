@@ -164,7 +164,7 @@ const char *get_enabled_by_what_str(enum loader_layer_enabled_by_what enabled_by
 // while linux opendir & readdir does not
 DIR *loader_opendir(const struct loader_instance *instance, const char *name) {
 #if defined(_WIN32)
-    return opendir(instance ? &instance->alloc_callbacks : NULL, name);
+    return opendir(instance, name);
 #elif COMMON_UNIX_PLATFORMS
     (void)instance;
     return opendir(name);
@@ -174,7 +174,7 @@ DIR *loader_opendir(const struct loader_instance *instance, const char *name) {
 }
 int loader_closedir(const struct loader_instance *instance, DIR *dir) {
 #if defined(_WIN32)
-    return closedir(instance ? &instance->alloc_callbacks : NULL, dir);
+    return closedir(instance, dir);
 #elif COMMON_UNIX_PLATFORMS
     (void)instance;
     return closedir(dir);
@@ -182,7 +182,17 @@ int loader_closedir(const struct loader_instance *instance, DIR *dir) {
 #warning dirent.h - closedir not available on this platform
 #endif  // _WIN32
 }
-
+struct dirent *loader_readdir(const struct loader_instance *instance, DIR *dir) {
+#if defined(_WIN32)
+    return readdir(instance, dir);
+#elif COMMON_UNIX_PLATFORMS
+    (void)instance;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe) - readdir is safe here since each thread uses its own dir_stream
+    return readdir(dir);
+#else
+#warning dirent.h - readdir not available on this platform
+#endif  // _WIN32
+}
 bool is_json(const char *path, size_t len) {
     if (len < 5) {
         return false;
@@ -455,22 +465,35 @@ VkResult normalize_path(const struct loader_instance *inst, char **passed_in_pat
     }
     return VK_SUCCESS;
 
-// Windows has GetFullPathName which does essentially the same thing. Note that we call GetFullPathNameA because the path has
+// Windows has GetFullPathName which does essentially the same thing. Note that we call GetFullPathNameW because the path has
 // already been converted from the wide char format when it was initially gotten
 #elif defined(WIN32)
     VkResult res = VK_SUCCESS;
-    DWORD path_len = (DWORD)strlen(*passed_in_path) + 1;
-    char *path = loader_instance_heap_calloc(inst, (size_t)path_len, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+    wchar_t *path = NULL;
+
+    bool oom = false;
+    wchar_t *passed_in_path_wide = loader_convert_char_to_wchar(inst, *passed_in_path, &oom, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+    if (oom) {
+        res = VK_ERROR_OUT_OF_HOST_MEMORY;
+        goto out;
+    }
+    if (NULL == passed_in_path_wide) {
+        loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0, "normalize_path: Failed to convert char* \"%s\" to wchar_t*", *passed_in_path);
+        res = VK_ERROR_INITIALIZATION_FAILED;
+        goto out;
+    }
+    size_t path_len = wcslen(passed_in_path_wide) + 1;
+    path = loader_instance_heap_calloc(inst, path_len * sizeof(wchar_t), VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
     if (NULL == path) {
         res = VK_ERROR_OUT_OF_HOST_MEMORY;
         goto out;
     }
-    DWORD actual_len = GetFullPathNameA(*passed_in_path, path_len, path, NULL);
+    DWORD actual_len = GetFullPathNameW(passed_in_path_wide, (DWORD)path_len, path, NULL);
     if (actual_len == 0) {
         size_t last_error = (size_t)GetLastError();
         loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0,
-                   "normalize_path: Call to GetFullPathNameA() failed with error code %zu when given the path %s", last_error,
-                   *passed_in_path);
+                   "normalize_path: Call to GetFullPathNameW() failed with error code %zu when given the path %ls", last_error,
+                   passed_in_path_wide);
         res = VK_ERROR_INITIALIZATION_FAILED;
         goto out;
     }
@@ -478,7 +501,7 @@ VkResult normalize_path(const struct loader_instance *inst, char **passed_in_pat
     // If path_len wasn't big enough, need to realloc and call again
     // actual_len doesn't include null terminator
     if (actual_len + 1 > path_len) {
-        char *new_path = loader_instance_heap_realloc(inst, path, path_len, actual_len + 1, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+        wchar_t *new_path = loader_instance_heap_realloc(inst, path, path_len, actual_len + 1, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
         if (NULL == new_path) {
             loader_instance_heap_free(inst, path);
             path = NULL;
@@ -489,33 +512,42 @@ VkResult normalize_path(const struct loader_instance *inst, char **passed_in_pat
         // store the updated allocation size (sans null terminator)
         path_len = actual_len + 1;
 
-        actual_len = GetFullPathNameA(*passed_in_path, path_len, path, NULL);
+        actual_len = GetFullPathNameW(passed_in_path_wide, (DWORD)path_len, path, NULL);
         if (actual_len == 0) {
             size_t last_error = (size_t)GetLastError();
             loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0,
-                       "normalize_path: Call to GetFullPathNameA() failed with error code %zu when given the path %s", last_error,
-                       *passed_in_path);
+                       "normalize_path: Call to GetFullPathNameW() failed with error code %zu when given the path %ls", last_error,
+                       passed_in_path_wide);
             res = VK_ERROR_INITIALIZATION_FAILED;
             goto out;
             // actual_len doesn't include null terminator
         } else if (actual_len + 1 != path_len) {
             loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0,
-                       "normalize_path: Call to GetFullPathNameA() with too small of a buffer when given the path %s after the "
-                       "initial call to GetFullPathNameA() failed for the same reason. Buffer size is %zu, actual size is %zu",
-                       *passed_in_path, (size_t)path_len, (size_t)actual_len);
+                       "normalize_path: Call to GetFullPathNameW() with too small of a buffer when given the path %ls after the "
+                       "initial call to GetFullPathNameW() failed for the same reason. Buffer size is %zu, actual size is %zu",
+                       passed_in_path_wide, (size_t)path_len, (size_t)actual_len);
             res = VK_ERROR_INITIALIZATION_FAILED;
             goto out;
         }
     }
-    // Replace string pointed to by passed_in_path with the one given to us by realpath()
-    loader_instance_heap_free(inst, *passed_in_path);
-    *passed_in_path = path;
-out:
-    if (VK_SUCCESS != res) {
-        if (NULL != path) {
-            loader_instance_heap_free(inst, path);
-        }
+
+    size_t passed_in_path_len = strlen(*passed_in_path) + 1;
+    // Replace string pointed to by passed_in_path with the one given to us by GetFullPathNameW (after converting it to a char*)
+    *passed_in_path = loader_convert_wchar_to_char_realloc(inst, path, &oom, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE, *passed_in_path,
+                                                           &passed_in_path_len);
+    if (oom) {
+        res = VK_ERROR_OUT_OF_HOST_MEMORY;
+        goto out;
     }
+    if (NULL == *passed_in_path) {
+        loader_log(inst, VULKAN_LOADER_DEBUG_BIT, 0, "normalize_path: Failed to convert wchar_t* \"%ls\" to char*", path);
+        res = VK_ERROR_INITIALIZATION_FAILED;
+        goto out;
+    }
+
+out:
+    loader_instance_heap_free(inst, passed_in_path_wide);
+    loader_instance_heap_free(inst, path);
     return res;
 
 #else
@@ -613,14 +645,16 @@ VkResult get_library_path_of_dl_handle(const struct loader_instance *inst, loade
         goto out;
     }
     while (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-        module_file_name_len *= 2;
-        loader_instance_heap_free(inst, buffer_utf16);
-        buffer_utf16 = (wchar_t *)loader_instance_heap_calloc(inst, module_file_name_len * sizeof(wchar_t),
-                                                              VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-        if (NULL == buffer_utf16) {
+        size_t new_module_file_name_len = module_file_name_len * 2;
+        wchar_t *new_buffer_utf16 =
+            (wchar_t *)loader_instance_heap_realloc(inst, buffer_utf16, module_file_name_len * sizeof(wchar_t),
+                                                    new_module_file_name_len * sizeof(wchar_t), VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+        if (NULL == new_buffer_utf16) {
             res = VK_ERROR_OUT_OF_HOST_MEMORY;
             goto out;
         }
+        buffer_utf16 = new_buffer_utf16;
+        module_file_name_len = new_module_file_name_len;
 
         ret = GetModuleFileNameW(lib_handle, buffer_utf16, (DWORD)module_file_name_len);
         if (ret == 0) {
@@ -3001,8 +3035,7 @@ VkResult add_data_files(const struct loader_instance *inst, struct loader_string
                 }
                 while (1) {
                     errno = 0;
-                    // NOLINTNEXTLINE(concurrency-mt-unsafe) - readdir is safe here since each thread uses its own dir_stream
-                    struct dirent *dir_entry = readdir(dir_stream);
+                    struct dirent *dir_entry = loader_readdir(inst, dir_stream);
 #if !defined(WIN32)  // Windows doesn't use readdir, don't check errors on functions which aren't called
                     if (errno != 0) {
                         // NOLINTNEXTLINE(concurrency-mt-unsafe) - strerror's static buffer is used immediately and not retained
@@ -3449,7 +3482,7 @@ VkResult loader_get_data_files(const struct loader_instance *inst, enum loader_d
     // Read the registry if the override wasn't active.
     if (!override_active) {
         bool warn_if_not_present = false;
-        char *registry_location = NULL;
+        wchar_t *registry_location = NULL;
 
         switch (manifest_type) {
             default:

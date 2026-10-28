@@ -10,12 +10,11 @@
 
 */
 
-#include <vulkan/vulkan.h>
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
+struct loader_instance;
 typedef struct DIR DIR;
 
 struct dirent {
@@ -23,9 +22,9 @@ struct dirent {
 };
 
 // pass in VkAllocationCallbacks to allow allocation callback usage
-DIR *opendir(const VkAllocationCallbacks *pAllocator, const char *);
-int closedir(const VkAllocationCallbacks *pAllocator, DIR *);
-struct dirent *readdir(DIR *);
+DIR *opendir(const struct loader_instance *inst, const char *);
+int closedir(const struct loader_instance *inst, DIR *);
+struct dirent *readdir(const struct loader_instance *inst, DIR *);
 void rewinddir(DIR *);
 
 /*

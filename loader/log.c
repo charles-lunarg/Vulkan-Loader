@@ -271,9 +271,20 @@ void DECORATE_PRINTF(4, 5)
     fputc('\n', stderr);
     // NOLINTEND(cert-err33-c)
 #if defined(WIN32)
-    OutputDebugString(cmd_line_msg);
-    OutputDebugString(msg);
-    OutputDebugString("\n");
+
+    wchar_t wide_cmd_line_msg[64] = {0};
+    wchar_t wide_msg[512] = {0};
+
+    MultiByteToWideChar(CP_UTF8, 0, cmd_line_msg, sizeof(cmd_line_msg), wide_cmd_line_msg, sizeof(wide_cmd_line_msg));
+    MultiByteToWideChar(CP_UTF8, 0, msg, sizeof(msg), wide_msg, sizeof(wide_msg));
+
+    // Make sure these are always null terminated even if we cut off the last character
+    wide_cmd_line_msg[sizeof(wide_cmd_line_msg) / sizeof(wchar_t) - 1] = L'\0';
+    wide_msg[sizeof(wide_msg) / sizeof(wchar_t) - 1] = L'\0';
+
+    OutputDebugStringW(wide_cmd_line_msg);
+    OutputDebugStringW(wide_msg);
+    OutputDebugStringW(L"\n");
 #endif
 }
 
